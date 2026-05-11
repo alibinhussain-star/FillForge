@@ -3,176 +3,265 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>FillForge</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Jumbotail Catalog Operation Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0e0f0e;--surface:#161817;--surface2:#1e201e;--border:#2a2d2a;--border2:#363a36;--accent:#b8f53a;--accent-dim:#8fbe22;--text:#e8ead6;--muted:#7a7f72;--danger:#ff5f5f;--success:#5adf8a;--warning:#f5c842;--mono:'DM Mono',monospace;--sans:'Syne',sans-serif;--r:8px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;display:grid;grid-template-rows:auto 1fr}
-header{border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:14px;background:var(--surface)}
-.logo{font-size:18px;font-weight:800;letter-spacing:-.5px;color:var(--accent)}.logo span{color:var(--text)}
-.header-titles{display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--border2);padding-left:14px}
-.tagline{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.subtitle{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px}
-.hdr-right{margin-left:auto;display:flex;gap:8px}
-.btn-sm{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
-.btn-sm:hover{border-color:var(--accent);color:var(--accent)}
-main{display:grid;grid-template-columns:380px 1fr;height:calc(100vh - 57px);overflow:hidden}
-.left{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
-.sec{padding:20px 22px;border-bottom:1px solid var(--border)}
-.sec-label{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+:root{
+  --bg:#f5f6fa;--white:#ffffff;--border:#e2e5ed;--border2:#d0d4de;
+  --text:#1a1d23;--muted:#6b7280;--muted2:#9ca3af;
+  --primary:#1a56db;--primary-hover:#1648c4;--primary-light:#eff4ff;
+  --success:#0e9f6e;--success-bg:#f0fdf4;
+  --warning:#e3a008;--warning-bg:#fffbeb;
+  --danger:#e02424;--danger-bg:#fef2f2;
+  --accent:#6366f1;--accent-bg:#eef2ff;
+  --nav-bg:#1e2433;--nav-text:#c9d1e0;--nav-active:#ffffff;
+  --r:8px;--r2:6px;
+  font-family:'Inter',sans-serif;font-size:14px;color:var(--text);
+}
+body{background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
 
-/* Multi-select dropdown */
-.dropdown-wrap{position:relative}
-.dropdown-btn{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:12px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:border-color .15s;min-height:42px}
-.dropdown-btn:hover,.dropdown-btn.open{border-color:var(--accent)}
-.dd-placeholder{color:var(--muted)}
-.dropdown-arrow{color:var(--muted);flex-shrink:0;margin-left:8px;transition:transform .2s}
+/* ── NAV ── */
+nav{background:var(--nav-bg);height:52px;display:flex;align-items:center;padding:0 24px;gap:0;flex-shrink:0;box-shadow:0 2px 8px #0003}
+.nav-brand{display:flex;align-items:center;gap:10px;margin-right:32px;text-decoration:none}
+.nav-logo{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.5px}
+.nav-logo span{color:#6ee7b7}
+.nav-sub{font-size:11px;color:#6b7a99;margin-top:1px;white-space:nowrap}
+.nav-links{display:flex;gap:2px;flex:1}
+.nav-link{padding:6px 14px;border-radius:5px;color:var(--nav-text);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;border:none;background:transparent}
+.nav-link:hover{background:#ffffff18;color:#fff}
+.nav-link.active{background:#ffffff22;color:var(--nav-active)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-btn{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:1px solid #ffffff30;background:transparent;color:var(--nav-text)}
+.nav-btn:hover{background:#fff2;color:#fff}
+
+/* ── PAGE LAYOUT ── */
+.page{flex:1;display:grid;grid-template-columns:340px 1fr;gap:0;height:calc(100vh - 52px);overflow:hidden}
+
+/* ── LEFT PANEL ── */
+.left{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.left-header{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.left-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px}
+.left-desc{font-size:12px;color:var(--muted)}
+
+.form-sec{padding:18px 20px;border-bottom:1px solid var(--border)}
+.form-sec-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:12px}
+.form-label{font-size:12px;font-weight:500;color:var(--text);margin-bottom:5px;display:block}
+.form-label .req{color:var(--danger);margin-left:2px}
+.form-label .opt-badge{font-size:10px;font-weight:400;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:1px 6px;border-radius:10px;margin-left:6px}
+
+/* Upload zone */
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:all .2s;position:relative;background:#fafbfc;display:flex;align-items:center;gap:12px}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--primary);background:var(--primary-light)}
+.upload-zone.has-file{border-color:var(--success);border-style:solid;background:var(--success-bg)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone-icon{font-size:20px;flex-shrink:0}
+.upload-zone-text{}
+.upload-zone-name{font-size:12px;font-weight:500;color:var(--text)}
+.upload-zone-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.upload-zone.has-file .upload-zone-name{color:var(--success)}
+
+/* Dropdown */
+.dropdown-wrap{position:relative;margin-bottom:4px}
+.dropdown-btn{width:100%;padding:9px 12px;background:var(--white);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text);font-size:13px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;min-height:40px}
+.dropdown-btn:hover,.dropdown-btn.open{border-color:var(--primary);box-shadow:0 0 0 3px #1a56db18}
+.dd-placeholder{color:var(--muted2)}
+.dropdown-arrow{color:var(--muted);flex-shrink:0;margin-left:8px;font-size:11px;transition:transform .2s}
 .dropdown-btn.open .dropdown-arrow{transform:rotate(180deg)}
-.dropdown-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);z-index:50;max-height:280px;display:none;box-shadow:0 8px 24px #0008;flex-direction:column}
+.dropdown-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:1px solid var(--border2);border-radius:var(--r);z-index:100;max-height:280px;display:none;box-shadow:0 8px 24px #0002;flex-direction:column}
 .dropdown-menu.open{display:flex}
-.dd-search-wrap{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
-.dd-search{width:100%;padding:7px 10px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none}
-.dd-search:focus{border-color:var(--accent)}
-.dd-search::placeholder{color:var(--muted)}
+.dd-search-wrap{padding:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.dd-search{width:100%;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);color:var(--text);font-size:12px;outline:none}
+.dd-search:focus{border-color:var(--primary)}
 .dd-items{overflow-y:auto;flex:1}
-.dd-group-label{padding:8px 12px 4px;font-family:var(--mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);background:var(--surface);position:sticky;top:0}
-.dd-item{padding:9px 14px;font-family:var(--mono);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s}
-.dd-item:hover{background:var(--surface2)}
-.dd-item.selected{background:#1a2210}
-.dd-checkbox{width:14px;height:14px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:9px}
-.dd-item.selected .dd-checkbox{background:var(--accent);border-color:var(--accent);color:#0a0f00}
-.dd-item-label{flex:1}
-.dd-item-count{font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:3px}
-.dd-item.auto-detected .dd-item-count{background:#1a2210;color:var(--accent)}
+.dd-group-label{padding:8px 12px 4px;font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted2);background:var(--bg);position:sticky;top:0;border-bottom:1px solid var(--border)}
+.dd-item{padding:9px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s}
+.dd-item:hover{background:var(--bg)}
+.dd-item.selected{background:var(--primary-light)}
+.dd-checkbox{width:15px;height:15px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s}
+.dd-item.selected .dd-checkbox{background:var(--primary);border-color:var(--primary);color:#fff}
+.dd-item-label{flex:1;font-size:12px}
+.dd-item-count{font-size:10px;color:var(--primary);background:var(--primary-light);padding:2px 7px;border-radius:10px;font-weight:500}
 
 /* Selected tags */
-.selected-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:0}
-.tag{display:flex;align-items:center;gap:6px;padding:4px 10px;background:#1a2210;border:1px solid var(--accent-dim);border-radius:4px;font-family:var(--mono);font-size:11px;color:var(--accent)}
-.tag-remove{cursor:pointer;opacity:.7;font-size:13px;line-height:1}.tag-remove:hover{opacity:1}
-.tag-auto{border-color:var(--accent);background:#1f2d10}
+.selected-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 10px;background:var(--primary-light);border:1px solid #c7d9fb;border-radius:20px;font-size:11px;font-weight:500;color:var(--primary)}
+.tag-remove{cursor:pointer;width:14px;height:14px;border-radius:50%;background:#c7d9fb;display:flex;align-items:center;justify-content:center;font-size:10px;line-height:1;transition:background .15s}
+.tag-remove:hover{background:var(--primary);color:#fff}
 
-/* Upload zones */
-.upload-zone{border:1px dashed var(--border2);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:9px;position:relative;background:var(--surface2)}
-.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:#1a1e1a}
-.upload-zone.has-file{border-color:var(--accent);border-style:solid}
-.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
-.upload-icon{font-size:20px;margin-bottom:5px}
-.upload-lbl{font-size:12px;font-weight:600}
-.upload-name{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px}
-.upload-name.filled{color:var(--accent)}
-.badge{display:inline-block;font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;margin-left:5px;vertical-align:middle}
-.badge.req{background:#2a1a1a;color:var(--danger)}.badge.opt{background:#1a2a1a;color:var(--success)}
+/* Auto-detect bar */
+.auto-bar{display:none;padding:8px 12px;background:var(--success-bg);border:1px solid #a7f3d0;border-radius:var(--r2);font-size:12px;color:var(--success);margin-top:8px;font-weight:500}
 
-/* Run */
-.btn-run{width:100%;padding:13px;background:var(--accent);color:#0a0f00;border:none;border-radius:var(--r);font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-run:hover{background:#ceff4a}
-.btn-run:disabled{background:var(--border2);color:var(--muted);cursor:not-allowed}
-.spinner{width:14px;height:14px;border:2px solid #0a0f00;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;display:none}
-.btn-run.loading .spinner{display:block}.btn-run.loading .btn-text{display:none}
+/* Run button */
+.btn-primary{width:100%;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:var(--r2);font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{background:#c3cfe0;cursor:not-allowed}
+.spinner{width:15px;height:15px;border:2px solid #ffffff60;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.btn-primary.loading .spinner{display:block}.btn-primary.loading .btn-text{display:none}
 @keyframes spin{to{transform:rotate(360deg)}}
+.err-box{background:var(--danger-bg);border:1px solid #fca5a5;border-radius:var(--r2);padding:10px 12px;font-size:12px;color:var(--danger);margin-bottom:10px;display:none}
 
-/* Stats */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px}
-.stat{background:var(--surface2);padding:11px;text-align:center}
-.stat-val{font-family:var(--mono);font-size:20px;font-weight:500;line-height:1}
-.stat-val.g{color:var(--success)}.stat-val.r{color:var(--danger)}.stat-val.y{color:var(--warning)}
-.stat-key{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:3px}
+/* ── RIGHT PANEL ── */
+.right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.right-header{background:var(--white);border-bottom:1px solid var(--border);padding:16px 24px;flex-shrink:0}
+.right-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:2px}
+.right-sub{font-size:12px;color:var(--muted)}
 
-/* Per-subtype result rows */
-.result-rows{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-.result-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)}
-.result-row-name{font-family:var(--mono);font-size:11px;flex:1;color:var(--text)}
-.result-row-filled{font-family:var(--mono);font-size:11px;color:var(--success)}
-.result-row-skipped{font-family:var(--mono);font-size:11px;color:var(--danger)}
+/* Status tabs */
+.status-tabs{display:flex;gap:8px;padding:12px 24px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0}
+.status-tab{padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:default;border:1px solid transparent}
+.status-tab.draft{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.status-tab.filled{background:var(--success-bg);color:var(--success);border-color:#a7f3d0}
+.status-tab.skipped{background:var(--danger-bg);color:var(--danger);border-color:#fca5a5}
+.status-tab.total{background:var(--bg);color:var(--muted);border-color:var(--border)}
 
-.btn-dl{width:100%;padding:11px;background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:var(--r);font-family:var(--mono);font-size:12px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
-.btn-dl:hover{background:var(--accent);color:#0a0f00}
-.skip-list{max-height:160px;overflow-y:auto;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)}
-.skip-item{padding:7px 11px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:10px}
-.skip-item:last-child{border-bottom:none}
-.skip-item .sku{color:var(--warning)}.skip-item .reason{color:var(--muted)}
+/* Result breakdown */
+.result-breakdown{display:flex;gap:10px;padding:12px 24px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.rb-card{flex:1;min-width:140px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);display:flex;align-items:center;gap:10px}
+.rb-card-icon{font-size:18px}
+.rb-card-info{}
+.rb-card-name{font-size:11px;color:var(--muted);font-weight:500}
+.rb-card-val{font-size:13px;font-weight:600;color:var(--text)}
+.rb-card-count{font-size:11px;color:var(--success);font-weight:500}
+.rb-card-skip{font-size:11px;color:var(--danger);font-weight:500}
 
-/* Right panel */
-.right{display:flex;flex-direction:column;overflow:hidden}
-.panel-hdr{padding:14px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:var(--surface);flex-shrink:0}
-.panel-title{font-weight:700;font-size:13px;letter-spacing:.5px}
-.row-count{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.table-wrap{flex:1;overflow:auto}
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
-th{position:sticky;top:0;background:var(--surface);padding:9px 13px;text-align:left;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
-td{padding:8px 13px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
-tr:hover td{background:var(--surface2)}
-td.ac{color:var(--accent)}
-td.sub-tag{font-size:9px;padding:2px 6px;background:#1a2210;color:var(--accent);border-radius:3px;white-space:nowrap}
-.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:10px}
-.empty-icon{font-size:38px;opacity:.25}.empty-text{font-family:var(--mono);font-size:12px}
+/* Download bar */
+.dl-bar{padding:10px 24px;background:var(--white);border-bottom:1px solid var(--border);flex-shrink:0;display:none;align-items:center;gap:12px}
+.btn-dl{padding:8px 20px;background:var(--primary);color:#fff;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
+.btn-dl:hover{background:var(--primary-hover)}
+.dl-info{font-size:12px;color:var(--muted)}
+
+/* Table */
+.table-area{flex:1;overflow:auto;padding:0}
+table{width:100%;border-collapse:collapse;background:var(--white)}
+thead{position:sticky;top:0;z-index:10}
+th{background:#f8fafc;padding:10px 16px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#f8fafc}
+td.title-cell{font-weight:500;color:var(--text);max-width:260px}
+td.sku-cell{font-family:monospace;font-size:12px;color:var(--muted)}
+td.price-cell{font-weight:600;color:var(--text)}
+td.sub-cell{font-size:11px;padding:4px 8px;background:var(--primary-light);color:var(--primary);border-radius:10px;font-weight:500;white-space:nowrap;display:inline-block}
+.chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.chip-green{background:var(--success-bg);color:var(--success)}
+.chip-blue{background:var(--primary-light);color:var(--primary)}
+.chip-orange{background:var(--warning-bg);color:var(--warning)}
+
+/* Skipped table */
+.skip-section{padding:16px 24px;flex-shrink:0;display:none}
+.skip-title{font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px}
+.skip-table{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.skip-table th{background:#fef2f2;padding:8px 12px;font-size:11px;font-weight:600;text-transform:uppercase;color:var(--danger);border-bottom:1px solid #fca5a5}
+.skip-table td{padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);font-family:monospace}
+.skip-table tr:last-child td{border-bottom:none}
+
+/* Empty state */
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px}
+.empty-icon{font-size:48px;opacity:.3}
+.empty-title{font-size:15px;font-weight:600;color:var(--text)}
+.empty-sub{font-size:13px;color:var(--muted);text-align:center;max-width:320px;line-height:1.5}
 
 /* Config modal */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center}
+.modal-bg{display:none;position:fixed;inset:0;background:#0006;z-index:200;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
-.modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:600px;max-height:82vh;overflow-y:auto;padding:26px}
-.modal-title{font-size:16px;font-weight:700;margin-bottom:18px;color:var(--accent)}
-.modal-sec-hdr{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin:16px 0 10px;padding-top:14px;border-top:1px solid var(--border)}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.modal{background:var(--white);border-radius:12px;width:600px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px #0003}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:20px;color:var(--text)}
+.modal-sec{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:18px 0 10px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-sec:first-of-type{margin-top:0;border-top:none;padding-top:0}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fg{display:flex;flex-direction:column;gap:5px}.fg.full{grid-column:1/-1}
-.fl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
-.fi{background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:8px 10px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;transition:border-color .15s;width:100%}
-.fi:focus{border-color:var(--accent)}
-.modal-footer{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
-.btn-save{padding:8px 20px;background:var(--accent);color:#0a0f00;border:none;border-radius:4px;font-family:var(--sans);font-weight:700;font-size:12px;cursor:pointer}
-.btn-cancel{padding:8px 20px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:4px;font-family:var(--mono);font-size:12px;cursor:pointer}
-.err-box{background:#1a0a0a;border:1px solid var(--danger);border-radius:var(--r);padding:11px;font-family:var(--mono);font-size:11px;color:var(--danger);margin-bottom:11px;display:none}
-.toast{position:fixed;bottom:22px;right:22px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:11px 16px;font-family:var(--mono);font-size:12px;color:var(--text);transform:translateY(80px);opacity:0;transition:all .3s;z-index:200}
-.toast.show{transform:translateY(0);opacity:1}.toast.success{border-color:var(--success);color:var(--success)}.toast.error{border-color:var(--danger);color:var(--danger)}
-::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.fl{font-size:11px;font-weight:500;color:var(--muted)}
+.fi{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r2);padding:8px 10px;color:var(--text);font-size:13px;outline:none;transition:border-color .15s;width:100%}
+.fi:focus{border-color:var(--primary);box-shadow:0 0 0 3px #1a56db18}
+.modal-footer{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.btn-save{padding:9px 22px;background:var(--primary);color:#fff;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer}
+.btn-save:hover{background:var(--primary-hover)}
+.btn-cancel{padding:9px 22px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:var(--r2);font-size:13px;cursor:pointer}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;border-radius:8px;padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .3s;z-index:300;max-width:340px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:var(--success)}
+.toast.error{background:var(--danger)}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">Fill<span>Forge</span></div>
-  <div class="header-titles">
-    <div class="tagline">template auto-population engine · xlsx</div>
-    <div class="subtitle">Jumbotail Catalog Operation Portal</div>
-  </div>
-  <div class="hdr-right">
-    <button class="btn-sm" onclick="openConfig()">⚙ Config</button>
-    <button class="btn-sm" onclick="resetAll()">↺ Reset</button>
-  </div>
-</header>
 
-<main>
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div>
+      <div class="nav-logo">Jumbotail<span>.</span></div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <button class="nav-link active">Catalogue</button>
+    <button class="nav-link">Discovery</button>
+    <button class="nav-link">SCM</button>
+    <button class="nav-link">Marketing</button>
+  </div>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openConfig()">⚙ Settings</button>
+    <button class="nav-btn" onclick="resetAll()">↺ Reset</button>
+  </div>
+</nav>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- LEFT: Upload + Controls -->
   <div class="left">
-
-    <!-- Step 1: Upload dump first so we can auto-detect -->
-    <div class="sec">
-      <div class="sec-label">01 · Upload files</div>
-      <div class="upload-zone" id="zone-base" ondragover="onDrag(event,'zone-base')" ondragleave="offDrag('zone-base')" ondrop="onDrop(event,'base_data')">
-        <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'base_data')">
-        <div class="upload-icon">🗄️</div>
-        <div class="upload-lbl">Base data <span class="badge opt">optional · dup check</span></div>
-        <div class="upload-name" id="name-base_data">Drop .xlsx or click to browse</div>
-      </div>
-      <div class="upload-zone" id="zone-dump" ondragover="onDrag(event,'zone-dump')" ondragleave="offDrag('zone-dump')" ondrop="onDrop(event,'dump')">
-        <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'dump')">
-        <div class="upload-icon">📦</div>
-        <div class="upload-lbl">Dump / listing file <span class="badge req">required</span></div>
-        <div class="upload-name" id="name-dump">Drop .xlsx or click to browse</div>
-      </div>
-      <div id="auto-detect-info" style="display:none;font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:6px;padding:6px 10px;background:#1a2210;border-radius:4px;border:1px solid var(--accent-dim)"></div>
+    <div class="left-header">
+      <div class="left-title">Upload Catalogue</div>
+      <div class="left-desc">Select SubType, upload files and auto-fill template</div>
     </div>
 
-    <!-- Step 2: SubType multi-select -->
-    <div class="sec">
-      <div class="sec-label">02 · Select SubType(s)</div>
+    <!-- Upload Files -->
+    <div class="form-sec">
+      <div class="form-sec-title">Upload Files</div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Dump / Listing File <span class="req">*</span></label>
+        <div class="upload-zone" id="zone-dump" ondragover="onDrag(event,'zone-dump')" ondragleave="offDrag('zone-dump')" ondrop="onDrop(event,'dump')">
+          <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'dump')">
+          <div class="upload-zone-icon">📦</div>
+          <div class="upload-zone-text">
+            <div class="upload-zone-name" id="name-dump">Click to browse or drag file here</div>
+            <div class="upload-zone-sub">.xlsx files only</div>
+          </div>
+        </div>
+        <div class="auto-bar" id="auto-bar"></div>
+      </div>
+
+      <div>
+        <label class="form-label">Base Data <span class="opt-badge">optional — duplicate check</span></label>
+        <div class="upload-zone" id="zone-base" ondragover="onDrag(event,'zone-base')" ondragleave="offDrag('zone-base')" ondrop="onDrop(event,'base_data')">
+          <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'base_data')">
+          <div class="upload-zone-icon">🗄️</div>
+          <div class="upload-zone-text">
+            <div class="upload-zone-name" id="name-base_data">Click to browse or drag file here</div>
+            <div class="upload-zone-sub">.xlsx files only</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SubType selector -->
+    <div class="form-sec">
+      <div class="form-sec-title">Product Vertical (SubType)</div>
+      <label class="form-label">Select one or more SubTypes <span class="req">*</span></label>
       <div class="dropdown-wrap" id="dd-wrap">
         <button class="dropdown-btn" id="dd-btn" onclick="toggleDropdown()">
-          <span id="dd-label" class="dd-placeholder">— choose one or more sub types —</span>
+          <span id="dd-label" class="dd-placeholder">— choose SubType(s) —</span>
           <span class="dropdown-arrow">▾</span>
         </button>
         <div class="dropdown-menu" id="dd-menu">
           <div class="dd-search-wrap">
-            <input class="dd-search" id="dd-search" placeholder="Search subtypes..." oninput="filterDropdown(this.value)">
+            <input class="dd-search" id="dd-search" placeholder="Search..." oninput="filterDropdown(this.value)">
           </div>
           <div class="dd-items" id="dd-items"></div>
         </div>
@@ -180,69 +269,90 @@ td.sub-tag{font-size:9px;padding:2px 6px;background:#1a2210;color:var(--accent);
       <div class="selected-tags" id="selected-tags"></div>
     </div>
 
-    <!-- Run -->
-    <div class="sec">
+    <!-- Submit -->
+    <div class="form-sec">
       <div class="err-box" id="err-box"></div>
-      <button class="btn-run" id="btn-run" onclick="runProcess()" disabled>
+      <button class="btn-primary" id="btn-run" onclick="runProcess()" disabled>
         <div class="spinner"></div>
-        <span class="btn-text">▶ Auto-fill template</span>
+        <span class="btn-text">Generate Catalogue File</span>
       </button>
     </div>
-
-    <!-- Results -->
-    <div class="sec" id="results-sec" style="display:none">
-      <div class="sec-label">03 · Results</div>
-      <div class="stats">
-        <div class="stat"><div class="stat-val g" id="s-filled">0</div><div class="stat-key">filled</div></div>
-        <div class="stat"><div class="stat-val r" id="s-skipped">0</div><div class="stat-key">skipped</div></div>
-        <div class="stat"><div class="stat-val y" id="s-total">0</div><div class="stat-key">total</div></div>
-      </div>
-      <div class="result-rows" id="result-rows"></div>
-      <button class="btn-dl" id="btn-dl" onclick="downloadFile()">
-        <span id="dl-icon">⬇</span> <span id="dl-label">Download filled template</span>
-      </button>
-    </div>
-
-    <!-- Skipped -->
-    <div class="sec" id="skip-sec" style="display:none">
-      <div class="sec-label">Skipped rows</div>
-      <div class="skip-list" id="skip-list"></div>
-    </div>
-
   </div>
 
-  <!-- Right preview -->
+  <!-- RIGHT: Results -->
   <div class="right">
-    <div class="panel-hdr">
-      <div class="panel-title">Preview</div>
-      <div class="row-count" id="row-count">— no data yet</div>
+    <div class="right-header">
+      <div class="right-title">Product List</div>
+      <div class="right-sub" id="right-sub">Upload files and generate to see preview</div>
     </div>
-    <div class="empty-state" id="empty-state">
-      <div class="empty-icon">⬚</div>
-      <div class="empty-text">Upload dump file to auto-detect SubTypes, then run</div>
-    </div>
-    <div class="table-wrap" id="table-wrap" style="display:none">
-      <table><thead id="t-head"></thead><tbody id="t-body"></tbody></table>
-    </div>
-  </div>
-</main>
 
-<!-- Config modal -->
+    <!-- Status tabs (shown after processing) -->
+    <div id="status-bar" style="display:none">
+      <div class="status-tabs">
+        <div class="status-tab filled" id="tab-filled">Filled (0)</div>
+        <div class="status-tab skipped" id="tab-skipped" style="display:none">Skipped (0)</div>
+        <div class="status-tab total" id="tab-total">Total (0)</div>
+      </div>
+
+      <!-- Result breakdown per subtype -->
+      <div class="result-breakdown" id="result-breakdown"></div>
+
+      <!-- Download bar -->
+      <div class="dl-bar" id="dl-bar">
+        <button class="btn-dl" onclick="downloadFile()">
+          <span id="dl-icon">⬇</span>
+          <span id="dl-label">Download Catalogue File</span>
+        </button>
+        <div class="dl-info" id="dl-info"></div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">No catalogue data yet</div>
+      <div class="empty-sub">Upload your dump file and base data, select a SubType, then click Generate Catalogue File</div>
+    </div>
+
+    <!-- Preview table -->
+    <div class="table-area" id="table-area" style="display:none">
+      <table>
+        <thead id="t-head"></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Skipped section -->
+    <div class="skip-section" id="skip-section">
+      <div class="skip-title">⚠ Skipped rows — already exist in base data</div>
+      <table class="skip-table">
+        <thead><tr><th>SKU</th><th>Article</th><th>Reason</th></tr></thead>
+        <tbody id="skip-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Config Modal -->
 <div class="modal-bg" id="cfg-modal">
   <div class="modal">
-    <div class="modal-title">⚙ Configuration</div>
-    <div class="modal-sec-hdr">Brand</div>
+    <div class="modal-title">⚙ Settings</div>
+
+    <div class="modal-sec">Brand</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="cfg-brand_name" type="text" placeholder="e.g. Pahnava"></div>
       <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="cfg-brand_id" type="text" placeholder="BR-XXXXXXXXXX"></div>
     </div>
-    <div class="modal-sec-hdr">Category & Discovery</div>
+
+    <div class="modal-sec">Category & Discovery</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Business Category ID</div><input class="fi" id="cfg-biz_cat_id" type="text"></div>
       <div class="fg"><div class="fl">Business Category Name</div><input class="fi" id="cfg-biz_cat_name" type="text"></div>
       <div class="fg full"><div class="fl">Discovery Category IDs</div><input class="fi" id="cfg-discovery_cat" type="text"></div>
     </div>
-    <div class="modal-sec-hdr">Listing defaults</div>
+
+    <div class="modal-sec">Listing Defaults</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Relationship</div><input class="fi" id="cfg-relationship" type="text" placeholder="Parent"></div>
       <div class="fg"><div class="fl">Catalog Status</div><input class="fi" id="cfg-catalog_status" type="text" placeholder="ACTIVE"></div>
@@ -251,16 +361,18 @@ td.sub-tag{font-size:9px;padding:2px 6px;background:#1a2210;color:var(--accent);
       <div class="fg"><div class="fl">Product Condition</div><input class="fi" id="cfg-product_condition" type="text" placeholder="Fresh"></div>
       <div class="fg"><div class="fl">Manufacturing Year</div><input class="fi" id="cfg-manufacturing_year" type="text" placeholder="2026"></div>
     </div>
-    <div class="modal-sec-hdr">Tax</div>
+
+    <div class="modal-sec">Tax</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Tax Master Status</div><input class="fi" id="cfg-tax_master_status" type="text" placeholder="active"></div>
       <div class="fg"><div class="fl">GST CGST Share</div><input class="fi" id="cfg-gst_cgst" type="number" placeholder="50"></div>
       <div class="fg"><div class="fl">GST SGST Share</div><input class="fi" id="cfg-gst_sgst" type="number" placeholder="50"></div>
       <div class="fg"><div class="fl">GST IGST Share</div><input class="fi" id="cfg-gst_igst" type="number" placeholder="0"></div>
     </div>
+
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeConfig()">Cancel</button>
-      <button class="btn-save" onclick="saveConfig()">Save config</button>
+      <button class="btn-save" onclick="saveConfig()">Save Settings</button>
     </div>
   </div>
 </div>
@@ -268,13 +380,10 @@ td.sub-tag{font-size:9px;padding:2px 6px;background:#1a2210;color:var(--accent);
 <div class="toast" id="toast"></div>
 
 <script>
-const files = {base_data: null, dump: null};
-let selectedSubtypes = new Set();
-let allSubtypes = [];
-let autoDetected = [];
+const files = {base_data:null, dump:null};
+let selectedSubtypes = new Set(), allSubtypes = [], autoDetected = [];
 let downloadToken = null, downloadFilename = null, isZip = false;
 
-// ── Load subtypes ──────────────────────────────────────────────
 async function loadSubtypes() {
   const res  = await fetch('/subtypes');
   const data = await res.json();
@@ -284,11 +393,9 @@ async function loadSubtypes() {
 
 function renderDropdownItems(list) {
   const container = document.getElementById('dd-items');
-  // Group by prefix
   const groups = {};
   list.forEach(st => {
-    const parts = st.split("'s");
-    const grp   = parts.length > 1 ? parts[0] + "'s" : 'Other';
+    const grp = st.includes("'s") ? st.split("'s")[0]+"'s" : 'Other';
     if (!groups[grp]) groups[grp] = [];
     groups[grp].push(st);
   });
@@ -298,12 +405,10 @@ function renderDropdownItems(list) {
     lbl.className = 'dd-group-label'; lbl.textContent = grp;
     container.appendChild(lbl);
     items.forEach(st => {
-      const isSelected = selectedSubtypes.has(st);
-      const isAuto     = autoDetected.includes(st);
+      const isAuto = autoDetected.includes(st);
       const div = document.createElement('div');
-      div.className = 'dd-item' + (isSelected ? ' selected' : '') + (isAuto ? ' auto-detected' : '');
-      div.dataset.st = st;
-      div.innerHTML = `<div class="dd-checkbox">${isSelected ? '✓' : ''}</div>
+      div.className = 'dd-item' + (selectedSubtypes.has(st) ? ' selected' : '');
+      div.innerHTML = `<div class="dd-checkbox">${selectedSubtypes.has(st)?'✓':''}</div>
         <div class="dd-item-label">${st}</div>
         ${isAuto ? '<div class="dd-item-count">in dump</div>' : ''}`;
       div.onclick = () => toggleSubtype(st);
@@ -313,12 +418,11 @@ function renderDropdownItems(list) {
 }
 
 function filterDropdown(q) {
-  const filtered = q ? allSubtypes.filter(s => s.toLowerCase().includes(q.toLowerCase())) : allSubtypes;
-  renderDropdownItems(filtered);
+  renderDropdownItems(q ? allSubtypes.filter(s => s.toLowerCase().includes(q.toLowerCase())) : allSubtypes);
 }
 
 function toggleDropdown() {
-  const btn  = document.getElementById('dd-btn');
+  const btn = document.getElementById('dd-btn');
   const menu = document.getElementById('dd-menu');
   btn.classList.toggle('open');
   menu.classList.toggle('open');
@@ -332,9 +436,8 @@ function toggleDropdown() {
 function toggleSubtype(st) {
   if (selectedSubtypes.has(st)) selectedSubtypes.delete(st);
   else selectedSubtypes.add(st);
-  renderDropdownItems(document.getElementById('dd-search').value
-    ? allSubtypes.filter(s => s.toLowerCase().includes(document.getElementById('dd-search').value.toLowerCase()))
-    : allSubtypes);
+  const q = document.getElementById('dd-search').value;
+  renderDropdownItems(q ? allSubtypes.filter(s => s.toLowerCase().includes(q.toLowerCase())) : allSubtypes);
   renderSelectedTags();
   checkReady();
 }
@@ -343,18 +446,12 @@ function renderSelectedTags() {
   const wrap = document.getElementById('selected-tags');
   const lbl  = document.getElementById('dd-label');
   if (selectedSubtypes.size === 0) {
-    wrap.innerHTML = '';
-    lbl.textContent = '— choose one or more sub types —';
-    lbl.className = 'dd-placeholder';
-    return;
+    wrap.innerHTML = ''; lbl.textContent = '— choose SubType(s) —'; lbl.className = 'dd-placeholder'; return;
   }
-  lbl.textContent = `${selectedSubtypes.size} selected`;
-  lbl.className = '';
+  lbl.textContent = `${selectedSubtypes.size} SubType${selectedSubtypes.size>1?'s':''} selected`; lbl.className = '';
   wrap.innerHTML = '';
   selectedSubtypes.forEach(st => {
-    const isAuto = autoDetected.includes(st);
-    const tag = document.createElement('div');
-    tag.className = 'tag' + (isAuto ? ' tag-auto' : '');
+    const tag = document.createElement('div'); tag.className = 'tag';
     tag.innerHTML = `<span>${st}</span><span class="tag-remove" onclick="toggleSubtype('${st.replace(/'/g,"\\'")}')">✕</span>`;
     wrap.appendChild(tag);
   });
@@ -367,70 +464,58 @@ document.addEventListener('click', e => {
   }
 });
 
-// ── Auto-detect verticals from dump ────────────────────────────
 async function detectVerticals() {
   if (!files.dump) return;
-  const fd = new FormData();
-  fd.append('dump', files.dump);
+  const fd = new FormData(); fd.append('dump', files.dump);
   try {
     const res  = await fetch('/detect_verticals', {method:'POST', body:fd});
     const data = await res.json();
     autoDetected = data.verticals || [];
-    const info  = document.getElementById('auto-detect-info');
+    const bar = document.getElementById('auto-bar');
     if (autoDetected.length > 0) {
-      info.style.display = 'block';
-      info.textContent   = `⚡ Auto-detected ${autoDetected.length} vertical${autoDetected.length>1?'s':''}: ${autoDetected.join(', ')}`;
-      // Auto-select detected verticals
+      bar.style.display = 'block';
+      bar.textContent = `✓ Auto-detected: ${autoDetected.join(', ')}`;
       autoDetected.forEach(v => selectedSubtypes.add(v));
-      renderSelectedTags();
-      checkReady();
-    } else {
-      info.style.display = 'none';
+      renderSelectedTags(); checkReady();
     }
     renderDropdownItems(allSubtypes);
-  } catch(e) {}
+  } catch(e){}
 }
 
-// ── File handling ─────────────────────────────────────────────
 function onFile(input, key) {
   const file = input.files[0]; if (!file) return;
   files[key] = file;
-  document.getElementById('name-'+key).textContent = file.name;
-  document.getElementById('name-'+key).classList.add('filled');
+  const nameEl = document.getElementById('name-'+key);
+  nameEl.textContent = file.name;
   input.closest('.upload-zone').classList.add('has-file');
   checkReady();
   if (key === 'dump') detectVerticals();
 }
-function onDrag(e, id) { e.preventDefault(); document.getElementById(id).classList.add('dragover'); }
-function offDrag(id)   { document.getElementById(id).classList.remove('dragover'); }
-function onDrop(e, key) {
+function onDrag(e,id){e.preventDefault();document.getElementById(id).classList.add('dragover')}
+function offDrag(id){document.getElementById(id).classList.remove('dragover')}
+function onDrop(e,key){
   e.preventDefault();
-  const id = key === 'base_data' ? 'zone-base' : 'zone-dump';
-  offDrag(id);
-  const file = e.dataTransfer.files[0]; if (!file) return;
-  files[key] = file;
-  document.getElementById('name-'+key).textContent = file.name;
-  document.getElementById('name-'+key).classList.add('filled');
+  const id = key==='base_data'?'zone-base':'zone-dump'; offDrag(id);
+  const file = e.dataTransfer.files[0]; if(!file) return;
+  files[key]=file;
+  document.getElementById('name-'+key).textContent=file.name;
   document.getElementById(id).classList.add('has-file');
   checkReady();
-  if (key === 'dump') detectVerticals();
+  if(key==='dump') detectVerticals();
 }
 
-function checkReady() {
-  document.getElementById('btn-run').disabled = !(selectedSubtypes.size > 0 && files.dump);
+function checkReady(){
+  document.getElementById('btn-run').disabled = !(selectedSubtypes.size>0 && files.dump);
 }
 
-// ── Process ───────────────────────────────────────────────────
 async function runProcess() {
   document.getElementById('err-box').style.display = 'none';
   const btn = document.getElementById('btn-run');
   btn.classList.add('loading'); btn.disabled = true;
-
   const fd = new FormData();
   fd.append('subtypes', JSON.stringify([...selectedSubtypes]));
   if (files.base_data) fd.append('base_data', files.base_data);
   fd.append('dump', files.dump);
-
   try {
     const res  = await fetch('/process', {method:'POST', body:fd});
     const data = await res.json();
@@ -439,77 +524,85 @@ async function runProcess() {
       document.getElementById('err-box').style.display = 'block';
       showToast(data.error, 'error'); return;
     }
-
-    // Stats
-    document.getElementById('s-filled').textContent  = data.grand_filled;
-    document.getElementById('s-skipped').textContent = data.grand_skipped;
-    document.getElementById('s-total').textContent   = data.grand_filled + data.grand_skipped;
-    document.getElementById('results-sec').style.display = 'block';
+    renderResults(data);
+    showToast(`✓ ${data.grand_filled} rows filled across ${(data.results||[]).length} file${(data.results||[]).length>1?'s':''}`, 'success');
     downloadToken = data.download_token; downloadFilename = data.filename; isZip = data.is_zip;
-
-    // Per-subtype result rows
-    const rr = document.getElementById('result-rows');
-    rr.innerHTML = '';
-    (data.results || []).forEach(r => {
-      rr.innerHTML += `<div class="result-row">
-        <div class="result-row-name">${r.subtype}</div>
-        <div class="result-row-filled">✓ ${r.filled} filled</div>
-        <div class="result-row-skipped">${r.skipped > 0 ? '✗ '+r.skipped+' skipped' : ''}</div>
-      </div>`;
-    });
-
-    // Download button label
-    const dlLabel = document.getElementById('dl-label');
-    const dlIcon  = document.getElementById('dl-icon');
-    if (isZip) {
-      dlLabel.textContent = `Download ${data.results.length} files as ZIP`;
-      dlIcon.textContent  = '📦';
-    } else {
-      dlLabel.textContent = 'Download filled template';
-      dlIcon.textContent  = '⬇';
-    }
-
-    // Skipped
-    const skipSec  = document.getElementById('skip-sec');
-    const skipList = document.getElementById('skip-list');
-    skipList.innerHTML = '';
-    if (data.skipped_details && data.skipped_details.length > 0) {
-      skipSec.style.display = 'block';
-      data.skipped_details.forEach(s => {
-        skipList.innerHTML += `<div class="skip-item"><div class="sku">${s.sku||s.article}</div><div class="reason">${s.reason}</div></div>`;
-      });
-    }
-
-    // Preview table
-    const cols = data.preview_cols;
-    const colLabels = {'title *':'Title','ChildSKU *':'SKU','ARTICLE_NUMBER *':'Article',
-      'MRP *':'MRP','SellingPrice *':'SP','PRODUCT_COLOR *':'Color',
-      'AVAILABLE_SIZES *':'Sizes','SET_DETAILS *':'Set Details',
-      'UPPER_MATERIAL *':'Upper','SOLE_MATERIAL *':'Sole','hsnCode *':'HSN','SET_COUNT *':'Count'};
-
-    // Add SubType column to preview if multi-select
-    const allCols = isZip ? ['_subtype', ...cols] : cols;
-    document.getElementById('t-head').innerHTML = '<tr>' +
-      (isZip ? '<th>SubType</th>' : '') +
-      cols.map(c => `<th>${colLabels[c]||c}</th>`).join('') + '</tr>';
-    document.getElementById('t-body').innerHTML = data.preview.map(r =>
-      '<tr>' +
-      (isZip ? `<td><span class="sub-tag">${r._subtype||''}</span></td>` : '') +
-      cols.map((c,i) => `<td${i===0?' class="ac"':''}>${r[c]??'—'}</td>`).join('') +
-      '</tr>'
-    ).join('');
-
-    document.getElementById('empty-state').style.display = 'none';
-    document.getElementById('table-wrap').style.display  = 'block';
-    document.getElementById('row-count').textContent = `${data.preview.length} rows shown (of ${data.grand_filled} filled across ${(data.results||[]).length} file${(data.results||[]).length>1?'s':''})`;
-    showToast(`✓ ${data.grand_filled} rows filled across ${(data.results||[]).length} template${(data.results||[]).length>1?'s':''}`, 'success');
-
   } catch(e) {
     document.getElementById('err-box').textContent = '⚠ ' + e.message;
     document.getElementById('err-box').style.display = 'block';
-    showToast('Error: ' + e.message, 'error');
   } finally {
     btn.classList.remove('loading'); btn.disabled = false; checkReady();
+  }
+}
+
+function renderResults(data) {
+  // Status tabs
+  document.getElementById('tab-filled').textContent  = `Filled (${data.grand_filled})`;
+  document.getElementById('tab-total').textContent   = `Total (${data.grand_filled + data.grand_skipped})`;
+  document.getElementById('status-bar').style.display = 'block';
+  if (data.grand_skipped > 0) {
+    document.getElementById('tab-skipped').textContent = `Skipped (${data.grand_skipped})`;
+    document.getElementById('tab-skipped').style.display = 'inline-flex';
+  }
+
+  // Per-subtype breakdown
+  const rb = document.getElementById('result-breakdown');
+  rb.innerHTML = '';
+  (data.results||[]).forEach(r => {
+    rb.innerHTML += `<div class="rb-card">
+      <div class="rb-card-icon">📄</div>
+      <div class="rb-card-info">
+        <div class="rb-card-name">${r.subtype}</div>
+        <div class="rb-card-val">${r.filename}</div>
+        <div>${r.filled > 0 ? `<span class="rb-card-count">✓ ${r.filled} filled</span>` : ''}
+          ${r.skipped > 0 ? `<span class="rb-card-skip"> ✗ ${r.skipped} skipped</span>` : ''}</div>
+      </div>
+    </div>`;
+  });
+
+  // Download bar
+  const dlBar = document.getElementById('dl-bar');
+  dlBar.style.display = 'flex';
+  document.getElementById('dl-icon').textContent  = isZip ? '📦' : '⬇';
+  document.getElementById('dl-label').textContent = isZip ? `Download ${(data.results||[]).length} files as ZIP` : 'Download Catalogue File';
+  document.getElementById('dl-info').textContent  = isZip ? `${(data.results||[]).length} separate .xlsx files bundled` : `${data.grand_filled} rows · ready to upload`;
+
+  // Preview table
+  const cols = data.preview_cols || [];
+  const colLabels = {'title *':'Product Title','ChildSKU *':'SKU ID','ARTICLE_NUMBER *':'Article No.',
+    'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
+    'AVAILABLE_SIZES *':'Sizes','SET_DETAILS *':'Set Details',
+    'UPPER_MATERIAL *':'Upper','SOLE_MATERIAL *':'Sole','hsnCode *':'HSN','SET_COUNT *':'Set Count'};
+
+  const showSub = isZip;
+  document.getElementById('t-head').innerHTML = '<tr>' +
+    (showSub ? '<th>SubType</th>' : '') +
+    cols.map(c => `<th>${colLabels[c]||c}</th>`).join('') + '</tr>';
+
+  document.getElementById('t-body').innerHTML = (data.preview||[]).map((r,i) => '<tr>' +
+    (showSub ? `<td><span class="chip chip-blue">${r._subtype||''}</span></td>` : '') +
+    cols.map((c,ci) => {
+      let val = r[c] ?? '—';
+      if (ci === 0) return `<td class="title-cell">${val}</td>`;
+      if (c === 'ChildSKU *') return `<td class="sku-cell">${val}</td>`;
+      if (c === 'MRP *' || c === 'SellingPrice *') return `<td class="price-cell">${val !== '—' ? '₹'+val : '—'}</td>`;
+      return `<td>${val}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+
+  document.getElementById('right-sub').textContent = `Showing ${Math.min((data.preview||[]).length, 50)} of ${data.grand_filled} rows`;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('table-area').style.display  = 'block';
+
+  // Skipped
+  const skipSec  = document.getElementById('skip-section');
+  const skipBody = document.getElementById('skip-body');
+  skipBody.innerHTML = '';
+  if ((data.skipped_details||[]).length > 0) {
+    skipSec.style.display = 'block';
+    data.skipped_details.forEach(s => {
+      skipBody.innerHTML += `<tr><td>${s.sku||'—'}</td><td>${s.article||'—'}</td><td>${s.reason}</td></tr>`;
+    });
   }
 }
 
@@ -528,46 +621,43 @@ function resetAll() {
   selectedSubtypes.clear(); autoDetected = [];
   Object.keys(files).forEach(k => files[k] = null);
   ['base_data','dump'].forEach(k => {
-    document.getElementById('name-'+k).textContent = 'Drop .xlsx or click to browse';
-    document.getElementById('name-'+k).classList.remove('filled');
+    document.getElementById('name-'+k).textContent = 'Click to browse or drag file here';
+    const zone = document.getElementById('zone-'+( k==='base_data'?'base':'dump'));
+    if(zone) zone.classList.remove('has-file');
   });
-  ['zone-base','zone-dump'].forEach(id => document.getElementById(id).classList.remove('has-file'));
-  document.getElementById('auto-detect-info').style.display = 'none';
-  document.getElementById('results-sec').style.display = 'none';
-  document.getElementById('skip-sec').style.display    = 'none';
+  document.getElementById('auto-bar').style.display    = 'none';
+  document.getElementById('status-bar').style.display  = 'none';
+  document.getElementById('dl-bar').style.display      = 'none';
   document.getElementById('empty-state').style.display = 'flex';
-  document.getElementById('table-wrap').style.display  = 'none';
+  document.getElementById('table-area').style.display  = 'none';
+  document.getElementById('skip-section').style.display= 'none';
   document.getElementById('err-box').style.display     = 'none';
-  document.getElementById('row-count').textContent     = '— no data yet';
-  renderSelectedTags();
-  renderDropdownItems(allSubtypes);
-  checkReady();
+  document.getElementById('right-sub').textContent     = 'Upload files and generate to see preview';
+  renderSelectedTags(); renderDropdownItems(allSubtypes); checkReady();
 }
 
-// ── Config ────────────────────────────────────────────────────
 const CFG_FIELDS = ['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',
   'relationship','catalog_status','status_remark','country_of_origin','product_condition',
   'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
 async function openConfig() {
-  const res = await fetch('/config'); const data = await res.json();
-  CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(el) el.value=data[k]??''; });
+  const res = await fetch('/config'); const d = await res.json();
+  CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(el) el.value=d[k]??''; });
   document.getElementById('cfg-modal').classList.add('open');
 }
-function closeConfig() { document.getElementById('cfg-modal').classList.remove('open'); }
-async function saveConfig() {
-  const cfg = {};
-  CFG_FIELDS.forEach(k => {
-    const el = document.getElementById('cfg-'+k); if (!el) return;
-    cfg[k] = ['gst_cgst','gst_sgst','gst_igst'].includes(k) ? parseInt(el.value)||0 : el.value;
+function closeConfig(){document.getElementById('cfg-modal').classList.remove('open')}
+async function saveConfig(){
+  const cfg={};
+  CFG_FIELDS.forEach(k=>{
+    const el=document.getElementById('cfg-'+k); if(!el) return;
+    cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;
   });
-  await fetch('/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg)});
-  closeConfig(); showToast('Config saved ✓', 'success');
+  await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+  closeConfig(); showToast('Settings saved ✓','success');
 }
-document.getElementById('cfg-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('cfg-modal')) closeConfig();
-});
+document.getElementById('cfg-modal').addEventListener('click',e=>{if(e.target===document.getElementById('cfg-modal'))closeConfig()});
 
 loadSubtypes();
 </script>
 </body>
 </html>
+

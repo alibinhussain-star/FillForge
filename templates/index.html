@@ -11,7 +11,9 @@
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;display:grid;grid-template-rows:auto 1fr}
 header{border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:14px;background:var(--surface)}
 .logo{font-size:18px;font-weight:800;letter-spacing:-.5px;color:var(--accent)}.logo span{color:var(--text)}
-.tagline{font-family:var(--mono);font-size:11px;color:var(--muted);border-left:1px solid var(--border2);padding-left:14px}
+.header-titles{display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--border2);padding-left:14px}
+.tagline{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.subtitle{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--text);letter-spacing:.3px}
 .hdr-right{margin-left:auto;display:flex;gap:8px}
 .btn-sm{font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:4px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
 .btn-sm:hover{border-color:var(--accent);color:var(--accent)}
@@ -129,7 +131,10 @@ td.sub-tag{font-size:9px;padding:2px 6px;background:#1a2210;color:var(--accent);
 <body>
 <header>
   <div class="logo">Fill<span>Forge</span></div>
-  <div class="tagline">template auto-population engine · xlsx</div>
+  <div class="header-titles">
+    <div class="tagline">template auto-population engine · xlsx</div>
+    <div class="subtitle">Jumbotail Catalog Operation Portal</div>
+  </div>
   <div class="hdr-right">
     <button class="btn-sm" onclick="openConfig()">⚙ Config</button>
     <button class="btn-sm" onclick="resetAll()">↺ Reset</button>

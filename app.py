@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify, send_file, render_template
-import pandas as pd, re, io, tempfile, os, json, random, string, time
+import pandas as pd, re, io, os, json, random, string, time, zipfile
 from datetime import datetime
 from openpyxl import load_workbook
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
-
-
+# In-memory store: token -> (bytes, filename, mimetype)
+FILE_STORE = {}
 
 # Logs (JSON-line file)
 LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
@@ -38,10 +38,7 @@ def read_logs(limit=200):
     except: pass
     return list(reversed(out))[:limit]
 
-
-
-
-# ── Template constants (unchanged from your original) ──────────
+# ── Template constants ──────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')
 
 def _build_header_row_map():
@@ -66,22 +63,41 @@ def _build_header_row_map():
                     break
     return hdr_map, static_map
 
-SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+try:
+    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+except Exception as e:
+    print(f"Warning: Could not build header row map: {e}")
+    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
 
 def load_pv_list():
-    pv = pd.read_excel(TEMPLATE_PATH, sheet_name='PV List')
-    col = pv.columns[0]
-    return [str(v).strip() for v in pv[col].dropna() if str(v).strip() not in ('nan','SubType')]
+    try:
+        pv = pd.read_excel(TEMPLATE_PATH, sheet_name='PV List')
+        col = pv.columns[0]
+        return [str(v).strip() for v in pv[col].dropna() if str(v).strip() not in ('nan','SubType')]
+    except Exception as e:
+        print(f"Warning: Could not load PV List: {e}")
+        return []
 
-PV_LIST = load_pv_list()
+try:
+    PV_LIST = load_pv_list()
+except Exception as e:
+    print(f"Warning: Could not load PV_LIST: {e}")
+    PV_LIST = []
 
 def get_template_wb_for_subtype(subtype):
     from openpyxl import Workbook
-    wb_src = load_workbook(TEMPLATE_PATH); ws_src = wb_src['PV Template']
-    hdr_row = SUBTYPE_HEADER_ROW.get(subtype, 1)
-    headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
-    while headers and headers[-1] is None: headers.pop()
-    wb_new = Workbook(); ws_new = wb_new.active; ws_new.title = 'PV Template'
+    try:
+        wb_src = load_workbook(TEMPLATE_PATH)
+        ws_src = wb_src['PV Template']
+        hdr_row = SUBTYPE_HEADER_ROW.get(subtype, 1)
+        headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
+        while headers and headers[-1] is None: headers.pop()
+    except Exception as e:
+        print(f"Warning: Could not load template for {subtype}: {e}")
+        headers = []
+    wb_new = Workbook()
+    ws_new = wb_new.active
+    ws_new.title = 'PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
     return wb_new, headers
@@ -119,13 +135,11 @@ BASE_COL_HINTS = {
 }
 
 def safe(val):
-    """Return stripped string or empty string."""
     if pd.isna(val) or val is None:
         return ''
     return str(val).strip()
 
 def detect_col(df, hints):
-    """Find the first column in df that matches any of the hints (case-insensitive)."""
     cols = [c.strip() for c in df.columns]
     for hint in hints:
         hint_lower = hint.lower().strip()
@@ -135,18 +149,15 @@ def detect_col(df, hints):
     return None
 
 def build_col_map(df, hints_dict):
-    """Build a mapping from canonical names to actual DataFrame column names."""
     return {key: detect_col(df, hints) for key, hints in hints_dict.items()}
 
 def title_case_color(color_str):
-    """Format color string nicely."""
     if not color_str:
         return ''
     parts = re.split(r'[/&+,]', color_str)
     return '/'.join(p.strip().title() for p in parts if p.strip())
 
 def merge_colors(color_series):
-    """Merge multiple color values into a single slash-separated string."""
     colors = [safe(c) for c in color_series if safe(c)]
     if not colors:
         return ''
@@ -159,14 +170,12 @@ def merge_colors(color_series):
     return '/'.join(unique)
 
 def extract_article(title_str):
-    """Extract article number from title if present."""
     if not title_str:
         return ''
     m = re.search(r'\b(Art[.\s]*\d+|ART-\d+|\d{4,})\b', str(title_str), re.I)
     return m.group(1) if m else ''
 
 def expand_size_range(size_str):
-    """Expand size ranges like '6-10' into individual sizes."""
     if not size_str:
         return []
     sizes = []
@@ -185,7 +194,6 @@ def expand_size_range(size_str):
     return sizes
 
 def build_set_details(set_str, count_str):
-    """Build set details string."""
     s = safe(set_str)
     c = safe(count_str)
     if s and c:
@@ -193,7 +201,6 @@ def build_set_details(set_str, count_str):
     return s or c or ''
 
 def parse_lbh(dimension_str):
-    """Parse length x breadth x height from string."""
     if not dimension_str:
         return '', '', ''
     m = re.findall(r'(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)', str(dimension_str))
@@ -202,7 +209,6 @@ def parse_lbh(dimension_str):
     return '', '', ''
 
 def derive_gender(title_str, category_str=''):
-    """Derive gender from title or category."""
     text = f"{title_str} {category_str}".lower()
     if any(w in text for w in ['women', 'woman', 'ladies', 'female', 'girl']):
         return 'Women'
@@ -213,7 +219,6 @@ def derive_gender(title_str, category_str=''):
     return 'Unisex'
 
 def make_title(row_dict, subtype):
-    """Generate product title from row data."""
     parts = []
     brand = safe(row_dict.get('brand', ''))
     if brand:
@@ -231,11 +236,9 @@ def make_title(row_dict, subtype):
     return ' '.join(parts)
 
 def make_internal_title(title):
-    """Generate internal title."""
     return safe(title)[:100]
 
 def make_description(row_dict):
-    """Generate product description."""
     parts = []
     title = safe(row_dict.get('title', ''))
     if title:
@@ -252,40 +255,27 @@ def make_description(row_dict):
     return ' | '.join(parts)
 
 def fill_template(dump_df, base_df, headers, wb):
-    """Fill template workbook with data from dump_df. Returns (filled_rows, skipped_rows)."""
     filled_rows = []
     skipped_rows = []
-
-    # Build base SKU set for duplicate detection
     base_skus = set()
     if base_df is not None and not base_df.empty:
         base_map = build_col_map(base_df, BASE_COL_HINTS)
         sku_col = base_map.get('sku')
         if sku_col and sku_col in base_df.columns:
             base_skus = set(str(v).strip().lower() for v in base_df[sku_col].dropna())
-
-    # Build dump column map
     col_map = build_col_map(dump_df, DUMP_COL_HINTS)
-
     ws = wb.active
-    row_idx = 2  # Start from row 2 (row 1 is headers)
-
+    row_idx = 2
     for _, row in dump_df.iterrows():
         row_dict = {k: row.get(v) if v and v in dump_df.columns else '' for k, v in col_map.items()}
-
         sku = safe(row_dict.get('sku', ''))
         article = safe(row_dict.get('article', ''))
-
-        # Check for duplicates
         if sku and sku.lower() in base_skus:
             skipped_rows.append({'sku': sku, 'article': article, 'reason': 'Duplicate SKU in base data'})
             continue
-
-        # Build filled row
         filled = {}
         for h in headers:
             h_lower = str(h).lower().strip() if h else ''
-
             if h == 'title *':
                 filled[h] = make_title(row_dict, 'Footwear')
             elif h == 'ChildSKU *':
@@ -328,20 +318,32 @@ def fill_template(dump_df, base_df, headers, wb):
                 filled[h] = h_val
             else:
                 filled[h] = ''
-
-        # Write to worksheet
         for ci, h in enumerate(headers, 1):
             ws.cell(row_idx, ci).value = filled.get(h, '')
-
         filled_rows.append(filled)
         row_idx += 1
-
     return filled_rows, skipped_rows
 
 # ── Routes ─────────────────────────────────────────────────────
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok', 'pv_list_count': len(PV_LIST)})
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception:
+        pass
+    try:
+        html_path = os.path.join(os.path.dirname(__file__), 'index.html')
+        if os.path.exists(html_path):
+            with open(html_path, 'r', encoding='utf-8') as f:
+                return f.read()
+    except Exception:
+        pass
+    return "<h1>Error</h1><p>Could not load index.html. Make sure it's in the templates/ folder or same directory as app.py.</p>", 500
 
 @app.route('/subtypes')
 def get_subtypes():
@@ -363,7 +365,6 @@ def get_logs():
 
 @app.route('/download_template/<vertical>')
 def download_template(vertical):
-    # Only Footwear unlocked
     if vertical.lower() != 'footwear':
         return jsonify({'error': 'This vertical is under development'}), 403
     write_log('anonymous', 'template_downloaded', vertical)
@@ -395,7 +396,6 @@ def detect_verticals():
 
 @app.route('/process', methods=['POST'])
 def process():
-    """Process uploaded dump file and generate filled catalog template."""
     try:
         subtypes = json.loads(request.form.get('subtypes', '[]'))
         dump_file = request.files.get('dump')
@@ -404,10 +404,7 @@ def process():
         if not dump_file or not subtypes:
             return jsonify({'error': 'Missing dump file or subtypes'}), 400
 
-        # Read dump file
         dump_df = pd.read_excel(io.BytesIO(dump_file.read()))
-
-        # Read base data if provided
         base_df = None
         if base_file:
             base_df = pd.read_excel(io.BytesIO(base_file.read()))
@@ -423,7 +420,6 @@ def process():
             if subtype not in SUBTYPE_MAP:
                 continue
 
-            # Filter rows for this subtype
             col_map = build_col_map(dump_df, DUMP_COL_HINTS)
             subtype_col = col_map.get('vertical') or col_map.get('subtype')
             if subtype_col and subtype_col in dump_df.columns:
@@ -431,14 +427,15 @@ def process():
             else:
                 subtype_df = dump_df.copy()
 
-            # Fill template
             wb, headers = get_template_wb_for_subtype(subtype)
             filled_rows, skipped_rows = fill_template(subtype_df, base_df, headers, wb)
 
-            # Save to temp file
+            # Save to BytesIO instead of temp file
             token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-            temp_path = os.path.join(tempfile.gettempdir(), token + '.xlsx')
-            wb.save(temp_path)
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            file_bytes = output.getvalue()
 
             filled_count = len(filled_rows)
             skipped_count = len(skipped_rows)
@@ -454,22 +451,27 @@ def process():
                 'token': token
             })
 
-            # Build preview from first subtype only (limit rows)
+            # Store in memory
+            FILE_STORE[token] = (file_bytes, f'{subtype.replace(" ", "_")}_Catalog.xlsx',
+                                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
             if not preview and filled_rows:
                 preview_cols = [c for c in headers if c in ('title *', 'ChildSKU *', 'ARTICLE_NUMBER *', 'MRP *', 'SellingPrice *', 'PRODUCT_COLOR *', 'AVAILABLE_SIZES *', 'SET_DETAILS *', 'UPPER_MATERIAL *', 'SOLE_MATERIAL *', 'hsnCode *', 'SET_COUNT *')]
                 for row in filled_rows[:50]:
                     preview.append({col: row.get(col, '') for col in preview_cols})
 
-        # If multiple subtypes, create a zip
         is_zip = len(results) > 1
         if is_zip:
-            import zipfile
-            zip_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-            zip_path = os.path.join(tempfile.gettempdir(), zip_token + '.zip')
-            with zipfile.ZipFile(zip_path, 'w') as zf:
+            zip_output = io.BytesIO()
+            with zipfile.ZipFile(zip_output, 'w') as zf:
                 for r in results:
-                    file_path = os.path.join(tempfile.gettempdir(), r['token'] + '.xlsx')
-                    zf.write(file_path, r['filename'])
+                    file_bytes, fname, _ = FILE_STORE.get(r['token'], (b'', '', ''))
+                    if file_bytes:
+                        zf.writestr(fname, file_bytes)
+            zip_output.seek(0)
+            zip_bytes = zip_output.getvalue()
+            zip_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            FILE_STORE[zip_token] = (zip_bytes, 'Catalog_Files.zip', 'application/zip')
             download_token = zip_token
             download_filename = 'Catalog_Files.zip'
         else:
@@ -499,13 +501,23 @@ def process():
 
 @app.route('/download/<token>')
 def download(token):
-    if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
-    path = os.path.join(tempfile.gettempdir(), token)
-    if not os.path.exists(path): return 'File not found', 404
-    fname = request.args.get('filename', 'filled_template.xlsx')
+    if '..' in token or '/' in token or '\\' in token:
+        return 'Invalid', 400
+
+    file_data = FILE_STORE.get(token)
+    if not file_data:
+        return 'File not found', 404
+
+    file_bytes, default_fname, mtype = file_data
+    fname = request.args.get('filename', default_fname)
+
     write_log('anonymous', 'file_downloaded', fname)
-    return send_file(path, as_attachment=True, download_name=fname,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return send_file(
+        io.BytesIO(file_bytes),
+        as_attachment=True,
+        download_name=fname,
+        mimetype=mtype
+    )
 
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

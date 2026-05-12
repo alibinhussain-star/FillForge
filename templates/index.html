@@ -220,6 +220,19 @@ td.price-cell{font-weight:600}
 .btn-save{padding:9px 22px;background:var(--navy);color:#fff;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-cancel{padding:9px 22px;background:transparent;color:var(--muted);border:1px solid var(--border-2);border-radius:var(--r2);font-size:13px;cursor:pointer;font-family:inherit}
 
+
+/* Coming Soon Modal */
+.cs-modal-bg{display:none;position:fixed;inset:0;background:#1a2540cc;z-index:200;align-items:center;justify-content:center}
+.cs-modal-bg.open{display:flex}
+.cs-modal{background:var(--white);border-radius:16px;width:420px;max-width:90%;padding:40px;text-align:center;box-shadow:0 20px 60px #1a254033;animation:csPop .3s ease}
+@keyframes csPop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.cs-icon{font-size:64px;margin-bottom:16px}
+.cs-title{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px}
+.cs-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.cs-badge{display:inline-block;padding:6px 16px;background:var(--warning-bg);color:var(--warning);border:1px solid #fde68a;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:20px}
+.cs-btn{padding:10px 28px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.cs-btn:hover{background:var(--navy-2)}
+
 .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;border-radius:8px;padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .3s;z-index:300;max-width:340px}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.success{background:var(--success)}.toast.error{background:var(--danger)}
@@ -231,6 +244,7 @@ td.price-cell{font-weight:600}
 /* Simple inline SVG icons inherit color via currentColor */
 svg{display:block}
 </style>
+<base target="_blank">
 </head>
 <body>
 
@@ -290,25 +304,25 @@ svg{display:block}
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17h20"/><path d="M5 14V8a3 3 0 0 1 3-3h4l2 3 4 1c2 .5 4 2 4 5v0c0 2-1 3-3 3H8c-1.5 0-3-1-3-3z"/><path d="M9 8v3"/></svg></span>
       Footwear
     </button>
-    <button class="vert-tog locked">
+    <button class="vert-tog" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg></span>
       Consumer Electronics
       <span class="vert-lock">Locked</span>
       <span class="vert-lock-tip">Under Development</span>
     </button>
-    <button class="vert-tog locked">
+    <button class="vert-tog" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></span>
       Apparels &amp; Fashion
       <span class="vert-lock">Locked</span>
       <span class="vert-lock-tip">Under Development</span>
     </button>
-    <button class="vert-tog locked">
+    <button class="vert-tog" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
       Toys &amp; Sports
       <span class="vert-lock">Locked</span>
       <span class="vert-lock-tip">Under Development</span>
     </button>
-    <button class="vert-tog locked">
+    <button class="vert-tog" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><rect x="9" y="14" width="6" height="6"/></svg></span>
       Home Furnishing
       <span class="vert-lock">Locked</span>
@@ -518,6 +532,17 @@ svg{display:block}
   </div>
 </div>
 
+<!-- Coming Soon Modal -->
+<div class="cs-modal-bg" id="cs-modal" onclick="if(event.target===this)closeComingSoon()">
+  <div class="cs-modal">
+    <div class="cs-icon">🔒</div>
+    <div class="cs-badge">Under Development</div>
+    <div class="cs-title" id="cs-title">Category Name</div>
+    <div class="cs-sub">This category is currently under development.<br>We're working hard to bring it to you soon!</div>
+    <button class="cs-btn" onclick="closeComingSoon()">Got it</button>
+  </div>
+</div>
+
 <!-- Settings Modal (unchanged structure) -->
 <div class="modal-bg" id="cfg-modal">
   <div class="modal">
@@ -571,14 +596,19 @@ function switchView(name){
   if(name==='logs') loadLogs();
 }
 
-/* vertical toggle (only Footwear active in v0.3) */
+/* vertical toggle */
 document.querySelectorAll('.vert-tog').forEach(t => {
   t.addEventListener('click', () => {
-    if(t.classList.contains('locked')){ showToast('This category is under development','error'); return; }
     document.querySelectorAll('.vert-tog').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
   });
 });
+
+function showComingSoon(btn){
+  // Show coming soon overlay
+  const name = btn.textContent.replace('Locked','').trim();
+  showComingSoonModal(name);
+}
 
 /* templates download */
 async function downloadTpl(vertical){
@@ -784,6 +814,13 @@ function renderResults(data){
   }
 }
 function downloadFile(){ if(!downloadToken) return; window.location.href=`/download/${downloadToken}?filename=${encodeURIComponent(downloadFilename)}`; }
+function showComingSoonModal(categoryName){
+  document.getElementById('cs-title').textContent = categoryName || 'This Category';
+  document.getElementById('cs-modal').classList.add('open');
+}
+function closeComingSoon(){
+  document.getElementById('cs-modal').classList.remove('open');
+}
 function showToast(msg,type=''){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
 
 const CFG_FIELDS=['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',

@@ -57,6 +57,36 @@ def get_template_wb_for_subtype(subtype):
         ws_new.cell(1, ci).value = h
     return wb_new, headers
 
+# ── Logging ────────────────────────────────────────────────────
+LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
+
+def write_log(email, action, details=''):
+    from datetime import datetime
+    entry = {
+        'ts': datetime.utcnow().isoformat() + 'Z',
+        'email': email or 'anonymous',
+        'action': action,
+        'details': details,
+    }
+    try:
+        with open(LOG_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry) + '\n')
+    except Exception as e:
+        print('log err', e)
+
+def read_logs(limit=200):
+    if not os.path.exists(LOG_PATH): return []
+    out = []
+    try:
+        with open(LOG_PATH, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                try: out.append(json.loads(line))
+                except: pass
+    except: pass
+    return list(reversed(out))[:limit]
+
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "brand_name":          "",
@@ -434,6 +464,11 @@ def update_config():
     global config
     config.update(request.json)
     return jsonify({'status': 'ok'})
+@app.route('/logs')
+def get_logs():
+    return jsonify({'logs': read_logs(500)})
+
+
 
 @app.route('/detect_verticals', methods=['POST'])
 def detect_verticals():
@@ -578,6 +613,7 @@ def process():
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=out_ext,
                                           dir=tempfile.gettempdir(), prefix='filled_')
         tmp.write(out_bytes); tmp.close()
+        write_log('anonymous', 'catalog_generated', f'filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
             'status':           'ok',
@@ -599,11 +635,19 @@ def process():
 @app.route('/download/<token>')
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
-    path = os.path.join(tempfile.gettempdir(), token)
-    if not os.path.exists(path): return 'File not found', 404
-    fname = request.args.get('filename', 'filled_template.xlsx')
-    return send_file(path, as_attachment=True, download_name=fname,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    tmpdir = tempfile.gettempdir()
+    # Try different extensions since we use NamedTemporaryFile
+    for ext in ['', '.zip', '.xlsx']:
+        path = os.path.join(tmpdir, token + ext)
+        if os.path.exists(path):
+            fname = request.args.get('filename', 'filled_template' + ext)
+            if ext == '.zip':
+                mtype = 'application/zip'
+            else:
+                mtype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            write_log('anonymous', 'file_downloaded', fname)
+            return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
+    return 'File not found', 404
 
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

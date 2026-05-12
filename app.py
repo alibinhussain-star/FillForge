@@ -1,28 +1,13 @@
-from flask import Flask, request, jsonify, send_file, render_template, session, redirect, url_for
-import pandas as pd, re, io, tempfile, os, json, smtplib, ssl, random, string, time
-from email.mime.text import MIMEText
-from functools import wraps
+from flask import Flask, request, jsonify, send_file, render_template
+import pandas as pd, re, io, tempfile, os, json, random, string, time
 from datetime import datetime
 from openpyxl import load_workbook
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.secret_key = os.environ.get('FLASK_SECRET', 'change-me-in-prod-' + ''.join(random.choices(string.ascii_letters, k=24)))
 
-# ── SMTP config (set these env vars on your machine) ───────────
-SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
-SMTP_USER = os.environ.get('SMTP_USER', '')        # e.g. youraddr@gmail.com
-SMTP_PASS = os.environ.get('SMTP_PASS', '')        # gmail app-password
-SMTP_FROM = os.environ.get('SMTP_FROM', SMTP_USER)
 
-# Optional allow-list (comma-separated emails / domains). Empty = allow any.
-ALLOWED_EMAILS = [e.strip().lower() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
-# In-memory OTP store: { email: {'otp': '123456', 'exp': 1234567890, 'attempts': 0} }
-OTP_STORE = {}
-OTP_TTL = 5 * 60          # 5 minutes
-OTP_MAX_ATTEMPTS = 5
 
 # Logs (JSON-line file)
 LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
@@ -53,98 +38,8 @@ def read_logs(limit=200):
     except: pass
     return list(reversed(out))[:limit]
 
-def login_required(f):
-    @wraps(f)
-    def w(*a, **kw):
-        if not session.get('email'):
-            if request.path.startswith('/api') or request.method == 'POST':
-                return jsonify({'error': 'auth_required'}), 401
-            return redirect(url_for('login_page'))
-        return f(*a, **kw)
-    return w
 
-def send_otp_email(to_email, otp):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f'[DEV MODE] OTP for {to_email} = {otp}')
-        return True, 'dev'
-    msg = MIMEText(
-        f"Your FillForge login code is: {otp}\n\n"
-        f"This code expires in 5 minutes.\n"
-        f"If you did not request this, ignore this email.\n\n— FillForge",
-        'plain'
-    )
-    msg['Subject'] = f'FillForge login code: {otp}'
-    msg['From']    = SMTP_FROM
-    msg['To']      = to_email
-    try:
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as srv:
-            srv.starttls(context=ctx)
-            srv.login(SMTP_USER, SMTP_PASS)
-            srv.sendmail(SMTP_FROM, [to_email], msg.as_string())
-        return True, 'sent'
-    except Exception as e:
-        return False, str(e)
 
-EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
-
-# ── Auth routes ────────────────────────────────────────────────
-@app.route('/login')
-def login_page():
-    if session.get('email'): return redirect(url_for('index'))
-    return render_template('login.html')
-
-@app.route('/auth/send_otp', methods=['POST'])
-def auth_send_otp():
-    email = (request.json or {}).get('email', '').strip().lower()
-    if not EMAIL_RE.match(email):
-        return jsonify({'error': 'Invalid email address'}), 400
-    if ALLOWED_EMAILS:
-        domain = email.split('@')[-1]
-        if email not in ALLOWED_EMAILS and domain not in ALLOWED_EMAILS:
-            return jsonify({'error': 'This email is not authorized to access FillForge'}), 403
-
-    otp = ''.join(random.choices(string.digits, k=6))
-    OTP_STORE[email] = {'otp': otp, 'exp': time.time() + OTP_TTL, 'attempts': 0}
-    ok, info = send_otp_email(email, otp)
-    if not ok:
-        return jsonify({'error': f'Could not send email: {info}'}), 500
-    write_log(email, 'otp_requested')
-    return jsonify({'status': 'ok', 'dev': info == 'dev'})
-
-@app.route('/auth/verify_otp', methods=['POST'])
-def auth_verify_otp():
-    data  = request.json or {}
-    email = data.get('email', '').strip().lower()
-    code  = data.get('otp', '').strip()
-    rec   = OTP_STORE.get(email)
-    if not rec:
-        return jsonify({'error': 'No OTP requested for this email'}), 400
-    if time.time() > rec['exp']:
-        OTP_STORE.pop(email, None)
-        return jsonify({'error': 'Code expired, request a new one'}), 400
-    rec['attempts'] += 1
-    if rec['attempts'] > OTP_MAX_ATTEMPTS:
-        OTP_STORE.pop(email, None)
-        return jsonify({'error': 'Too many attempts'}), 400
-    if code != rec['otp']:
-        return jsonify({'error': 'Incorrect code'}), 400
-    OTP_STORE.pop(email, None)
-    session['email']     = email
-    session['logged_at'] = datetime.utcnow().isoformat() + 'Z'
-    write_log(email, 'login_success')
-    return jsonify({'status': 'ok', 'email': email})
-
-@app.route('/auth/logout', methods=['POST'])
-def auth_logout():
-    email = session.get('email')
-    session.clear()
-    if email: write_log(email, 'logout')
-    return jsonify({'status': 'ok'})
-
-@app.route('/auth/me')
-def auth_me():
-    return jsonify({'email': session.get('email')})
 
 # ── Template constants (unchanged from your original) ──────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')
@@ -201,53 +96,282 @@ DEFAULT_CONFIG = {
 }
 config = {k: v for k, v in DEFAULT_CONFIG.items()}
 
-# ─── (your existing helpers — safe / detect_col / build_col_map / title_case_color /
-#      merge_colors / extract_article / expand_size_range / build_set_details /
-#      parse_lbh / derive_gender / make_title / make_internal_title / make_description /
-#      DUMP_COL_HINTS / BASE_COL_HINTS / fill_template — all unchanged ) ───
-# Paste your originals here verbatim. I'm omitting them for brevity.
+# ─── Helper functions (stubs — replace with your originals) ───
+
+DUMP_COL_HINTS = {
+    'title': ['title', 'product title', 'product_name', 'name'],
+    'sku': ['sku', 'childsku', 'sku id', 'product sku'],
+    'article': ['article', 'article number', 'article_no', 'art no'],
+    'mrp': ['mrp', 'max retail price', 'marked price'],
+    'sp': ['selling price', 'sale price', 'price', 'sp'],
+    'color': ['color', 'colour', 'product color'],
+    'size': ['size', 'sizes', 'available sizes'],
+    'set': ['set', 'set details', 'set_count'],
+    'vertical': ['vertical', 'subtype', 'product vertical', 'category'],
+    'hsn': ['hsn', 'hsn code', 'hsncode'],
+    'upper': ['upper material', 'upper'],
+    'sole': ['sole material', 'sole'],
+}
+
+BASE_COL_HINTS = {
+    'sku': ['sku', 'childsku', 'sku id'],
+    'article': ['article', 'article number'],
+}
+
+def safe(val):
+    """Return stripped string or empty string."""
+    if pd.isna(val) or val is None:
+        return ''
+    return str(val).strip()
+
+def detect_col(df, hints):
+    """Find the first column in df that matches any of the hints (case-insensitive)."""
+    cols = [c.strip() for c in df.columns]
+    for hint in hints:
+        hint_lower = hint.lower().strip()
+        for col in cols:
+            if hint_lower in col.lower():
+                return col
+    return None
+
+def build_col_map(df, hints_dict):
+    """Build a mapping from canonical names to actual DataFrame column names."""
+    return {key: detect_col(df, hints) for key, hints in hints_dict.items()}
+
+def title_case_color(color_str):
+    """Format color string nicely."""
+    if not color_str:
+        return ''
+    parts = re.split(r'[/&+,]', color_str)
+    return '/'.join(p.strip().title() for p in parts if p.strip())
+
+def merge_colors(color_series):
+    """Merge multiple color values into a single slash-separated string."""
+    colors = [safe(c) for c in color_series if safe(c)]
+    if not colors:
+        return ''
+    unique = []
+    for c in colors:
+        for part in re.split(r'[/&+,]', c):
+            p = part.strip().title()
+            if p and p not in unique:
+                unique.append(p)
+    return '/'.join(unique)
+
+def extract_article(title_str):
+    """Extract article number from title if present."""
+    if not title_str:
+        return ''
+    m = re.search(r'\b(Art[.\s]*\d+|ART-\d+|\d{4,})\b', str(title_str), re.I)
+    return m.group(1) if m else ''
+
+def expand_size_range(size_str):
+    """Expand size ranges like '6-10' into individual sizes."""
+    if not size_str:
+        return []
+    sizes = []
+    for part in re.split(r'[,;/]', str(size_str)):
+        part = part.strip()
+        if not part:
+            continue
+        m = re.match(r'(\d+(?:\.5)?)\s*-\s*(\d+(?:\.5)?)', part)
+        if m:
+            start, end = float(m.group(1)), float(m.group(2))
+            while start <= end:
+                sizes.append(str(int(start)) if start == int(start) else str(start))
+                start += 1
+        else:
+            sizes.append(part)
+    return sizes
+
+def build_set_details(set_str, count_str):
+    """Build set details string."""
+    s = safe(set_str)
+    c = safe(count_str)
+    if s and c:
+        return f"{s} ({c} pcs)"
+    return s or c or ''
+
+def parse_lbh(dimension_str):
+    """Parse length x breadth x height from string."""
+    if not dimension_str:
+        return '', '', ''
+    m = re.findall(r'(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)', str(dimension_str))
+    if m:
+        return m[0][0], m[0][1], m[0][2]
+    return '', '', ''
+
+def derive_gender(title_str, category_str=''):
+    """Derive gender from title or category."""
+    text = f"{title_str} {category_str}".lower()
+    if any(w in text for w in ['women', 'woman', 'ladies', 'female', 'girl']):
+        return 'Women'
+    if any(w in text for w in ['men', 'man', 'male', 'boy', 'gents', 'gent']):
+        return 'Men'
+    if any(w in text for w in ['kid', 'kids', 'child', 'children', 'baby', 'infant']):
+        return 'Kids'
+    return 'Unisex'
+
+def make_title(row_dict, subtype):
+    """Generate product title from row data."""
+    parts = []
+    brand = safe(row_dict.get('brand', ''))
+    if brand:
+        parts.append(brand.title())
+    gender = safe(row_dict.get('gender', derive_gender(row_dict.get('title', ''))))
+    if gender:
+        parts.append(gender)
+    parts.append(subtype)
+    color = safe(row_dict.get('color', ''))
+    if color:
+        parts.append(title_case_color(color))
+    article = safe(row_dict.get('article', extract_article(row_dict.get('title', ''))))
+    if article:
+        parts.append(f"Art {article}")
+    return ' '.join(parts)
+
+def make_internal_title(title):
+    """Generate internal title."""
+    return safe(title)[:100]
+
+def make_description(row_dict):
+    """Generate product description."""
+    parts = []
+    title = safe(row_dict.get('title', ''))
+    if title:
+        parts.append(title)
+    color = safe(row_dict.get('color', ''))
+    if color:
+        parts.append(f"Color: {title_case_color(color)}")
+    upper = safe(row_dict.get('upper_material', ''))
+    if upper:
+        parts.append(f"Upper Material: {upper}")
+    sole = safe(row_dict.get('sole_material', ''))
+    if sole:
+        parts.append(f"Sole Material: {sole}")
+    return ' | '.join(parts)
+
+def fill_template(dump_df, base_df, headers, wb):
+    """Fill template workbook with data from dump_df. Returns (filled_rows, skipped_rows)."""
+    filled_rows = []
+    skipped_rows = []
+
+    # Build base SKU set for duplicate detection
+    base_skus = set()
+    if base_df is not None and not base_df.empty:
+        base_map = build_col_map(base_df, BASE_COL_HINTS)
+        sku_col = base_map.get('sku')
+        if sku_col and sku_col in base_df.columns:
+            base_skus = set(str(v).strip().lower() for v in base_df[sku_col].dropna())
+
+    # Build dump column map
+    col_map = build_col_map(dump_df, DUMP_COL_HINTS)
+
+    ws = wb.active
+    row_idx = 2  # Start from row 2 (row 1 is headers)
+
+    for _, row in dump_df.iterrows():
+        row_dict = {k: row.get(v) if v and v in dump_df.columns else '' for k, v in col_map.items()}
+
+        sku = safe(row_dict.get('sku', ''))
+        article = safe(row_dict.get('article', ''))
+
+        # Check for duplicates
+        if sku and sku.lower() in base_skus:
+            skipped_rows.append({'sku': sku, 'article': article, 'reason': 'Duplicate SKU in base data'})
+            continue
+
+        # Build filled row
+        filled = {}
+        for h in headers:
+            h_lower = str(h).lower().strip() if h else ''
+
+            if h == 'title *':
+                filled[h] = make_title(row_dict, 'Footwear')
+            elif h == 'ChildSKU *':
+                filled[h] = sku or f"SKU-{article or row_idx}"
+            elif h == 'ARTICLE_NUMBER *':
+                filled[h] = article or extract_article(row_dict.get('title', ''))
+            elif h == 'MRP *':
+                filled[h] = safe(row_dict.get('mrp', ''))
+            elif h == 'SellingPrice *':
+                filled[h] = safe(row_dict.get('sp', ''))
+            elif h == 'PRODUCT_COLOR *':
+                filled[h] = title_case_color(row_dict.get('color', ''))
+            elif h == 'AVAILABLE_SIZES *':
+                sizes = expand_size_range(row_dict.get('size', ''))
+                filled[h] = ', '.join(sizes)
+            elif h == 'SET_DETAILS *':
+                filled[h] = build_set_details(row_dict.get('set', ''), row_dict.get('set_count', ''))
+            elif h == 'UPPER_MATERIAL *':
+                filled[h] = safe(row_dict.get('upper', ''))
+            elif h == 'SOLE_MATERIAL *':
+                filled[h] = safe(row_dict.get('sole', ''))
+            elif h == 'hsnCode *':
+                filled[h] = safe(row_dict.get('hsn', ''))
+            elif h == 'SET_COUNT *':
+                filled[h] = safe(row_dict.get('set_count', ''))
+            elif h == 'description':
+                filled[h] = make_description(row_dict)
+            elif h == 'internal_title':
+                filled[h] = make_internal_title(filled.get('title *', ''))
+            elif h == 'gender':
+                filled[h] = derive_gender(row_dict.get('title', ''), '')
+            elif h == 'length':
+                l, _, _ = parse_lbh(row_dict.get('dimensions', ''))
+                filled[h] = l
+            elif h == 'breadth':
+                _, b, _ = parse_lbh(row_dict.get('dimensions', ''))
+                filled[h] = b
+            elif h == 'height':
+                _, _, h_val = parse_lbh(row_dict.get('dimensions', ''))
+                filled[h] = h_val
+            else:
+                filled[h] = ''
+
+        # Write to worksheet
+        for ci, h in enumerate(headers, 1):
+            ws.cell(row_idx, ci).value = filled.get(h, '')
+
+        filled_rows.append(filled)
+        row_idx += 1
+
+    return filled_rows, skipped_rows
 
 # ── Routes ─────────────────────────────────────────────────────
 @app.route('/')
-@login_required
 def index():
-    return render_template('index.html', user_email=session.get('email'))
+    return render_template('index.html')
 
 @app.route('/subtypes')
-@login_required
 def get_subtypes():
     return jsonify({'subtypes': PV_LIST})
 
 @app.route('/config', methods=['GET'])
-@login_required
 def get_config(): return jsonify(config)
 
 @app.route('/config', methods=['POST'])
-@login_required
 def update_config():
     global config
     config.update(request.json)
-    write_log(session.get('email'), 'config_updated')
+    write_log('anonymous', 'config_updated')
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')
-@login_required
 def get_logs():
     return jsonify({'logs': read_logs(500)})
 
 @app.route('/download_template/<vertical>')
-@login_required
 def download_template(vertical):
     # Only Footwear unlocked
     if vertical.lower() != 'footwear':
         return jsonify({'error': 'This vertical is under development'}), 403
-    write_log(session.get('email'), 'template_downloaded', vertical)
+    write_log('anonymous', 'template_downloaded', vertical)
     return send_file(TEMPLATE_PATH, as_attachment=True,
                      download_name='Footwear_Template.xlsx',
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/detect_verticals', methods=['POST'])
-@login_required
 def detect_verticals():
     try:
         dump_file = request.files.get('dump')
@@ -270,24 +394,116 @@ def detect_verticals():
         return jsonify({'verticals': [], 'error': str(e)})
 
 @app.route('/process', methods=['POST'])
-@login_required
 def process():
-    # ← keep your existing /process implementation verbatim,
-    #    and add one line at the very start of the try block:
-    #      user_email = session.get('email')
-    #    and one line after grand_filled is known:
-    #      write_log(user_email, 'catalog_generated',
-    #                f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
-    ...
+    """Process uploaded dump file and generate filled catalog template."""
+    try:
+        subtypes = json.loads(request.form.get('subtypes', '[]'))
+        dump_file = request.files.get('dump')
+        base_file = request.files.get('base_data')
+
+        if not dump_file or not subtypes:
+            return jsonify({'error': 'Missing dump file or subtypes'}), 400
+
+        # Read dump file
+        dump_df = pd.read_excel(io.BytesIO(dump_file.read()))
+
+        # Read base data if provided
+        base_df = None
+        if base_file:
+            base_df = pd.read_excel(io.BytesIO(base_file.read()))
+
+        results = []
+        all_skipped = []
+        grand_filled = 0
+        grand_skipped = 0
+        preview = []
+        preview_cols = []
+
+        for subtype in subtypes:
+            if subtype not in SUBTYPE_MAP:
+                continue
+
+            # Filter rows for this subtype
+            col_map = build_col_map(dump_df, DUMP_COL_HINTS)
+            subtype_col = col_map.get('vertical') or col_map.get('subtype')
+            if subtype_col and subtype_col in dump_df.columns:
+                subtype_df = dump_df[dump_df[subtype_col].astype(str).str.strip() == subtype].copy()
+            else:
+                subtype_df = dump_df.copy()
+
+            # Fill template
+            wb, headers = get_template_wb_for_subtype(subtype)
+            filled_rows, skipped_rows = fill_template(subtype_df, base_df, headers, wb)
+
+            # Save to temp file
+            token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            temp_path = os.path.join(tempfile.gettempdir(), token + '.xlsx')
+            wb.save(temp_path)
+
+            filled_count = len(filled_rows)
+            skipped_count = len(skipped_rows)
+            grand_filled += filled_count
+            grand_skipped += skipped_count
+            all_skipped.extend(skipped_rows)
+
+            results.append({
+                'subtype': subtype,
+                'filename': f'{subtype.replace(" ", "_")}_Catalog.xlsx',
+                'filled': filled_count,
+                'skipped': skipped_count,
+                'token': token
+            })
+
+            # Build preview from first subtype only (limit rows)
+            if not preview and filled_rows:
+                preview_cols = [c for c in headers if c in ('title *', 'ChildSKU *', 'ARTICLE_NUMBER *', 'MRP *', 'SellingPrice *', 'PRODUCT_COLOR *', 'AVAILABLE_SIZES *', 'SET_DETAILS *', 'UPPER_MATERIAL *', 'SOLE_MATERIAL *', 'hsnCode *', 'SET_COUNT *')]
+                for row in filled_rows[:50]:
+                    preview.append({col: row.get(col, '') for col in preview_cols})
+
+        # If multiple subtypes, create a zip
+        is_zip = len(results) > 1
+        if is_zip:
+            import zipfile
+            zip_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+            zip_path = os.path.join(tempfile.gettempdir(), zip_token + '.zip')
+            with zipfile.ZipFile(zip_path, 'w') as zf:
+                for r in results:
+                    file_path = os.path.join(tempfile.gettempdir(), r['token'] + '.xlsx')
+                    zf.write(file_path, r['filename'])
+            download_token = zip_token
+            download_filename = 'Catalog_Files.zip'
+        else:
+            download_token = results[0]['token'] if results else ''
+            download_filename = results[0]['filename'] if results else 'filled_template.xlsx'
+
+        write_log('anonymous', 'catalog_generated',
+                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
+
+        return jsonify({
+            'status': 'ok',
+            'results': results,
+            'grand_filled': grand_filled,
+            'grand_skipped': grand_skipped,
+            'download_token': download_token,
+            'filename': download_filename,
+            'is_zip': is_zip,
+            'preview': preview,
+            'preview_cols': preview_cols,
+            'skipped_details': all_skipped[:100]
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<token>')
-@login_required
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
     path = os.path.join(tempfile.gettempdir(), token)
     if not os.path.exists(path): return 'File not found', 404
     fname = request.args.get('filename', 'filled_template.xlsx')
-    write_log(session.get('email'), 'file_downloaded', fname)
+    write_log('anonymous', 'file_downloaded', fname)
     return send_file(path, as_attachment=True, download_name=fname,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 

@@ -1,9 +1,96 @@
-from flask import Flask, request, jsonify, send_file, render_template
-import pandas as pd, re, io, tempfile, os, json, copy
+from flask import Flask, request, jsonify, send_file, render_template, session, redirect, url_for
+import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, smtplib, ssl, zipfile
+from functools import wraps
+from datetime import datetime
+from email.mime.text import MIMEText
 from openpyxl import load_workbook
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+
+# ── SECRET KEY (required for sessions) ─────────────────────────
+app.secret_key = os.environ.get('FLASK_SECRET', 'change-me-in-production-' + ''.join(random.choices(string.ascii_letters, k=32)))
+
+# ── SMTP config for sending OTP emails ─────────────────────────
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASS = os.environ.get('SMTP_PASS', '')
+SMTP_FROM = os.environ.get('SMTP_FROM', SMTP_USER)
+
+# Optional allow-list (empty = allow any email)
+ALLOWED_EMAILS = [e.strip().lower() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
+
+# ── OTP storage ────────────────────────────────────────────────
+OTP_STORE = {}
+OTP_TTL = 5 * 60          # 5 minutes
+OTP_MAX_ATTEMPTS = 5
+
+# ── Logging ────────────────────────────────────────────────────
+LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
+
+def write_log(email, action, details=''):
+    entry = {
+        'ts': datetime.utcnow().isoformat() + 'Z',
+        'email': email or 'anonymous',
+        'action': action,
+        'details': details,
+    }
+    try:
+        with open(LOG_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry) + '\n')
+    except Exception as e:
+        print('log err', e)
+
+def read_logs(limit=200):
+    if not os.path.exists(LOG_PATH): return []
+    out = []
+    try:
+        with open(LOG_PATH, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                try: out.append(json.loads(line))
+                except: pass
+    except: pass
+    return list(reversed(out))[:limit]
+
+# ── Login Required Decorator ───────────────────────────────────
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('email'):
+            if request.path.startswith('/api') or request.method == 'POST':
+                return jsonify({'error': 'auth_required'}), 401
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return decorated
+
+# ── OTP Email Function ─────────────────────────────────────────
+def send_otp_email(to_email, otp):
+    if not SMTP_USER or not SMTP_PASS:
+        print(f'[DEV MODE] OTP for {to_email} = {otp}')
+        return True, 'dev'
+    msg = MIMEText(
+        f"Your FillForge login code is: {otp}\n\n"
+        f"This code expires in 5 minutes.\n"
+        f"If you did not request this, ignore this email.\n\n— FillForge",
+        'plain'
+    )
+    msg['Subject'] = f'FillForge login code: {otp}'
+    msg['From'] = SMTP_FROM
+    msg['To'] = to_email
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as srv:
+            srv.starttls(context=ctx)
+            srv.login(SMTP_USER, SMTP_PASS)
+            srv.sendmail(SMTP_FROM, [to_email], msg.as_string())
+        return True, 'sent'
+    except Exception as e:
+        return False, str(e)
+
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 # ── Load embedded template file once at startup ────────────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')
@@ -57,36 +144,6 @@ def get_template_wb_for_subtype(subtype):
         ws_new.cell(1, ci).value = h
     return wb_new, headers
 
-# ── Logging ────────────────────────────────────────────────────
-LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
-
-def write_log(email, action, details=''):
-    from datetime import datetime
-    entry = {
-        'ts': datetime.utcnow().isoformat() + 'Z',
-        'email': email or 'anonymous',
-        'action': action,
-        'details': details,
-    }
-    try:
-        with open(LOG_PATH, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry) + '\n')
-    except Exception as e:
-        print('log err', e)
-
-def read_logs(limit=200):
-    if not os.path.exists(LOG_PATH): return []
-    out = []
-    try:
-        with open(LOG_PATH, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                try: out.append(json.loads(line))
-                except: pass
-    except: pass
-    return list(reversed(out))[:limit]
-
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "brand_name":          "",
@@ -138,18 +195,9 @@ def merge_colors(primary, secondary):
     return f"{p} & {s}"
 
 def extract_article(sku):
-    """
-    Strip color suffixes from SKU to get base article number.
-    Handles:
-      A) Underscore-delimited:  ONTL-035_BLACK_5X8_... -> ONTL-035
-      B) Space + full color:    AAMIR-01 BLACK (6--9)  -> AAMIR-01
-      C) Direct short suffix:   1108BK -> 1108, 1117MRN -> 1117
-    """
     s = str(sku).strip()
     if '_' in s:
         return s.split('_')[0].strip()
-
-    # Short color codes appended directly — longest first to avoid partial matches
     COLOR_CODES = [
         'LBLUE','LGREY','LGRAY','LGREEN','LPINK','LBROWN',
         'DBLUE','DGREY','DGRAY','DGREEN','DPINK','DBROWN',
@@ -159,28 +207,21 @@ def extract_article(sku):
         'ORG','PRP','BK','WH','BL','RD','GR','NV','PK','YL','OR',
     ]
     code_pattern = '(' + '|'.join(COLOR_CODES) + ')$'
-
-    # Pattern B: space/dash + full color word (also handles size ranges before color)
     COLOR_WORDS = (r'BLACK|WHITE|BLUE|RED|GREEN|GREY|GRAY|BEIGE|BROWN|NAVY|PINK|YELLOW|'
                    r'ORANGE|PURPLE|PEACH|CREAM|MAROON|GOLD|SILVER|ASSORTED|MULTI|ONION|IVORY')
-    # Strip size range + color suffix: e.g. ' 6X9--8-BLACK' or ' BLACK' or '-BLACK'
     cleaned = re.sub(r'[\s_]+[\dXx]+[-]+[\dXx]+[-]+[\dXx]*[\s\-]*(' + COLOR_WORDS + r')\b.*', '', s, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r'[\s\-]+(' + COLOR_WORDS + r')\b.*', '', cleaned, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r'\s*\(\d+.*\)$', '', cleaned).strip()
     cleaned = re.sub(r'[\s\-]+$', '', cleaned).strip()
-    cleaned = re.sub(r'\s*-\s*', '-', cleaned)
+    cleaned = re.sub(r'\s*-*\s*', '-', cleaned)
     if cleaned and cleaned != s:
         return cleaned
-
-    # Pattern C: directly appended short code
     m = re.search(code_pattern, s, re.IGNORECASE)
     if m:
         stripped = s[:m.start()].rstrip('-_').strip()
         if stripped:
             return stripped
-
     return s
-
 
 def expand_size_range(size_str, size_type='UK'):
     s = str(size_str).strip()
@@ -238,9 +279,6 @@ def derive_gender(subtype):
     if "boy" in st:   return "Boy's"
     return ""
 
-# Titles per reference example:
-# Title:    "Pahnava Women's Flyknit Slip-on Walking Shoes, Onion"
-# Internal: "Pahnava FLYNET-02 Women's Flyknit Slip-on Walking Shoes, Onion, Set of 8 (UK 6/2, UK 7/2, UK 8/2, UK 9/2)"
 def make_title(brand, gender, upper, closure, fw_type, color):
     parts = [p for p in [brand, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
@@ -262,7 +300,7 @@ def make_description(brand, article, gender, upper, closure, fw_type, sole, colo
         f"reliable grip and cushioned support. "
         f"The {closure_l} closure makes wearing easy. "
         f"Color: {color}. Available sizes: {sizes}. "
-        f"Set of {set_count} bulk-pack \u2014 ideal for retailers and resellers."
+        f"Set of {set_count} bulk-pack — ideal for retailers and resellers."
     )
 
 DUMP_COL_HINTS = {
@@ -324,7 +362,6 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         sizes_raw   = safe(drow.get(col_map.get('sizes',''), ''))
         set_det_raw = safe(drow.get(col_map.get('set_details',''), ''))
         _sc_raw   = safe(drow.get(col_map.get('set_of',''), '0'))
-        # Extract numeric part only — handles 'SET', 'Set of 8', '8', etc.
         _sc_nums  = re.findall(r'\d+', str(_sc_raw))
         set_count = int(_sc_nums[0]) if _sc_nums else 0
         color       = merge_colors(
@@ -448,31 +485,103 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
 
     return filled, skipped
 
-# ── Routes ─────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+# AUTH ROUTES
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/login')
+def login_page():
+    if session.get('email'):
+        return redirect('/')
+    return render_template('login.html')
+
+@app.route('/auth/send_otp', methods=['POST'])
+def auth_send_otp():
+    email = (request.json or {}).get('email', '').strip().lower()
+    if not EMAIL_RE.match(email):
+        return jsonify({'error': 'Invalid email address'}), 400
+    if ALLOWED_EMAILS:
+        domain = email.split('@')[-1]
+        if email not in ALLOWED_EMAILS and domain not in ALLOWED_EMAILS:
+            return jsonify({'error': 'This email is not authorized to access FillForge'}), 403
+
+    otp = ''.join(random.choices(string.digits, k=6))
+    OTP_STORE[email] = {'otp': otp, 'exp': time.time() + OTP_TTL, 'attempts': 0}
+    ok, info = send_otp_email(email, otp)
+    if not ok:
+        return jsonify({'error': f'Could not send email: {info}'}), 500
+    write_log(email, 'otp_requested')
+    return jsonify({'status': 'ok', 'dev': info == 'dev'})
+
+@app.route('/auth/verify_otp', methods=['POST'])
+def auth_verify_otp():
+    data  = request.json or {}
+    email = data.get('email', '').strip().lower()
+    code  = data.get('otp', '').strip()
+    rec   = OTP_STORE.get(email)
+    if not rec:
+        return jsonify({'error': 'No OTP requested for this email'}), 400
+    if time.time() > rec['exp']:
+        OTP_STORE.pop(email, None)
+        return jsonify({'error': 'Code expired, request a new one'}), 400
+    rec['attempts'] += 1
+    if rec['attempts'] > OTP_MAX_ATTEMPTS:
+        OTP_STORE.pop(email, None)
+        return jsonify({'error': 'Too many attempts'}), 400
+    if code != rec['otp']:
+        return jsonify({'error': 'Incorrect code'}), 400
+    OTP_STORE.pop(email, None)
+    session['email']     = email
+    session['logged_at'] = datetime.utcnow().isoformat() + 'Z'
+    write_log(email, 'login_success')
+    return jsonify({'status': 'ok', 'email': email})
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    email = session.get('email')
+    session.clear()
+    if email: write_log(email, 'logout')
+    return jsonify({'status': 'ok'})
+
+@app.route('/auth/me')
+def auth_me():
+    return jsonify({'email': session.get('email')})
+
+# ═══════════════════════════════════════════════════════════════
+# PROTECTED ROUTES
+# ═══════════════════════════════════════════════════════════════
+
 @app.route('/')
-def index(): return render_template('index.html')
+@login_required
+def index():
+    return render_template('index.html', user_email=session.get('email'))
 
 @app.route('/subtypes')
+@login_required
 def get_subtypes():
     return jsonify({'subtypes': PV_LIST})
 
 @app.route('/config', methods=['GET'])
-def get_config(): return jsonify(config)
+@login_required
+def get_config():
+    return jsonify(config)
 
 @app.route('/config', methods=['POST'])
+@login_required
 def update_config():
     global config
     config.update(request.json)
+    write_log(session.get('email'), 'config_updated')
     return jsonify({'status': 'ok'})
+
 @app.route('/logs')
+@login_required
 def get_logs():
     return jsonify({'logs': read_logs(500)})
 
-
-
 @app.route('/detect_verticals', methods=['POST'])
+@login_required
 def detect_verticals():
-    """Read dump file and return which Product Verticals are present in it."""
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
@@ -488,7 +597,6 @@ def detect_verticals():
         if vert_col and vert_col in all_dump.columns:
             found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
                      if str(v).strip() not in ('nan','None','')]
-            # Only return verticals that exist in our SubType map
             matched = [v for v in found if v in SUBTYPE_MAP]
             return jsonify({'verticals': matched, 'all_found': found})
         return jsonify({'verticals': [], 'all_found': []})
@@ -496,9 +604,9 @@ def detect_verticals():
         return jsonify({'verticals': [], 'error': str(e)})
 
 @app.route('/process', methods=['POST'])
+@login_required
 def process():
     try:
-        # Accept multiple subtypes as JSON array in form field
         subtypes_raw = request.form.get('subtypes', '')
         try:    subtypes = json.loads(subtypes_raw)
         except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
@@ -514,7 +622,6 @@ def process():
             if st not in SUBTYPE_MAP:
                 return jsonify({'error': f'SubType "{st}" not found in template'}), 400
 
-        # Load dump once
         dump_bytes = dump_file.read()
         xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
         frames     = []
@@ -528,7 +635,6 @@ def process():
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
 
-        # Base data dup check — load once
         existing_articles, existing_skus = set(), set()
         if base_file:
             bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
@@ -542,8 +648,6 @@ def process():
                         existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
                 except: pass
 
-        # Process each subtype → separate xlsx
-        import zipfile as zf
         results        = []
         all_skipped    = []
         grand_filled   = 0
@@ -551,9 +655,8 @@ def process():
         preview_cols   = []
 
         zip_buf = io.BytesIO()
-        with zf.ZipFile(zip_buf, 'w', zf.ZIP_DEFLATED) as zout:
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for subtype in subtypes:
-                # Filter dump rows for this subtype
                 if vert_col and vert_col in all_dump.columns:
                     mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
                     filtered = all_dump[mask].copy()
@@ -573,7 +676,6 @@ def process():
                 all_skipped.extend(skipped)
                 grand_filled += filled
 
-                # Save individual xlsx into zip
                 safe_st   = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
                 fname     = f'filled_{safe_st}.xlsx'
                 xls_buf   = io.BytesIO()
@@ -583,7 +685,6 @@ def process():
                 results.append({'subtype': subtype, 'filled': filled,
                                  'skipped': len(skipped), 'filename': fname})
 
-                # Preview from first subtype only
                 if not preview_cols:
                     pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
                              'PRODUCT_COLOR *','AVAILABLE_SIZES *','SET_DETAILS *',
@@ -595,25 +696,23 @@ def process():
                             preview_rows.append({**rdata, '_subtype': subtype})
 
         zip_buf.seek(0)
-        # Single subtype → return xlsx directly; multiple → return zip
         if len(subtypes) == 1:
             safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
             out_name = f'filled_{safe_st}.xlsx'
             out_ext  = '.xlsx'
-            out_mime = 'xlsx'
-            # Re-extract the single file from zip
-            with zf.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
+            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
                 out_bytes = zin.read(results[0]['filename'])
         else:
             out_name  = 'filled_templates.zip'
             out_ext   = '.zip'
-            out_mime  = 'zip'
             out_bytes = zip_buf.getvalue()
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=out_ext,
                                           dir=tempfile.gettempdir(), prefix='filled_')
         tmp.write(out_bytes); tmp.close()
-        write_log('anonymous', 'catalog_generated', f'filled={grand_filled} skipped={len(all_skipped)}')
+
+        write_log(session.get('email'), 'catalog_generated',
+                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
             'status':           'ok',
@@ -633,10 +732,10 @@ def process():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 @app.route('/download/<token>')
+@login_required
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
     tmpdir = tempfile.gettempdir()
-    # Try different extensions since we use NamedTemporaryFile
     for ext in ['', '.zip', '.xlsx']:
         path = os.path.join(tmpdir, token + ext)
         if os.path.exists(path):
@@ -645,7 +744,7 @@ def download(token):
                 mtype = 'application/zip'
             else:
                 mtype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            write_log('anonymous', 'file_downloaded', fname)
+            write_log(session.get('email'), 'file_downloaded', fname)
             return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
     return 'File not found', 404
 

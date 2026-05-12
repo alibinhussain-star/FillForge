@@ -71,22 +71,34 @@ def send_otp_email(to_email, otp):
     if not SMTP_USER or not SMTP_PASS:
         print(f'[DEV MODE] OTP for {to_email} = {otp}')
         return True, 'dev'
-    msg = MIMEText(
-        f"Your FillForge login code is: {otp}\n\n"
-        f"This code expires in 5 minutes.\n"
-        f"If you did not request this, ignore this email.\n\n— FillForge",
-        'plain'
+
+    # Use SendGrid HTTP API instead of SMTP (bypasses blocked ports on Render)
+    import urllib.request
+    import urllib.error
+
+    data = {
+        "personalizations": [{"to": [{"email": to_email}]}],
+        "from": {"email": SMTP_FROM, "name": "FillForge"},
+        "subject": f"FillForge login code: {otp}",
+        "content": [{"type": "text/plain", "value": f"Your FillForge login code is: {otp}\n\nThis code expires in 5 minutes.\nIf you did not request this, ignore this email.\n\n— FillForge"}]
+    }
+
+    req = urllib.request.Request(
+        "https://api.sendgrid.com/v3/mail/send",
+        data=json.dumps(data).encode('utf-8'),
+        headers={
+            "Authorization": f"Bearer {SMTP_PASS}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
     )
-    msg['Subject'] = f'FillForge login code: {otp}'
-    msg['From'] = SMTP_FROM
-    msg['To'] = to_email
+
     try:
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as srv:
-            srv.starttls(context=ctx)
-            srv.login(SMTP_USER, SMTP_PASS)
-            srv.sendmail(SMTP_FROM, [to_email], msg.as_string())
-        return True, 'sent'
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return True, 'sent'
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        return False, f"HTTP {e.code}: {error_body}"
     except Exception as e:
         return False, str(e)
 
@@ -120,23 +132,39 @@ def _build_header_row_map():
                     break
     return hdr_map, static_map
 
-SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+try:
+    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+except Exception as e:
+    print(f"Warning: Could not build header row map: {e}")
+    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
 
 def load_pv_list():
-    pv  = pd.read_excel(TEMPLATE_PATH, sheet_name='PV List')
-    col = pv.columns[0]
-    return [str(v).strip() for v in pv[col].dropna() if str(v).strip() not in ('nan','SubType')]
+    try:
+        pv  = pd.read_excel(TEMPLATE_PATH, sheet_name='PV List')
+        col = pv.columns[0]
+        return [str(v).strip() for v in pv[col].dropna() if str(v).strip() not in ('nan','SubType')]
+    except Exception as e:
+        print(f"Warning: Could not load PV List: {e}")
+        return []
 
-PV_LIST = load_pv_list()
+try:
+    PV_LIST = load_pv_list()
+except Exception as e:
+    print(f"Warning: Could not load PV_LIST: {e}")
+    PV_LIST = []
 
 def get_template_wb_for_subtype(subtype):
     from openpyxl import Workbook
-    wb_src  = load_workbook(TEMPLATE_PATH)
-    ws_src  = wb_src['PV Template']
-    hdr_row = SUBTYPE_HEADER_ROW.get(subtype, 1)
-    headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
-    while headers and headers[-1] is None:
-        headers.pop()
+    try:
+        wb_src  = load_workbook(TEMPLATE_PATH)
+        ws_src  = wb_src['PV Template']
+        hdr_row = SUBTYPE_HEADER_ROW.get(subtype, 1)
+        headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
+        while headers and headers[-1] is None:
+            headers.pop()
+    except Exception as e:
+        print(f"Warning: Could not load template for {subtype}: {e}")
+        headers = []
     wb_new       = Workbook()
     ws_new       = wb_new.active
     ws_new.title = 'PV Template'
@@ -493,7 +521,24 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
 def login_page():
     if session.get('email'):
         return redirect('/')
-    return render_template('login.html')
+    try:
+        return render_template('login.html')
+    except Exception:
+        pass
+    # Try capital L version
+    try:
+        return render_template('Login.html')
+    except Exception:
+        pass
+    # Fallback: read file directly
+    for filename in ['login.html', 'Login.html']:
+        for folder in ['templates', '.']:
+            html_path = os.path.join(os.path.dirname(__file__), folder, filename)
+            if os.path.exists(html_path):
+                with open(html_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+    import traceback
+    return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/auth/send_otp', methods=['POST'])
 def auth_send_otp():
@@ -554,7 +599,22 @@ def auth_me():
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', user_email=session.get('email'))
+    try:
+        return render_template('index.html', user_email=session.get('email'))
+    except Exception as e:
+        # Fallback: try to read index.html directly
+        try:
+            html_path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
+            if not os.path.exists(html_path):
+                html_path = os.path.join(os.path.dirname(__file__), 'index.html')
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html = f.read()
+            # Replace the template variable
+            html = html.replace("{{ user_email|default('', true) }}", session.get('email', ''))
+            return html
+        except Exception as e2:
+            import traceback
+            return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/subtypes')
 @login_required
@@ -736,16 +796,26 @@ def process():
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
     tmpdir = tempfile.gettempdir()
-    for ext in ['', '.zip', '.xlsx']:
+
+    # Token might already include extension (from NamedTemporaryFile)
+    # Try exact match first
+    path = os.path.join(tmpdir, token)
+    if os.path.exists(path):
+        ext = '.zip' if token.endswith('.zip') else '.xlsx'
+        fname = request.args.get('filename', 'filled_template' + ext)
+        mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        write_log(session.get('email'), 'file_downloaded', fname)
+        return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
+
+    # Try with extensions appended (fallback)
+    for ext in ['.zip', '.xlsx', '']:
         path = os.path.join(tmpdir, token + ext)
         if os.path.exists(path):
             fname = request.args.get('filename', 'filled_template' + ext)
-            if ext == '.zip':
-                mtype = 'application/zip'
-            else:
-                mtype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             write_log(session.get('email'), 'file_downloaded', fname)
             return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
+
     return 'File not found', 404
 
 if __name__ == '__main__':

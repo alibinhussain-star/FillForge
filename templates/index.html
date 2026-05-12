@@ -43,12 +43,9 @@ body{background:var(--bg);min-height:100vh;display:flex}
 
 .sb-foot{padding:12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
 .user-box{display:flex;align-items:center;gap:9px;padding:8px 10px;background:var(--bg);border-radius:7px;font-size:11px}
-.user-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--orange) 0%,var(--orange-2) 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;flex-shrink:0}
 .user-text{flex:1;min-width:0;overflow:hidden}
 .user-label{font-size:9.5px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
 .user-email{font-size:11.5px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.logout-btn{background:transparent;border:1px solid var(--border-2);padding:6px 10px;border-radius:6px;font-size:11px;color:var(--muted);cursor:pointer;font-family:inherit;transition:all .15s}
-.logout-btn:hover{border-color:var(--danger);color:var(--danger)}
 .sb-ver{font-size:10px;color:var(--muted-2);text-align:center;padding:6px;letter-spacing:.5px}
 .sb-ver .badge{background:var(--orange-light);color:var(--orange);padding:1px 6px;border-radius:8px;font-weight:600;margin-left:4px}
 
@@ -266,13 +263,21 @@ svg{display:block}
       Help
     </button>
 
-    
+    <button class="sb-item" onclick="openConfig()">
+      <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      Settings
     </button>
   </nav>
 
   <div class="sb-foot">
-  <div class="sb-ver">FillForge <span class="badge">v0.3 Beta</span></div>
-</div>
+    <div class="user-box" style="justify-content:center">
+      <div class="user-text" style="text-align:center">
+        <div class="user-label" style="font-size:10px; color:var(--muted)">FillForge Catalog Ops</div>
+        <div class="user-email" style="font-size:11px; color:var(--text); font-weight:500">v0.3 Beta</div>
+      </div>
+    </div>
+    <div class="sb-ver">FillForge <span class="badge">v0.3 Beta</span></div>
+  </div>
 </aside>
 
 <!-- ── MAIN ── -->
@@ -553,6 +558,7 @@ svg{display:block}
 
 <div class="toast" id="toast"></div>
 
+<script>
 
 
 /* view switching */
@@ -604,6 +610,7 @@ async function loadLogs(){
       <td style="color:var(--muted)">${l.details||'—'}</td></tr>`).join('');
   }catch(e){ body.innerHTML = '<tr><td colspan="4" style="color:var(--danger);padding:20px">Could not load logs</td></tr>'; }
 }
+
 
 
 /* === ALL existing form / dropdown / process / config logic from your original index.html === */

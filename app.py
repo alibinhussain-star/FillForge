@@ -1,6 +1,5 @@
-from flask import Flask, request, jsonify, send_file, render_template, session, redirect, url_for
-import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, smtplib, ssl, zipfile
-from functools import wraps
+from flask import Flask, request, jsonify, send_file, render_template
+import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zipfile
 from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook
@@ -9,22 +8,9 @@ app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # ── SECRET KEY (required for sessions) ─────────────────────────
-app.secret_key = os.environ.get('FLASK_SECRET', 'change-me-in-production-' + ''.join(random.choices(string.ascii_letters, k=32)))
 
-# ── SMTP config for sending OTP emails ─────────────────────────
-SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
-SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
-SMTP_USER = os.environ.get('SMTP_USER', '')
-SMTP_PASS = os.environ.get('SMTP_PASS', '')
-SMTP_FROM = os.environ.get('SMTP_FROM', SMTP_USER)
 
-# Optional allow-list (empty = allow any email)
-ALLOWED_EMAILS = [e.strip().lower() for e in os.environ.get('ALLOWED_EMAILS', '').split(',') if e.strip()]
 
-# ── OTP storage ────────────────────────────────────────────────
-OTP_STORE = {}
-OTP_TTL = 5 * 60          # 5 minutes
-OTP_MAX_ATTEMPTS = 5
 
 # ── Logging ────────────────────────────────────────────────────
 LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
@@ -56,53 +42,9 @@ def read_logs(limit=200):
     return list(reversed(out))[:limit]
 
 # ── Login Required Decorator ───────────────────────────────────
-def login_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get('email'):
-            if request.path.startswith('/api') or request.method == 'POST':
-                return jsonify({'error': 'auth_required'}), 401
-            return redirect('/login')
-        return f(*args, **kwargs)
-    return decorated
 
 # ── OTP Email Function ─────────────────────────────────────────
-def send_otp_email(to_email, otp):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f'[DEV MODE] OTP for {to_email} = {otp}')
-        return True, 'dev'
 
-    # Use SendGrid HTTP API instead of SMTP (bypasses blocked ports on Render)
-    import urllib.request
-    import urllib.error
-
-    data = {
-        "personalizations": [{"to": [{"email": to_email}]}],
-        "from": {"email": SMTP_FROM, "name": "FillForge"},
-        "subject": f"FillForge login code: {otp}",
-        "content": [{"type": "text/plain", "value": f"Your FillForge login code is: {otp}\n\nThis code expires in 5 minutes.\nIf you did not request this, ignore this email.\n\n— FillForge"}]
-    }
-
-    req = urllib.request.Request(
-        "https://api.sendgrid.com/v3/mail/send",
-        data=json.dumps(data).encode('utf-8'),
-        headers={
-            "Authorization": f"Bearer {SMTP_PASS}",
-            "Content-Type": "application/json"
-        },
-        method="POST"
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return True, 'sent'
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode('utf-8')
-        return False, f"HTTP {e.code}: {error_body}"
-    except Exception as e:
-        return False, str(e)
-
-EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 # ── Load embedded template file once at startup ────────────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')
@@ -514,93 +456,17 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
     return filled, skipped
 
 # ═══════════════════════════════════════════════════════════════
-# AUTH ROUTES
-# ═══════════════════════════════════════════════════════════════
-
-@app.route('/login')
-def login_page():
-    if session.get('email'):
-        return redirect('/')
-    try:
-        return render_template('login.html')
-    except Exception:
-        pass
-    # Try capital L version
-    try:
-        return render_template('Login.html')
-    except Exception:
-        pass
-    # Fallback: read file directly
-    for filename in ['login.html', 'Login.html']:
-        for folder in ['templates', '.']:
-            html_path = os.path.join(os.path.dirname(__file__), folder, filename)
-            if os.path.exists(html_path):
-                with open(html_path, 'r', encoding='utf-8') as f:
-                    return f.read()
-    import traceback
-    return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
-
-@app.route('/auth/send_otp', methods=['POST'])
-def auth_send_otp():
-    email = (request.json or {}).get('email', '').strip().lower()
-    if not EMAIL_RE.match(email):
-        return jsonify({'error': 'Invalid email address'}), 400
-    if ALLOWED_EMAILS:
-        domain = email.split('@')[-1]
-        if email not in ALLOWED_EMAILS and domain not in ALLOWED_EMAILS:
-            return jsonify({'error': 'This email is not authorized to access FillForge'}), 403
-
-    otp = ''.join(random.choices(string.digits, k=6))
-    OTP_STORE[email] = {'otp': otp, 'exp': time.time() + OTP_TTL, 'attempts': 0}
-    ok, info = send_otp_email(email, otp)
-    if not ok:
-        return jsonify({'error': f'Could not send email: {info}'}), 500
-    write_log(email, 'otp_requested')
-    return jsonify({'status': 'ok', 'dev': info == 'dev'})
-
-@app.route('/auth/verify_otp', methods=['POST'])
-def auth_verify_otp():
-    data  = request.json or {}
-    email = data.get('email', '').strip().lower()
-    code  = data.get('otp', '').strip()
-    rec   = OTP_STORE.get(email)
-    if not rec:
-        return jsonify({'error': 'No OTP requested for this email'}), 400
-    if time.time() > rec['exp']:
-        OTP_STORE.pop(email, None)
-        return jsonify({'error': 'Code expired, request a new one'}), 400
-    rec['attempts'] += 1
-    if rec['attempts'] > OTP_MAX_ATTEMPTS:
-        OTP_STORE.pop(email, None)
-        return jsonify({'error': 'Too many attempts'}), 400
-    if code != rec['otp']:
-        return jsonify({'error': 'Incorrect code'}), 400
-    OTP_STORE.pop(email, None)
-    session['email']     = email
-    session['logged_at'] = datetime.utcnow().isoformat() + 'Z'
-    write_log(email, 'login_success')
-    return jsonify({'status': 'ok', 'email': email})
-
-@app.route('/auth/logout', methods=['POST'])
-def auth_logout():
-    email = session.get('email')
-    session.clear()
-    if email: write_log(email, 'logout')
-    return jsonify({'status': 'ok'})
-
-@app.route('/auth/me')
-def auth_me():
-    return jsonify({'email': session.get('email')})
+# IN-MEMORY FILE STORAGE (avoids temp file deletion on Render)
+FILE_STORE = {}
 
 # ═══════════════════════════════════════════════════════════════
-# PROTECTED ROUTES
+# ROUTES
 # ═══════════════════════════════════════════════════════════════
 
 @app.route('/')
-@login_required
 def index():
     try:
-        return render_template('index.html', user_email=session.get('email'))
+        return render_template('index.html')
     except Exception as e:
         # Fallback: try to read index.html directly
         try:
@@ -617,30 +483,25 @@ def index():
             return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/subtypes')
-@login_required
 def get_subtypes():
     return jsonify({'subtypes': PV_LIST})
 
 @app.route('/config', methods=['GET'])
-@login_required
 def get_config():
     return jsonify(config)
 
 @app.route('/config', methods=['POST'])
-@login_required
 def update_config():
     global config
     config.update(request.json)
-    write_log(session.get('email'), 'config_updated')
+    write_log('anonymous', 'config_updated')
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')
-@login_required
 def get_logs():
     return jsonify({'logs': read_logs(500)})
 
 @app.route('/detect_verticals', methods=['POST'])
-@login_required
 def detect_verticals():
     try:
         dump_file = request.files.get('dump')
@@ -664,7 +525,6 @@ def detect_verticals():
         return jsonify({'verticals': [], 'error': str(e)})
 
 @app.route('/process', methods=['POST'])
-@login_required
 def process():
     try:
         subtypes_raw = request.form.get('subtypes', '')
@@ -767,11 +627,16 @@ def process():
             out_ext   = '.zip'
             out_bytes = zip_buf.getvalue()
 
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=out_ext,
-                                          dir=tempfile.gettempdir(), prefix='filled_')
-        tmp.write(out_bytes); tmp.close()
+        # Store file in memory instead of temp file (Render deletes temp files)
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {
+            'bytes': out_bytes,
+            'filename': out_name,
+            'ext': out_ext,
+            'created': time.time()
+        }
 
-        write_log(session.get('email'), 'catalog_generated',
+        write_log('anonymous', 'catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
@@ -782,7 +647,7 @@ def process():
             'skipped_details':  all_skipped[:50],
             'preview':          preview_rows,
             'preview_cols':     preview_cols,
-            'download_token':   os.path.basename(tmp.name),
+            'download_token':   file_token,
             'filename':         out_name,
             'is_zip':           len(subtypes) > 1,
         })
@@ -792,28 +657,31 @@ def process():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 @app.route('/download/<token>')
-@login_required
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
-    tmpdir = tempfile.gettempdir()
 
-    # Token might already include extension (from NamedTemporaryFile)
-    # Try exact match first
-    path = os.path.join(tmpdir, token)
-    if os.path.exists(path):
-        ext = '.zip' if token.endswith('.zip') else '.xlsx'
-        fname = request.args.get('filename', 'filled_template' + ext)
+    # Check in-memory storage first
+    if token in FILE_STORE:
+        file_data = FILE_STORE[token]
+        ext = file_data['ext']
+        fname = request.args.get('filename', file_data['filename'])
         mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        write_log(session.get('email'), 'file_downloaded', fname)
-        return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
+        write_log('anonymous', 'file_downloaded', fname)
+        return send_file(
+            io.BytesIO(file_data['bytes']),
+            as_attachment=True,
+            download_name=fname,
+            mimetype=mtype
+        )
 
-    # Try with extensions appended (fallback)
-    for ext in ['.zip', '.xlsx', '']:
+    # Fallback: check temp files
+    tmpdir = tempfile.gettempdir()
+    for ext in ['', '.zip', '.xlsx']:
         path = os.path.join(tmpdir, token + ext)
         if os.path.exists(path):
             fname = request.args.get('filename', 'filled_template' + ext)
             mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            write_log(session.get('email'), 'file_downloaded', fname)
+            write_log('anonymous', 'file_downloaded', fname)
             return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
 
     return 'File not found', 404

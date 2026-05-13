@@ -116,8 +116,7 @@ def get_template_wb_for_subtype(subtype):
 
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
-    "brand_name":          "",
-    "brand_id":            "",
+    "brands":              {},   # {"Samsung": "BR-123", "Redmi": "BR-456"}
     "biz_cat_id":          "BCAT-139461",
     "biz_cat_name":        "Footwear",
     "relationship":        "Parent",
@@ -275,6 +274,27 @@ def make_description(brand, article, gender, upper, closure, fw_type, sole, colo
         f"Color: {color}. Available sizes: {sizes}. "
         f"Set of {set_count} bulk-pack — ideal for retailers and resellers."
     )
+def get_brand_info(drow, col_map, brands_dict):
+    """Look up brand & brand_id from the dump file's Brand column.
+    Returns (brand_name, brand_id). Falls back to first brand if no match."""
+    if not brands_dict:
+        return '', ''
+    brand_col = col_map.get('brand')
+    if brand_col and brand_col in drow:
+        file_brand = str(drow.get(brand_col, '')).strip()
+        # Exact match (case-insensitive)
+        for b_name, b_id in brands_dict.items():
+            if b_name.lower() == file_brand.lower():
+                return b_name, b_id
+        # Partial match
+        for b_name, b_id in brands_dict.items():
+            if b_name.lower() in file_brand.lower() or file_brand.lower() in b_name.lower():
+                return b_name, b_id
+    # Fallback: return first configured brand
+    first = next(iter(brands_dict.items()))
+    return first[0], first[1]
+
+
 
 DUMP_COL_HINTS = {
     'sku':            ['Seller SKU ID','Seller SKU_ID','ChildSKU *','ChildSKU','SKU'],
@@ -305,6 +325,7 @@ DUMP_COL_HINTS = {
     'packing':        ['Packing Type','PACKAGING_TYPE *'],
     'country':        ['Country of Origin','COUNTRY_OF_ORIGIN *'],
     'product_desc':   ['Product Description','productDescription *'],
+    'brand':          ['Brand','Brand Name','brandName *','brand_name'],
 }
 
 BASE_COL_HINTS = {
@@ -314,12 +335,13 @@ BASE_COL_HINTS = {
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    brand   = config['brand_name']
+    brands_dict = config.get('brands', {})
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         art_raw = safe(drow.get(col_map.get('article',''), ''))
         article = art_raw if (art_raw and '_' not in art_raw) else extract_article(sku_raw)
@@ -403,7 +425,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'MOQ *':                                       moq,
             'title *':                                     title,
             'internalTitle *':                             internal_title,
-            'brandId *':                                   config['brand_id'],
+            'brandId *':                                   brand_id,
             'brandName *':                                 brand,
             'imageURL1 *':                                 img_url,
             'catalogStatus *':                             config['catalog_status'],
@@ -518,8 +540,7 @@ except Exception as e:
     CE_PV_LIST = []
 
 CE_DEFAULT_CONFIG = {
-    "brand_name":          "",
-    "brand_id":            "",
+    "brands":              {},   # {"Samsung": "BR-123", "Redmi": "BR-456"}
     "biz_cat_id":          "BCAT-139438",
     "biz_cat_name":        "Consumer Electronics",
     "relationship":        "Parent",
@@ -574,6 +595,7 @@ CE_DUMP_COL_HINTS = {
     'network_support':  ['Network Support','Network'],
     'bluetooth':        ['Bluetooth Version','BLUETOOTH_VERSION *'],
     'product_type':     ['Product Type','Product Sub-type'],
+    'brand':            ['Brand','Brand Name','brandName *','brand_name'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -685,11 +707,12 @@ def get_ce_template_wb_for_subtype(subtype):
 
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    brand   = ce_config['brand_name']
+    brands_dict = ce_config.get('brands', {})
     st_data = CE_SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         title_name = safe(drow.get(col_map.get('article',''), ''))
         article = extract_model_name(title_name) if title_name else extract_model_name(sku_raw)
@@ -798,7 +821,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'MOQ *':                                       moq,
             'title *':                                     title,
             'internalTitle *':                             internal_title,
-            'brandId *':                                   ce_config['brand_id'],
+            'brandId *':                                   brand_id,
             'brandName *':                                 brand,
             'imageURL1 *':                                 img_url,
             'imageURL2':                                   img2_url,

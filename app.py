@@ -473,9 +473,14 @@ def _build_ce_header_row_map():
     for r in range(1, ws.max_row + 1):
         if ws.cell(r, 1).value == 'Category *':
             for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
-                d2 = ws.cell(r2, 4).value
-                if d2 and str(d2).strip() not in ('SubType','Category *','nan',''):
-                    st = str(d2).strip()
+                # CE template: subtype is in Column C (CategoryType *), not Column D (SubType)
+                # Column D (SubType) is empty in CE data rows
+                c3_val = ws.cell(r2, 3).value  # Column C = CategoryType *
+                c4_val = ws.cell(r2, 4).value  # Column D = SubType (may be empty)
+                # Use CategoryType * as the subtype key since SubType is empty
+                subtype_val = c3_val if c3_val else c4_val
+                if subtype_val and str(subtype_val).strip() not in ('CategoryType *','SubType','Category *','nan',''):
+                    st = str(subtype_val).strip()
                     if st not in hdr_map:
                         hdr_map[st] = r
                         hdrs = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]

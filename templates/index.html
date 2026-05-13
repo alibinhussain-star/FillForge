@@ -245,6 +245,12 @@ svg{display:block}
 .cs-btn{padding:10px 28px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
 .cs-btn:hover{background:var(--navy-2)}
 
+
+.brand-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--orange-light);border:1px solid #fdba74;border-radius:20px;font-size:12px;font-weight:500;color:var(--orange);margin:0 6px 6px 0}
+.brand-tag .brand-remove{cursor:pointer;width:16px;height:16px;border-radius:50%;background:#fdba74;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;transition:background .15s}
+.brand-tag .brand-remove:hover{background:var(--orange)}
+.brand-tag .brand-info{font-size:10px;color:var(--muted);margin-left:4px;font-weight:400}
+
 </style>
 <base target="_blank">
 <base target="_blank">
@@ -525,8 +531,8 @@ svg{display:block}
       <p>CE supports Feature Phone and Smart Phone verticals. It extracts model names from titles, pulls display type / charging type / bluetooth / processor info from product descriptions, and handles RAM+ROM combo formatting. Set count is always 1 (individual units).</p>
     </div>
     <div class="help-card">
-      <h3>⚙ Settings</h3>
-      <p>Brand details, business category, default GST split and listing constants live in <b>Settings</b>. Use Footwear Settings or CE Settings from the sidebar. These are applied to every row of every generated file until changed.</p>
+      <h3>⚙ Settings & Multi-Brand</h3>
+      <p>Configure multiple brands with their IDs in <b>Settings</b>. The system reads the <b>Brand</b> column from your dump file and auto-maps the correct brand & ID for each row. Add as many brands as needed — e.g., Samsung → BR-123, Redmi → BR-456. If no match is found, the first configured brand is used as fallback.</p>
     </div>
     <div class="help-card">
       <h3>🗂 Download Templates</h3>
@@ -554,11 +560,13 @@ svg{display:block}
 <div class="modal-bg" id="cfg-modal">
   <div class="modal">
     <div class="modal-title">⚙ Footwear Settings</div>
-    <div class="modal-sec">Brand</div>
-    <div class="form-grid">
-      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="cfg-brand_name" type="text" placeholder="e.g. Pahnava"></div>
-      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="cfg-brand_id" type="text" placeholder="BR-XXXXXXXXXX"></div>
+    <div class="modal-sec">Brands <span style="font-size:10px;color:var(--muted);font-weight:400">(mapped from file's Brand column)</span></div>
+    <div id="cfg-brands-list" style="margin-bottom:12px"></div>
+    <div class="form-grid" style="margin-bottom:8px">
+      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="cfg-brand-name-input" type="text" placeholder="e.g. Samsung"></div>
+      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="cfg-brand-id-input" type="text" placeholder="BR-XXXXXXXXXX"></div>
     </div>
+    <button class="btn-save" style="padding:7px 16px;font-size:12px;margin-bottom:16px" onclick="addBrand('cfg')">+ Add Brand</button>
     <div class="modal-sec">Category &amp; Discovery</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Business Category ID</div><input class="fi" id="cfg-biz_cat_id" type="text"></div>
@@ -592,11 +600,13 @@ svg{display:block}
 <div class="ce-modal-bg" id="ce-cfg-modal">
   <div class="ce-modal">
     <div class="modal-title">⚙ Consumer Electronics Settings</div>
-    <div class="modal-sec">Brand</div>
-    <div class="form-grid">
-      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="ce-cfg-brand_name" type="text" placeholder="e.g. Samsung"></div>
-      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="ce-cfg-brand_id" type="text" placeholder="BR-XXXXXXXXXX"></div>
+    <div class="modal-sec">Brands <span style="font-size:10px;color:var(--muted);font-weight:400">(mapped from file's Brand column)</span></div>
+    <div id="ce-cfg-brands-list" style="margin-bottom:12px"></div>
+    <div class="form-grid" style="margin-bottom:8px">
+      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="ce-cfg-brand-name-input" type="text" placeholder="e.g. Samsung"></div>
+      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="ce-cfg-brand-id-input" type="text" placeholder="BR-XXXXXXXXXX"></div>
     </div>
+    <button class="btn-save" style="padding:7px 16px;font-size:12px;margin-bottom:16px" onclick="addBrand('ce-cfg')">+ Add Brand</button>
     <div class="modal-sec">Category &amp; Discovery</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Business Category ID</div><input class="fi" id="ce-cfg-biz_cat_id" type="text"></div>
@@ -966,18 +976,46 @@ function showToast(msg,type=''){
 /* ═══════════════════════════════════════════════════════════════
    FOOTWEAR SETTINGS
    ═══════════════════════════════════════════════════════════════ */
-const CFG_FIELDS=['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',
+const CFG_FIELDS=['biz_cat_id','biz_cat_name','discovery_cat',
   'relationship','catalog_status','status_remark','country_of_origin','product_condition',
   'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
+let cfgBrands = {};  // {name: id}
 
+function renderBrandTags(prefix, brandsDict, containerId){
+  const wrap = document.getElementById(containerId);
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  Object.entries(brandsDict).forEach(([name, id]) => {
+    const tag = document.createElement('div'); tag.className = 'brand-tag';
+    tag.innerHTML = `<span>${name}</span><span class="brand-info">${id}</span><span class="brand-remove" onclick="removeBrand('${prefix}','${name.replace(/'/g,"\'")}')">✕</span>`;
+    wrap.appendChild(tag);
+  });
+}
+function addBrand(prefix){
+  const nameIn = document.getElementById(prefix+'-brand-name-input');
+  const idIn   = document.getElementById(prefix+'-brand-id-input');
+  const name = nameIn.value.trim(); const id = idIn.value.trim();
+  if(!name || !id){ showToast('Enter both brand name and ID','error'); return; }
+  const dict = prefix==='ce-cfg' ? ceCfgBrands : cfgBrands;
+  dict[name] = id;
+  renderBrandTags(prefix, dict, prefix==='ce-cfg'?'ce-cfg-brands-list':'cfg-brands-list');
+  nameIn.value = ''; idIn.value = '';
+}
+function removeBrand(prefix, name){
+  const dict = prefix==='ce-cfg' ? ceCfgBrands : cfgBrands;
+  delete dict[name];
+  renderBrandTags(prefix, dict, prefix==='ce-cfg'?'ce-cfg-brands-list':'cfg-brands-list');
+}
 async function openConfig(){
   const res=await fetch('/config'); const d=await res.json();
+  cfgBrands = d.brands || {};
+  renderBrandTags('cfg', cfgBrands, 'cfg-brands-list');
   CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(el) el.value=d[k]??''; });
   document.getElementById('cfg-modal').classList.add('open');
 }
 function closeConfig(){document.getElementById('cfg-modal').classList.remove('open')}
 async function saveConfig(){
-  const cfg={};
+  const cfg={brands: cfgBrands};
   CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(!el) return;
     cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;});
   await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
@@ -988,18 +1026,21 @@ document.getElementById('cfg-modal').addEventListener('click', e => { if(e.targe
 /* ═══════════════════════════════════════════════════════════════
    CE SETTINGS
    ═══════════════════════════════════════════════════════════════ */
-const CE_CFG_FIELDS=['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',
+const CE_CFG_FIELDS=['biz_cat_id','biz_cat_name','discovery_cat',
   'relationship','catalog_status','status_remark','country_of_origin','product_condition',
   'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
+let ceCfgBrands = {};  // {name: id}
 
 async function openCEConfig(){
   const res=await fetch('/ce_config'); const d=await res.json();
+  ceCfgBrands = d.brands || {};
+  renderBrandTags('ce-cfg', ceCfgBrands, 'ce-cfg-brands-list');
   CE_CFG_FIELDS.forEach(k => { const el=document.getElementById('ce-cfg-'+k); if(el) el.value=d[k]??''; });
   document.getElementById('ce-cfg-modal').classList.add('open');
 }
 function closeCEConfig(){document.getElementById('ce-cfg-modal').classList.remove('open')}
 async function saveCEConfig(){
-  const cfg={};
+  const cfg={brands: ceCfgBrands};
   CE_CFG_FIELDS.forEach(k => { const el=document.getElementById('ce-cfg-'+k); if(!el) return;
     cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;});
   await fetch('/ce_config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});

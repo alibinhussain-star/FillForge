@@ -669,7 +669,7 @@ def get_ce_template_wb_for_subtype(subtype):
     try:
         wb_src  = load_workbook(CE_TEMPLATE_PATH)
         ws_src  = wb_src['CE - PV Template']
-        hdr_row = 2
+        hdr_row = CE_SUBTYPE_HEADER_ROW.get(subtype, 2)
         headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
         while headers and headers[-1] is None:
             headers.pop()

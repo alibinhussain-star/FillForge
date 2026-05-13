@@ -63,8 +63,6 @@ body{background:var(--bg);min-height:100vh;display:flex}
 .vert-icon{width:16px;height:16px;color:var(--muted);display:flex;align-items:center;justify-content:center}
 .vert-tog.locked .vert-icon{color:var(--muted-2)}
 .vert-lock{font-size:10px;background:var(--warning-bg);color:var(--warning);padding:1px 7px;border-radius:8px;font-weight:600;margin-left:2px;border:1px solid #fde68a}
-.vert-tog.locked .vert-lock-tip{visibility:hidden;opacity:0;position:absolute;bottom:-32px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:11px;padding:5px 10px;border-radius:5px;white-space:nowrap;transition:all .15s;z-index:50}
-.vert-tog.locked:hover .vert-lock-tip{visibility:visible;opacity:1;bottom:-30px}
 
 /* PAGE BODY */
 .page-body{flex:1;display:grid;grid-template-columns:340px 1fr;overflow:hidden}
@@ -204,7 +202,7 @@ td.price-cell{font-weight:600}
 .help-card h3{font-size:14px;color:var(--navy);margin-bottom:8px;display:flex;align-items:center;gap:8px}
 .help-card p{font-size:13px;color:var(--text);line-height:1.6}
 
-/* Modal (Settings) — kept from your original */
+/* Modal (Settings) */
 .modal-bg{display:none;position:fixed;inset:0;background:#1a25408a;z-index:200;align-items:center;justify-content:center}
 .modal-bg.open{display:flex}
 .modal{background:var(--white);border-radius:12px;width:600px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px #1a254033}
@@ -220,18 +218,10 @@ td.price-cell{font-weight:600}
 .btn-save{padding:9px 22px;background:var(--navy);color:#fff;border:none;border-radius:var(--r2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-cancel{padding:9px 22px;background:transparent;color:var(--muted);border:1px solid var(--border-2);border-radius:var(--r2);font-size:13px;cursor:pointer;font-family:inherit}
 
-
-/* Coming Soon Modal */
-.cs-modal-bg{display:none;position:fixed;inset:0;background:#1a2540cc;z-index:200;align-items:center;justify-content:center}
-.cs-modal-bg.open{display:flex}
-.cs-modal{background:var(--white);border-radius:16px;width:420px;max-width:90%;padding:40px;text-align:center;box-shadow:0 20px 60px #1a254033;animation:csPop .3s ease}
-@keyframes csPop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
-.cs-icon{font-size:64px;margin-bottom:16px}
-.cs-title{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px}
-.cs-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5}
-.cs-badge{display:inline-block;padding:6px 16px;background:var(--warning-bg);color:var(--warning);border:1px solid #fde68a;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:20px}
-.cs-btn{padding:10px 28px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
-.cs-btn:hover{background:var(--navy-2)}
+/* CE Config Modal */
+.ce-modal-bg{display:none;position:fixed;inset:0;background:#1a25408a;z-index:200;align-items:center;justify-content:center}
+.ce-modal-bg.open{display:flex}
+.ce-modal{background:var(--white);border-radius:12px;width:600px;max-height:85vh;overflow-y:auto;padding:28px;box-shadow:0 20px 60px #1a254033}
 
 .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;border-radius:8px;padding:12px 18px;font-size:13px;transform:translateY(80px);opacity:0;transition:all .3s;z-index:300;max-width:340px}
 .toast.show{transform:translateY(0);opacity:1}
@@ -241,9 +231,9 @@ td.price-cell{font-weight:600}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:3px}
 
-/* Simple inline SVG icons inherit color via currentColor */
 svg{display:block}
 </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -277,9 +267,14 @@ svg{display:block}
       Help
     </button>
 
+    <div class="sb-section">Category Settings</div>
     <button class="sb-item" onclick="openConfig()">
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-      Settings
+      Footwear Settings
+    </button>
+    <button class="sb-item" onclick="openCEConfig()">
+      <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg></span>
+      CE Settings
     </button>
   </nav>
 
@@ -287,10 +282,10 @@ svg{display:block}
     <div class="user-box" style="justify-content:center">
       <div class="user-text" style="text-align:center">
         <div class="user-label" style="font-size:10px; color:var(--muted)">FillForge Catalog Ops</div>
-        <div class="user-email" style="font-size:11px; color:var(--text); font-weight:500">v0.3 Beta</div>
+        <div class="user-email" style="font-size:11px; color:var(--text); font-weight:500">v0.4 Beta</div>
       </div>
     </div>
-    <div class="sb-ver">FillForge <span class="badge">v0.3 Beta</span></div>
+    <div class="sb-ver">FillForge <span class="badge">v0.4 Beta</span></div>
   </div>
 </aside>
 
@@ -300,26 +295,25 @@ svg{display:block}
   <!-- Vertical toggles -->
   <div class="vert-bar">
     <span class="vert-bar-label">Category</span>
-    <button class="vert-tog active" data-vert="Footwear">
+    <button class="vert-tog active" data-vert="Footwear" onclick="switchCategory('Footwear')">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17h20"/><path d="M5 14V8a3 3 0 0 1 3-3h4l2 3 4 1c2 .5 4 2 4 5v0c0 2-1 3-3 3H8c-1.5 0-3-1-3-3z"/><path d="M9 8v3"/></svg></span>
       Footwear
     </button>
-    <button class="vert-tog" onclick="showComingSoon(this)">
+    <button class="vert-tog" data-vert="CE" onclick="switchCategory('CE')">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg></span>
       Consumer Electronics
-      <span class="vert-lock">Locked</span>
     </button>
-    <button class="vert-tog" onclick="showComingSoon(this)">
+    <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></span>
       Apparels &amp; Fashion
       <span class="vert-lock">Locked</span>
     </button>
-    <button class="vert-tog" onclick="showComingSoon(this)">
+    <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
       Toys &amp; Sports
       <span class="vert-lock">Locked</span>
     </button>
-    <button class="vert-tog" onclick="showComingSoon(this)">
+    <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><rect x="9" y="14" width="6" height="6"/></svg></span>
       Home Furnishing
       <span class="vert-lock">Locked</span>
@@ -331,8 +325,8 @@ svg{display:block}
     <!-- LEFT -->
     <div class="left">
       <div class="left-header">
-        <div class="left-title">Create Catalog File</div>
-        <div class="left-desc">Upload, auto-detect & generate filled template</div>
+        <div class="left-title" id="create-title">Create Catalog File</div>
+        <div class="left-desc" id="create-desc">Upload, auto-detect & generate filled template</div>
       </div>
 
       <div class="form-sec">
@@ -354,7 +348,7 @@ svg{display:block}
           <label class="form-label">Base Data <span class="opt-badge">optional — duplicate check</span></label>
           <div class="upload-zone" id="zone-base" ondragover="onDrag(event,'zone-base')" ondragleave="offDrag('zone-base')" ondrop="onDrop(event,'base_data')">
             <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'base_data')">
-            <span class="upload-zone-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipsis cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span>
+            <span class="upload-zone-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
             <div>
               <div class="upload-zone-name" id="name-base_data">Click to browse or drag file here</div>
               <div class="upload-zone-sub">.xlsx files only</div>
@@ -364,7 +358,7 @@ svg{display:block}
       </div>
 
       <div class="form-sec">
-        <div class="form-sec-title">Product Vertical (SubType)</div>
+        <div class="form-sec-title" id="subtype-sec-title">Product Vertical (SubType)</div>
         <label class="form-label">Select one or more SubTypes <span class="req">*</span></label>
         <div class="dropdown-wrap" id="dd-wrap">
           <button class="dropdown-btn" id="dd-btn" onclick="toggleDropdown()">
@@ -441,24 +435,23 @@ svg{display:block}
   <!-- VIEW: TEMPLATES -->
   <div class="fullview" id="view-templates">
     <div class="fv-title">Download Templates</div>
-    <div class="fv-sub">Get the blank master templates for each category. Currently only Footwear is unlocked.</div>
+    <div class="fv-sub">Get the blank master templates for each category.</div>
     <div class="tpl-grid">
       <div class="tpl-card">
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17h20"/><path d="M5 14V8a3 3 0 0 1 3-3h4l2 3 4 1c2 .5 4 2 4 5v0c0 2-1 3-3 3H8c-1.5 0-3-1-3-3z"/></svg></div>
           <div class="tpl-card-name">Footwear Master Template</div>
         </div>
-        <div class="tpl-card-desc">Multi-sheet master template for all Footwear product verticals with embedded validation.</div>
+        <div class="tpl-card-desc">Multi-sheet master template for all 40 Footwear product verticals with embedded validation.</div>
         <button class="tpl-dl-btn" onclick="downloadTpl('Footwear')">Download .xlsx</button>
       </div>
-      <div class="tpl-card locked">
-        <span class="tpl-locked-tag">Locked</span>
+      <div class="tpl-card">
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/></svg></div>
           <div class="tpl-card-name">Consumer Electronics</div>
         </div>
-        <div class="tpl-card-desc">Under development — coming soon.</div>
-        <button class="tpl-dl-btn" disabled>Unavailable</button>
+        <div class="tpl-card-desc">Master template for Mobile — Feature Phone & Smart Phone verticals.</div>
+        <button class="tpl-dl-btn" onclick="downloadTpl('Consumer Electronics')">Download .xlsx</button>
       </div>
       <div class="tpl-card locked">
         <span class="tpl-locked-tag">Locked</span>
@@ -511,15 +504,19 @@ svg{display:block}
     </div>
     <div class="help-card">
       <h3>🚀 How to create a catalog file</h3>
-      <p>1. Upload the seller dump file (required). 2. Optionally upload Base Data for duplicate-SKU detection. 3. The system auto-detects product verticals from the dump — confirm or change the selection. 4. Click <b>Generate Catalogue File</b>. 5. Preview the filled rows and download the .xlsx (or .zip if multiple SubTypes were selected).</p>
+      <p>1. Select a category from the top bar (Footwear or Consumer Electronics). 2. Upload the seller dump file (required). 3. Optionally upload Base Data for duplicate-SKU detection. 4. The system auto-detects product verticals from the dump — confirm or change the selection. 5. Click <b>Generate Catalogue File</b>. 6. Preview the filled rows and download the .xlsx (or .zip if multiple SubTypes were selected).</p>
+    </div>
+    <div class="help-card">
+      <h3>📱 Consumer Electronics</h3>
+      <p>CE supports Feature Phone and Smart Phone verticals. It extracts model names from titles, pulls display type / charging type / bluetooth / processor info from product descriptions, and handles RAM+ROM combo formatting. Set count is always 1 (individual units).</p>
     </div>
     <div class="help-card">
       <h3>⚙ Settings</h3>
-      <p>Brand details, business category, default GST split and listing constants live in <b>Settings</b>. These are applied to every row of every generated file until changed.</p>
+      <p>Brand details, business category, default GST split and listing constants live in <b>Settings</b>. Use Footwear Settings or CE Settings from the sidebar. These are applied to every row of every generated file until changed.</p>
     </div>
     <div class="help-card">
       <h3>🗂 Download Templates</h3>
-      <p>Need the blank master template? Go to <b>Download Templates</b> from the sidebar. Only Footwear is enabled in v0.3 Beta; the other categories are queued for upcoming releases.</p>
+      <p>Need the blank master template? Go to <b>Download Templates</b> from the sidebar. Footwear and Consumer Electronics are available in v0.4 Beta.</p>
     </div>
     <div class="help-card">
       <h3>🆘 Need more help?</h3>
@@ -539,10 +536,10 @@ svg{display:block}
   </div>
 </div>
 
-<!-- Settings Modal (unchanged structure) -->
+<!-- Footwear Settings Modal -->
 <div class="modal-bg" id="cfg-modal">
   <div class="modal">
-    <div class="modal-title">⚙ Settings</div>
+    <div class="modal-title">⚙ Footwear Settings</div>
     <div class="modal-sec">Brand</div>
     <div class="form-grid">
       <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="cfg-brand_name" type="text" placeholder="e.g. Pahnava"></div>
@@ -577,12 +574,101 @@ svg{display:block}
   </div>
 </div>
 
+<!-- CE Settings Modal -->
+<div class="ce-modal-bg" id="ce-cfg-modal">
+  <div class="ce-modal">
+    <div class="modal-title">⚙ Consumer Electronics Settings</div>
+    <div class="modal-sec">Brand</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="ce-cfg-brand_name" type="text" placeholder="e.g. Samsung"></div>
+      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="ce-cfg-brand_id" type="text" placeholder="BR-XXXXXXXXXX"></div>
+    </div>
+    <div class="modal-sec">Category &amp; Discovery</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Business Category ID</div><input class="fi" id="ce-cfg-biz_cat_id" type="text"></div>
+      <div class="fg"><div class="fl">Business Category Name</div><input class="fi" id="ce-cfg-biz_cat_name" type="text"></div>
+      <div class="fg full"><div class="fl">Discovery Category IDs</div><input class="fi" id="ce-cfg-discovery_cat" type="text"></div>
+    </div>
+    <div class="modal-sec">Listing Defaults</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Relationship</div><input class="fi" id="ce-cfg-relationship" type="text"></div>
+      <div class="fg"><div class="fl">Catalog Status</div><input class="fi" id="ce-cfg-catalog_status" type="text"></div>
+      <div class="fg"><div class="fl">Status Remark</div><input class="fi" id="ce-cfg-status_remark" type="text"></div>
+      <div class="fg"><div class="fl">Country of Origin</div><input class="fi" id="ce-cfg-country_of_origin" type="text"></div>
+      <div class="fg"><div class="fl">Product Condition</div><input class="fi" id="ce-cfg-product_condition" type="text"></div>
+      <div class="fg"><div class="fl">Manufacturing Year</div><input class="fi" id="ce-cfg-manufacturing_year" type="text"></div>
+    </div>
+    <div class="modal-sec">Tax</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Tax Master Status</div><input class="fi" id="ce-cfg-tax_master_status" type="text"></div>
+      <div class="fg"><div class="fl">GST CGST Share</div><input class="fi" id="ce-cfg-gst_cgst" type="number"></div>
+      <div class="fg"><div class="fl">GST SGST Share</div><input class="fi" id="ce-cfg-gst_sgst" type="number"></div>
+      <div class="fg"><div class="fl">GST IGST Share</div><input class="fi" id="ce-cfg-gst_igst" type="number"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeCEConfig()">Cancel</button>
+      <button class="btn-save" onclick="saveCEConfig()">Save CE Settings</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
-
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL STATE
+   ═══════════════════════════════════════════════════════════════ */
+let currentCategory = 'Footwear';  // 'Footwear' | 'CE'
+const files = {base_data:null, dump:null};
+let selectedSubtypes = new Set(), allSubtypes = [], autoDetected = [];
+let downloadToken = null, downloadFilename = null, isZip = false;
 
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY SWITCHING
+   ═══════════════════════════════════════════════════════════════ */
+function switchCategory(cat) {
+  currentCategory = cat;
+  // Update toggle buttons
+  document.querySelectorAll('.vert-tog').forEach(t => {
+    t.classList.toggle('active', t.dataset.vert === cat);
+  });
 
-/* view switching */
+  // Update UI labels
+  const isCE = cat === 'CE';
+  document.getElementById('create-title').textContent = isCE ? 'Create CE Catalog File' : 'Create Catalog File';
+  document.getElementById('create-desc').textContent = isCE 
+    ? 'Upload mobile listing & generate CE template' 
+    : 'Upload, auto-detect & generate filled template';
+  document.getElementById('subtype-sec-title').textContent = isCE ? 'Product Type' : 'Product Vertical (SubType)';
+
+  // Reset state
+  selectedSubtypes.clear();
+  autoDetected = [];
+  files.dump = null;
+  files.base_data = null;
+  document.getElementById('name-dump').textContent = 'Click to browse or drag file here';
+  document.getElementById('name-base_data').textContent = 'Click to browse or drag file here';
+  document.getElementById('zone-dump').classList.remove('has-file');
+  document.getElementById('zone-base').classList.remove('has-file');
+  document.getElementById('auto-bar').style.display = 'none';
+  document.getElementById('dd-label').textContent = '— choose SubType(s) —';
+  document.getElementById('dd-label').className = 'dd-placeholder';
+  document.getElementById('selected-tags').innerHTML = '';
+  document.getElementById('err-box').style.display = 'none';
+
+  // Reset results
+  document.getElementById('status-bar').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('table-area').style.display = 'none';
+  document.getElementById('skip-section').style.display = 'none';
+
+  // Load appropriate subtypes
+  loadSubtypes();
+  checkReady();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VIEW SWITCHING
+   ═══════════════════════════════════════════════════════════════ */
 function switchView(name){
   document.querySelectorAll('.sb-item[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view===name));
   document.getElementById('view-create').style.display    = name==='create'    ? 'grid' : 'none';
@@ -592,67 +678,32 @@ function switchView(name){
   if(name==='logs') loadLogs();
 }
 
-/* vertical toggle */
-document.querySelectorAll('.vert-tog').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.vert-tog').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-  });
-});
-
-function showComingSoon(btn){
-  // Show coming soon overlay
-  const name = btn.textContent.replace('Locked','').trim();
-  showComingSoonModal(name);
-}
-
-/* templates download */
-async function downloadTpl(vertical){
-  try{
-    const r = await fetch('/download_template/' + encodeURIComponent(vertical));
-    if(!r.ok){ const d=await r.json().catch(()=>({})); showToast(d.error||'Failed','error'); return; }
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = vertical + '_Template.xlsx';
-    document.body.appendChild(a); a.click(); a.remove();
-    showToast('Template downloaded','success');
-  }catch(e){ showToast('Network error','error'); }
-}
-
-/* logs */
-async function loadLogs(){
-  const body = document.getElementById('logs-body');
-  body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">Loading…</td></tr>';
-  try{
-    const r = await fetch('/logs'); const d = await r.json();
-    const logs = d.logs || [];
-    if(!logs.length){
-      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">No activity yet</td></tr>'; return;
-    }
-    body.innerHTML = logs.map(l => `<tr>
-      <td class="log-ts">${l.ts.replace('T',' ').replace('Z','')}</td>
-      <td class="log-email">${l.email}</td>
-      <td class="log-action">${l.action}</td>
-      <td style="color:var(--muted)">${l.details||'—'}</td></tr>`).join('');
-  }catch(e){ body.innerHTML = '<tr><td colspan="4" style="color:var(--danger);padding:20px">Could not load logs</td></tr>'; }
-}
-
-
-
-/* === ALL existing form / dropdown / process / config logic from your original index.html === */
-const files = {base_data:null, dump:null};
-let selectedSubtypes = new Set(), allSubtypes = [], autoDetected = [];
-let downloadToken = null, downloadFilename = null, isZip = false;
-
+/* ═══════════════════════════════════════════════════════════════
+   SUBTYPE LOADING
+   ═══════════════════════════════════════════════════════════════ */
 async function loadSubtypes(){
-  const res = await fetch('/subtypes'); const data = await res.json();
-  allSubtypes = data.subtypes; renderDropdownItems(allSubtypes);
+  const endpoint = currentCategory === 'CE' ? '/ce_subtypes' : '/subtypes';
+  try {
+    const res = await fetch(endpoint); 
+    const data = await res.json();
+    allSubtypes = data.subtypes || []; 
+    renderDropdownItems(allSubtypes);
+  } catch(e) {
+    console.error('Failed to load subtypes:', e);
+    allSubtypes = [];
+  }
 }
+
 function renderDropdownItems(list){
   const container = document.getElementById('dd-items');
   const groups = {};
   list.forEach(st => {
-    const grp = st.includes("'s") ? st.split("'s")[0]+"'s" : 'Other';
+    let grp = 'Other';
+    if (st.includes("'s")) {
+      grp = st.split("'s")[0] + "'s";
+    } else if (st.includes('Phone')) {
+      grp = 'Mobile';
+    }
     (groups[grp] = groups[grp] || []).push(st);
   });
   container.innerHTML = '';
@@ -671,6 +722,7 @@ function renderDropdownItems(list){
     });
   }
 }
+
 function filterDropdown(q){ renderDropdownItems(q ? allSubtypes.filter(s=>s.toLowerCase().includes(q.toLowerCase())) : allSubtypes); }
 function toggleDropdown(){
   const btn=document.getElementById('dd-btn'), menu=document.getElementById('dd-menu');
@@ -690,7 +742,7 @@ function renderSelectedTags(){
   wrap.innerHTML='';
   selectedSubtypes.forEach(st => {
     const tag=document.createElement('div'); tag.className='tag';
-    tag.innerHTML=`<span>${st}</span><span class="tag-remove" onclick="toggleSubtype('${st.replace(/'/g,"\\'")}')">✕</span>`;
+    tag.innerHTML=`<span>${st}</span><span class="tag-remove" onclick="toggleSubtype('${st.replace(/'/g,"\'")}')">✕</span>`;
     wrap.appendChild(tag);
   });
 }
@@ -700,11 +752,16 @@ document.addEventListener('click', e => {
     document.getElementById('dd-menu').classList.remove('open');
   }
 });
+
+/* ═══════════════════════════════════════════════════════════════
+   FILE UPLOAD & AUTO-DETECT
+   ═══════════════════════════════════════════════════════════════ */
 async function detectVerticals(){
   if(!files.dump) return;
   const fd=new FormData(); fd.append('dump', files.dump);
+  const endpoint = currentCategory === 'CE' ? '/detect_ce_verticals' : '/detect_verticals';
   try{
-    const res=await fetch('/detect_verticals',{method:'POST',body:fd}); const data=await res.json();
+    const res=await fetch(endpoint,{method:'POST',body:fd}); const data=await res.json();
     autoDetected = data.verticals||[];
     const bar=document.getElementById('auto-bar');
     if(autoDetected.length){
@@ -715,6 +772,7 @@ async function detectVerticals(){
     renderDropdownItems(allSubtypes);
   }catch(e){}
 }
+
 function onFile(input,key){
   const file=input.files[0]; if(!file) return;
   files[key]=file; document.getElementById('name-'+key).textContent=file.name;
@@ -734,6 +792,9 @@ function onDrop(e,key){
 }
 function checkReady(){ document.getElementById('btn-run').disabled = !(selectedSubtypes.size>0 && files.dump); }
 
+/* ═══════════════════════════════════════════════════════════════
+   PROCESS / GENERATE
+   ═══════════════════════════════════════════════════════════════ */
 async function runProcess(){
   document.getElementById('err-box').style.display='none';
   const btn=document.getElementById('btn-run'); btn.classList.add('loading'); btn.disabled=true;
@@ -741,8 +802,11 @@ async function runProcess(){
   fd.append('subtypes', JSON.stringify([...selectedSubtypes]));
   if(files.base_data) fd.append('base_data', files.base_data);
   fd.append('dump', files.dump);
+
+  const endpoint = currentCategory === 'CE' ? '/process_ce' : '/process';
+
   try{
-    const res=await fetch('/process',{method:'POST',body:fd}); const data=await res.json();
+    const res=await fetch(endpoint,{method:'POST',body:fd}); const data=await res.json();
     if(data.error){
       document.getElementById('err-box').textContent='⚠ '+data.error;
       document.getElementById('err-box').style.display='block';
@@ -756,6 +820,10 @@ async function runProcess(){
     document.getElementById('err-box').style.display='block';
   }finally{ btn.classList.remove('loading'); btn.disabled=false; checkReady(); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESULTS RENDERING
+   ═══════════════════════════════════════════════════════════════ */
 function renderResults(data){
   document.getElementById('tab-filled').textContent=`Filled (${data.grand_filled})`;
   document.getElementById('tab-total').textContent=`Total (${data.grand_filled+data.grand_skipped})`;
@@ -780,10 +848,21 @@ function renderResults(data){
   document.getElementById('dl-label').textContent=isZip?`Download ${(data.results||[]).length} files as ZIP`:'Download Catalogue File';
   document.getElementById('dl-info').textContent=isZip?`${(data.results||[]).length} separate .xlsx files bundled`:`${data.grand_filled} rows · ready to upload`;
 
+  // Preview columns - different for CE vs Footwear
+  const isCE = currentCategory === 'CE';
   const cols=data.preview_cols||[];
-  const colLabels={'title *':'Product Title','ChildSKU *':'SKU ID','ARTICLE_NUMBER *':'Article No.',
-    'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color','AVAILABLE_SIZES *':'Sizes',
-    'SET_DETAILS *':'Set Details','UPPER_MATERIAL *':'Upper','SOLE_MATERIAL *':'Sole','hsnCode *':'HSN','SET_COUNT *':'Set Count'};
+  const colLabels = isCE ? {
+    'title *':'Product Title','ChildSKU *':'Child SKU','ARTICLE_NUMBER *':'Article No.',
+    'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
+    'RAM *':'RAM','INTERNAL_STORAGE *':'Storage','DISPLAY_SIZE *':'Screen',
+    'DISPLAY_TYPE *':'Display','hsnCode *':'HSN','SET_COUNT *':'Set Count'
+  } : {
+    'title *':'Product Title','ChildSKU *':'SKU ID','ARTICLE_NUMBER *':'Article No.',
+    'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
+    'AVAILABLE_SIZES *':'Sizes','SET_DETAILS *':'Set Details',
+    'UPPER_MATERIAL *':'Upper','SOLE_MATERIAL *':'Sole','hsnCode *':'HSN','SET_COUNT *':'Set Count'
+  };
+
   const showSub=isZip;
   document.getElementById('t-head').innerHTML='<tr>'+(showSub?'<th>SubType</th>':'')+cols.map(c=>`<th>${colLabels[c]||c}</th>`).join('')+'</tr>';
   document.getElementById('t-body').innerHTML=(data.preview||[]).map(r => '<tr>'+
@@ -809,19 +888,74 @@ function renderResults(data){
     });
   }
 }
+
 function downloadFile(){ if(!downloadToken) return; window.location.href=`/download/${downloadToken}?filename=${encodeURIComponent(downloadFilename)}`; }
-function showComingSoonModal(categoryName){
-  document.getElementById('cs-title').textContent = categoryName || 'This Category';
+
+/* ═══════════════════════════════════════════════════════════════
+   TEMPLATES DOWNLOAD
+   ═══════════════════════════════════════════════════════════════ */
+async function downloadTpl(vertical){
+  try{
+    const r = await fetch('/download_template/' + encodeURIComponent(vertical));
+    if(!r.ok){ const d=await r.json().catch(()=>({})); showToast(d.error||'Failed','error'); return; }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = vertical.replace(/\s+/g,'_') + '_Template.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    showToast('Template downloaded','success');
+  }catch(e){ showToast('Network error','error'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGS
+   ═══════════════════════════════════════════════════════════════ */
+async function loadLogs(){
+  const body = document.getElementById('logs-body');
+  body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">Loading…</td></tr>';
+  try{
+    const r = await fetch('/logs'); const d = await r.json();
+    const logs = d.logs || [];
+    if(!logs.length){
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">No activity yet</td></tr>'; return;
+    }
+    body.innerHTML = logs.map(l => `<tr>
+      <td class="log-ts">${l.ts.replace('T',' ').replace('Z','')}</td>
+      <td class="log-email">${l.email}</td>
+      <td class="log-action">${l.action}</td>
+      <td style="color:var(--muted)">${l.details||'—'}</td></tr>`).join('');
+  }catch(e){ body.innerHTML = '<tr><td colspan="4" style="color:var(--danger);padding:20px">Could not load logs</td></tr>'; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMING SOON MODAL
+   ═══════════════════════════════════════════════════════════════ */
+function showComingSoon(btn){
+  const name = btn.textContent.replace('Locked','').trim();
+  document.getElementById('cs-title').textContent = name || 'This Category';
   document.getElementById('cs-modal').classList.add('open');
 }
 function closeComingSoon(){
   document.getElementById('cs-modal').classList.remove('open');
 }
-function showToast(msg,type=''){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast '+type; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
 
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════════════════ */
+function showToast(msg,type=''){ 
+  const t=document.getElementById('toast'); 
+  t.textContent=msg; 
+  t.className='toast '+type; 
+  t.classList.add('show'); 
+  setTimeout(()=>t.classList.remove('show'),3500); 
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTWEAR SETTINGS
+   ═══════════════════════════════════════════════════════════════ */
 const CFG_FIELDS=['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',
   'relationship','catalog_status','status_remark','country_of_origin','product_condition',
   'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
+
 async function openConfig(){
   const res=await fetch('/config'); const d=await res.json();
   CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(el) el.value=d[k]??''; });
@@ -833,10 +967,35 @@ async function saveConfig(){
   CFG_FIELDS.forEach(k => { const el=document.getElementById('cfg-'+k); if(!el) return;
     cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;});
   await fetch('/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
-  closeConfig(); showToast('Settings saved ✓','success');
+  closeConfig(); showToast('Footwear settings saved ✓','success');
 }
 document.getElementById('cfg-modal').addEventListener('click', e => { if(e.target===document.getElementById('cfg-modal')) closeConfig(); });
 
+/* ═══════════════════════════════════════════════════════════════
+   CE SETTINGS
+   ═══════════════════════════════════════════════════════════════ */
+const CE_CFG_FIELDS=['brand_name','brand_id','biz_cat_id','biz_cat_name','discovery_cat',
+  'relationship','catalog_status','status_remark','country_of_origin','product_condition',
+  'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
+
+async function openCEConfig(){
+  const res=await fetch('/ce_config'); const d=await res.json();
+  CE_CFG_FIELDS.forEach(k => { const el=document.getElementById('ce-cfg-'+k); if(el) el.value=d[k]??''; });
+  document.getElementById('ce-cfg-modal').classList.add('open');
+}
+function closeCEConfig(){document.getElementById('ce-cfg-modal').classList.remove('open')}
+async function saveCEConfig(){
+  const cfg={};
+  CE_CFG_FIELDS.forEach(k => { const el=document.getElementById('ce-cfg-'+k); if(!el) return;
+    cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;});
+  await fetch('/ce_config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+  closeCEConfig(); showToast('CE settings saved ✓','success');
+}
+document.getElementById('ce-cfg-modal').addEventListener('click', e => { if(e.target===document.getElementById('ce-cfg-modal')) closeCEConfig(); });
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════ */
 loadSubtypes();
 </script>
 </body>

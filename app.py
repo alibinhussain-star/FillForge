@@ -200,6 +200,9 @@ def expand_size_range(size_str, size_type='UK'):
     if m:
         start, end = int(m.group(1)), int(m.group(2))
         pfx = f"{size_type} " if size_type else ''
+        # Handle wrap-around ranges like 9X1 (UK 9,10,11,12,13,1)
+        if start > end:
+            return [f"{pfx}{i}" for i in list(range(start, 14)) + list(range(1, end + 1))]
         return [f"{pfx}{i}" for i in range(start, end + 1)]
     if ' ' in s: return [x.strip() for x in s.split() if x.strip()]
     return [s] if s else []

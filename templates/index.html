@@ -15,7 +15,7 @@
   --success:#059669; --success-bg:#ecfdf5;
   --warning:#d97706; --warning-bg:#fffbeb;
   --danger:#dc2626; --danger-bg:#fef2f2;
-  --sidebar-w:230px;
+  --sidebar-w:240px;
   --r:8px; --r2:6px;
   font-family:'Inter',sans-serif;font-size:14px;color:var(--text);
 }
@@ -59,13 +59,14 @@ body{background:var(--bg);min-height:100vh;display:flex}
 .vert-tog:hover:not(.locked){border-color:var(--orange);color:var(--orange)}
 .vert-tog.active{background:var(--navy);border-color:var(--navy);color:#fff}
 .vert-tog.active .vert-icon{color:var(--orange)}
-.vert-tog.locked{background:var(--bg);color:var(--muted-2);cursor:not-allowed;border-style:dashed}
+.vert-tog.locked{background:var(--bg);color:var(--muted-2);cursor:pointer;border-style:dashed;opacity:.7;padding:8px 12px}
+.vert-tog.locked:hover{opacity:1;border-color:var(--warning);color:var(--warning)}
 .vert-icon{width:16px;height:16px;color:var(--muted);display:flex;align-items:center;justify-content:center}
-.vert-tog.locked .vert-icon{color:var(--muted-2)}
+.vert-tog.locked .vert-icon{color:var(--warning)}
 .vert-lock{font-size:10px;background:var(--warning-bg);color:var(--warning);padding:1px 7px;border-radius:8px;font-weight:600;margin-left:2px;border:1px solid #fde68a}
 
 /* PAGE BODY */
-.page-body{flex:1;display:grid;grid-template-columns:340px 1fr;overflow:hidden}
+.page-body{flex:1;display:grid;grid-template-columns:380px 1fr;overflow:hidden}
 
 /* ── LEFT panel (Create Catalog) ── */
 .left{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
@@ -232,7 +233,20 @@ td.price-cell{font-weight:600}
 ::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:3px}
 
 svg{display:block}
+
+/* Coming Soon Modal */
+.cs-modal-bg{display:none;position:fixed;inset:0;background:#1a25408a;z-index:200;align-items:center;justify-content:center}
+.cs-modal-bg.open{display:flex}
+.cs-modal{background:var(--white);border-radius:16px;width:420px;padding:36px 32px;box-shadow:0 20px 60px #1a254033;text-align:center}
+.cs-icon{font-size:42px;margin-bottom:12px}
+.cs-badge{display:inline-block;background:var(--warning-bg);color:var(--warning);border:1px solid #fde68a;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:14px;letter-spacing:.5px;text-transform:uppercase}
+.cs-title{font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.cs-sub{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px}
+.cs-btn{padding:10px 28px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s}
+.cs-btn:hover{background:var(--navy-2)}
+
 </style>
+<base target="_blank">
 <base target="_blank">
 <base target="_blank">
 </head>
@@ -306,17 +320,17 @@ svg{display:block}
     <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></span>
       Apparels &amp; Fashion
-      <span class="vert-lock">Locked</span>
+      
     </button>
     <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
       Toys &amp; Sports
-      <span class="vert-lock">Locked</span>
+      
     </button>
     <button class="vert-tog locked" onclick="showComingSoon(this)">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><rect x="9" y="14" width="6" height="6"/></svg></span>
       Home Furnishing
-      <span class="vert-lock">Locked</span>
+      
     </button>
   </div>
 
@@ -454,31 +468,31 @@ svg{display:block}
         <button class="tpl-dl-btn" onclick="downloadTpl('Consumer Electronics')">Download .xlsx</button>
       </div>
       <div class="tpl-card locked">
-        <span class="tpl-locked-tag">Locked</span>
+        
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/></svg></div>
           <div class="tpl-card-name">Apparels &amp; Fashion</div>
         </div>
-        <div class="tpl-card-desc">Under development — coming soon.</div>
-        <button class="tpl-dl-btn" disabled>Unavailable</button>
+        <div class="tpl-card-desc">Coming soon.</div>
+        <button class="tpl-dl-btn" disabled>Locked</button>
       </div>
       <div class="tpl-card locked">
-        <span class="tpl-locked-tag">Locked</span>
+        
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg></div>
           <div class="tpl-card-name">Toys &amp; Sports</div>
         </div>
-        <div class="tpl-card-desc">Under development — coming soon.</div>
-        <button class="tpl-dl-btn" disabled>Unavailable</button>
+        <div class="tpl-card-desc">Coming soon.</div>
+        <button class="tpl-dl-btn" disabled>Locked</button>
       </div>
       <div class="tpl-card locked">
-        <span class="tpl-locked-tag">Locked</span>
+        
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></div>
           <div class="tpl-card-name">Home Furnishing</div>
         </div>
-        <div class="tpl-card-desc">Under development — coming soon.</div>
-        <button class="tpl-dl-btn" disabled>Unavailable</button>
+        <div class="tpl-card-desc">Coming soon.</div>
+        <button class="tpl-dl-btn" disabled>Locked</button>
       </div>
     </div>
   </div>
@@ -930,7 +944,7 @@ async function loadLogs(){
    COMING SOON MODAL
    ═══════════════════════════════════════════════════════════════ */
 function showComingSoon(btn){
-  const name = btn.textContent.replace('Locked','').trim();
+  const name = btn.getAttribute('title') ? btn.getAttribute('title').replace(' — Coming Soon','') : 'This Category';
   document.getElementById('cs-title').textContent = name || 'This Category';
   document.getElementById('cs-modal').classList.add('open');
 }

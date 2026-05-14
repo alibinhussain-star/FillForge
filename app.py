@@ -274,6 +274,7 @@ def make_description(brand, article, gender, upper, closure, fw_type, sole, colo
         f"Color: {color}. Available sizes: {sizes}. "
         f"Set of {set_count} bulk-pack — ideal for retailers and resellers."
     )
+
 def normalize_brands(brands_data):
     """Normalize brands from various frontend formats to {name: id} dict."""
     if not brands_data:
@@ -304,6 +305,7 @@ def get_brand_info(drow, col_map, brands_dict):
 
     brand_col = col_map.get('brand')
     if not brand_col:
+        # No brand column in dump — use configured fallback directly
         return fallback_brand, fallback_id
 
     try:
@@ -324,8 +326,9 @@ def get_brand_info(drow, col_map, brands_dict):
         if b_name.lower() in file_brand_lower or file_brand_lower in b_name.lower():
             return b_name, b_id
 
+    # Dump has a brand value but it doesn't match any configured brand —
+    # still return the fallback so title is never missing a brand
     return fallback_brand, fallback_id
-
 
 
 DUMP_COL_HINTS = {
@@ -367,13 +370,26 @@ BASE_COL_HINTS = {
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
+    # ── FIX: normalise brands once and keep a reliable fallback ──────────
     brands_dict = normalize_brands(config.get('brands', {}))
+    fallback_brand = ''
+    fallback_id    = ''
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    # ─────────────────────────────────────────────────────────────────────
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+
+        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        if not brand and fallback_brand:
+            brand    = fallback_brand
+            brand_id = fallback_id
+        # ─────────────────────────────────────────────────────────────────────────
+
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         art_raw = safe(drow.get(col_map.get('article',''), ''))
         article = art_raw if (art_raw and '_' not in art_raw) else extract_article(sku_raw)
@@ -739,12 +755,25 @@ def get_ce_template_wb_for_subtype(subtype):
 
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    brands_dict = ce_config.get('brands', {})
+    # ── FIX: normalise brands once and keep a reliable fallback ──────────
+    brands_dict    = normalize_brands(ce_config.get('brands', {}))
+    fallback_brand = ''
+    fallback_id    = ''
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    # ─────────────────────────────────────────────────────────────────────
     st_data = CE_SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+
+        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        if not brand and fallback_brand:
+            brand    = fallback_brand
+            brand_id = fallback_id
+        # ─────────────────────────────────────────────────────────────────────────
+
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         title_name = safe(drow.get(col_map.get('article',''), ''))
         article = extract_model_name(title_name) if title_name else extract_model_name(sku_raw)
@@ -1015,14 +1044,17 @@ def update_config():
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
     config.update(data)
-    write_log('anonymous', 'config_updated')
+    write_log('anonymous', 'config_updated', f"brands={config.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/ce_config', methods=['POST'])
 def update_ce_config():
     global ce_config
-    ce_config.update(request.json)
-    write_log('anonymous', 'ce_config_updated')
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    ce_config.update(data)
+    write_log('anonymous', 'ce_config_updated', f"brands={ce_config.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')

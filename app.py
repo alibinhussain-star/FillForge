@@ -553,7 +553,7 @@ CE_DEFAULT_CONFIG = {
     "country_of_origin":   "India",
     "product_condition":   "Fresh",
     "manufacturing_year":  "2026",
-    "discovery_cat":       "DISCAT-135542",
+    "discovery_cat":       "DISCAT-135528",
 }
 ce_config = {k: v for k, v in CE_DEFAULT_CONFIG.items()}
 

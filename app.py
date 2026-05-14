@@ -290,14 +290,16 @@ def derive_gender(subtype):
     return ""
 
 def make_title(brand, gender, upper, closure, fw_type, color):
+    """Form title: Brand Name + Gender + Upper Material + Closure Type + Foot Wear Type, + Colour"""
     parts = [p for p in [brand, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
     return f"{base}, {color}" if color else base
 
-def make_internal_title(brand, article, gender, upper, closure, fw_type, color, set_count, set_details_tpl):
+def make_internal_title(brand, article, gender, upper, closure, fw_type, color, set_name, set_details_tpl):
+    """Form internal title: Brand + Article + Gender + Upper Material + Closure Type + Foot Wear Type, + Colour, + Set Name + (SET_DETAILS)"""
     parts = [p for p in [brand, article, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
-    return f"{base}, {color}, Set of {set_count} ({set_details_tpl})"
+    return f"{base}, {color}, {set_name} ({set_details_tpl})"
 
 def make_description(brand, article, gender, upper, closure, fw_type, sole, color, sizes, set_count):
     title_part    = ' '.join(p for p in [brand, gender, upper, closure, fw_type] if p)
@@ -333,59 +335,13 @@ def normalize_brands(brands_data):
     return {}
 
 def get_brand_info(drow, col_map, brands_dict):
-    """Look up brand & brand_id from the dump file's Brand column.
-    Returns (brand_name, brand_id). Falls back to first configured brand if no match.
-
-    Match priority:
-      1. Exact match (case-insensitive)
-      2. Partial / word match (case-insensitive)
-      3. First word of dump brand matches first word of configured brand
-      4. Hard fallback: first configured brand (brand is NEVER left empty)
-    """
+    """Return the single brand configured in settings (name, id).
+    No multi-brand lookup — whatever is saved in config is used directly."""
     brands_dict = normalize_brands(brands_dict)
     if not brands_dict:
         return '', ''
-
-    fallback_brand, fallback_id = next(iter(brands_dict.items()))
-
-    # No brand column in dump at all → use fallback
-    brand_col = col_map.get('brand')
-    if not brand_col:
-        return fallback_brand, fallback_id
-
-    try:
-        file_brand = str(drow.get(brand_col, '')).strip()
-    except:
-        file_brand = ''
-
-    # Empty / null brand value in dump → use fallback
-    if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
-        return fallback_brand, fallback_id
-
-    file_brand_lower = file_brand.lower().strip()
-
-    # 1. Exact match (case-insensitive)
-    for b_name, b_id in brands_dict.items():
-        if b_name.lower().strip() == file_brand_lower:
-            return b_name, b_id
-
-    # 2. Substring match either way
-    for b_name, b_id in brands_dict.items():
-        bn = b_name.lower().strip()
-        if bn in file_brand_lower or file_brand_lower in bn:
-            return b_name, b_id
-
-    # 3. First-word match (handles "ASIAN" vs "Asian Footwear" etc.)
-    file_first_word = file_brand_lower.split()[0] if file_brand_lower.split() else ''
-    if file_first_word:
-        for b_name, b_id in brands_dict.items():
-            cfg_first_word = b_name.lower().strip().split()[0] if b_name.strip().split() else ''
-            if cfg_first_word and cfg_first_word == file_first_word:
-                return b_name, b_id
-
-    # 4. No match at all → always fall back to first configured brand
-    #    so the title is NEVER left without a brand name
-    return fallback_brand, fallback_id
+    # Return the first (and only) configured brand
+    return next(iter(brands_dict.items()))
 
 
 DUMP_COL_HINTS = {
@@ -427,26 +383,14 @@ BASE_COL_HINTS = {
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    # ── FIX: normalise brands once and keep a reliable fallback ──────────
     _cfg = get_config()
     brands_dict = normalize_brands(_cfg.get('brands', {}))
-    fallback_brand = ''
-    fallback_id    = ''
-    if brands_dict:
-        fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    # ─────────────────────────────────────────────────────────────────────
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
-
-        # ── FIX: hard fallback — brand must never be empty if config has brands ──
-        if not brand and fallback_brand:
-            brand    = fallback_brand
-            brand_id = fallback_id
-        # ─────────────────────────────────────────────────────────────────────────
 
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         art_raw = safe(drow.get(col_map.get('article',''), ''))
@@ -498,7 +442,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         if not avail_sizes: avail_sizes = ', '.join(sizes_list)
 
         title          = make_title(brand, gender, upper_mat, closure, fw_type, color)
-        internal_title = make_internal_title(brand, article, gender, upper_mat, closure, fw_type, color, set_count, set_details_tpl)
+        internal_title = make_internal_title(brand, article, gender, upper_mat, closure, fw_type, color, f'Set of {set_count}', set_details_tpl)
         description    = prod_desc if prod_desc else make_description(brand, article, gender, upper_mat, closure, fw_type, sole_mat, color, avail_sizes, set_count)
 
         try:    mrp    = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
@@ -826,12 +770,6 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
-
-        # ── FIX: hard fallback — brand must never be empty if config has brands ──
-        if not brand and fallback_brand:
-            brand    = fallback_brand
-            brand_id = fallback_id
-        # ─────────────────────────────────────────────────────────────────────────
 
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         title_name = safe(drow.get(col_map.get('article',''), ''))

@@ -274,25 +274,57 @@ def make_description(brand, article, gender, upper, closure, fw_type, sole, colo
         f"Color: {color}. Available sizes: {sizes}. "
         f"Set of {set_count} bulk-pack — ideal for retailers and resellers."
     )
+def normalize_brands(brands_data):
+    """Normalize brands from various frontend formats to {name: id} dict."""
+    if not brands_data:
+        return {}
+    if isinstance(brands_data, dict):
+        return brands_data
+    if isinstance(brands_data, list):
+        result = {}
+        for item in brands_data:
+            if isinstance(item, dict):
+                name = item.get('name', item.get('brandName', ''))
+                bid = item.get('id', item.get('brandId', ''))
+                if name:
+                    result[name] = bid
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                result[item[0]] = item[1]
+        return result
+    return {}
+
 def get_brand_info(drow, col_map, brands_dict):
     """Look up brand & brand_id from the dump file's Brand column.
-    Returns (brand_name, brand_id). Falls back to first brand if no match."""
+    Returns (brand_name, brand_id). Falls back to first configured brand if no match."""
+    brands_dict = normalize_brands(brands_dict)
     if not brands_dict:
         return '', ''
+
+    fallback_brand, fallback_id = next(iter(brands_dict.items()))
+
     brand_col = col_map.get('brand')
-    if brand_col and brand_col in drow:
+    if not brand_col:
+        return fallback_brand, fallback_id
+
+    try:
         file_brand = str(drow.get(brand_col, '')).strip()
-        # Exact match (case-insensitive)
-        for b_name, b_id in brands_dict.items():
-            if b_name.lower() == file_brand.lower():
-                return b_name, b_id
-        # Partial match
-        for b_name, b_id in brands_dict.items():
-            if b_name.lower() in file_brand.lower() or file_brand.lower() in b_name.lower():
-                return b_name, b_id
-    # Fallback: return first configured brand
-    first = next(iter(brands_dict.items()))
-    return first[0], first[1]
+    except:
+        file_brand = ''
+
+    if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
+        return fallback_brand, fallback_id
+
+    file_brand_lower = file_brand.lower()
+
+    for b_name, b_id in brands_dict.items():
+        if b_name.lower() == file_brand_lower:
+            return b_name, b_id
+
+    for b_name, b_id in brands_dict.items():
+        if b_name.lower() in file_brand_lower or file_brand_lower in b_name.lower():
+            return b_name, b_id
+
+    return fallback_brand, fallback_id
 
 
 
@@ -335,7 +367,7 @@ BASE_COL_HINTS = {
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    brands_dict = config.get('brands', {})
+    brands_dict = normalize_brands(config.get('brands', {}))
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
@@ -979,7 +1011,10 @@ def get_ce_config():
 @app.route('/config', methods=['POST'])
 def update_config():
     global config
-    config.update(request.json)
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    config.update(data)
     write_log('anonymous', 'config_updated')
     return jsonify({'status': 'ok'})
 
@@ -1007,6 +1042,7 @@ def detect_verticals():
             except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
+        config['brands'] = normalize_brands(config.get('brands', {}))
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
             found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
@@ -1069,6 +1105,7 @@ def process():
             return jsonify({'error': 'Could not read any data from dump file'}), 400
 
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
+        config['brands'] = normalize_brands(config.get('brands', {}))
         vert_col = col_map.get('vertical')
 
         existing_articles, existing_skus = set(), set()

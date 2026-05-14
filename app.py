@@ -1458,5 +1458,45 @@ def download(token):
 
     return 'File not found', 404
 
+
+
+@app.route('/test_brand')
+def test_brand():
+    """Tests the full brand lookup chain end-to-end."""
+    cfg = get_config()
+    brands_raw = cfg.get('brands', {})
+    brands_dict = normalize_brands(brands_raw)
+    
+    fallback_brand = ''
+    fallback_id = ''
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    
+    return jsonify({
+        'step1_raw_from_config_json': brands_raw,
+        'step2_after_normalize':      brands_dict,
+        'step3_fallback_brand':       fallback_brand,
+        'step4_fallback_id':          fallback_id,
+        'step5_config_json_exists':   os.path.exists(CONFIG_PATH),
+        'step6_config_json_content':  open(CONFIG_PATH).read() if os.path.exists(CONFIG_PATH) else 'FILE NOT FOUND',
+        'conclusion': 'Brand will appear in title' if fallback_brand else 'NO BRAND — brands dict is empty!',
+    })
+
+@app.route('/debug_config')
+def debug_config():
+    """Diagnostic endpoint — shows exactly what is stored in config files."""
+    cfg    = get_config()
+    ce_cfg = get_ce_config_from_disk()
+    return jsonify({
+        'config_path':    CONFIG_PATH,
+        'ce_config_path': CE_CONFIG_PATH,
+        'config_file_exists':    os.path.exists(CONFIG_PATH),
+        'ce_config_file_exists': os.path.exists(CE_CONFIG_PATH),
+        'footwear_brands': cfg.get('brands', {}),
+        'ce_brands':       ce_cfg.get('brands', {}),
+        'footwear_config': cfg,
+        'ce_config':       ce_cfg,
+    })
+
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

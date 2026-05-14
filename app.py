@@ -131,7 +131,45 @@ DEFAULT_CONFIG = {
     "manufacturing_year":  "2026",
     "discovery_cat":       "DISCAT-135542",
 }
-config = {k: v for k, v in DEFAULT_CONFIG.items()}
+
+# ── Persistent config helpers ───────────────────────────────────
+# Config is saved to disk so it survives Gunicorn multi-worker
+# deployments and server restarts (fixes brand loss between requests).
+CONFIG_PATH    = os.path.join(os.path.dirname(__file__), 'config.json')
+CE_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'ce_config.json')
+
+def _load_config(path, defaults):
+    """Load config from JSON file, falling back to defaults for missing keys."""
+    cfg = {k: v for k, v in defaults.items()}
+    if os.path.exists(path):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+            cfg.update(saved)
+        except Exception as e:
+            print(f'Warning: could not load config from {path}: {e}')
+    return cfg
+
+def _save_config(path, cfg):
+    """Persist config to JSON file atomically."""
+    try:
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)   # atomic on POSIX
+    except Exception as e:
+        print(f'Warning: could not save config to {path}: {e}')
+
+def get_config():
+    """Always read from disk so all Gunicorn workers stay in sync."""
+    return _load_config(CONFIG_PATH, DEFAULT_CONFIG)
+
+def get_ce_config_from_disk():
+    """Always read from disk so all Gunicorn workers stay in sync."""
+    return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
+
+# Boot-time load
+config = get_config()
 
 # ── Utility ────────────────────────────────────────────────────
 def safe(val, default=''):
@@ -390,7 +428,8 @@ BASE_COL_HINTS = {
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
     # ── FIX: normalise brands once and keep a reliable fallback ──────────
-    brands_dict = normalize_brands(config.get('brands', {}))
+    _cfg = get_config()
+    brands_dict = normalize_brands(_cfg.get('brands', {}))
     fallback_brand = ''
     fallback_id    = ''
     if brands_dict:
@@ -444,14 +483,14 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         heel_type   = safe(drow.get(col_map.get('heel_type',''), ''))
         img_url     = safe(drow.get(col_map.get('image',''), ''))
         packing     = safe(drow.get(col_map.get('packing',''), '')) or 'Loose Packing'
-        country     = safe(drow.get(col_map.get('country',''), '')) or config['country_of_origin']
+        country     = safe(drow.get(col_map.get('country',''), '')) or _cfg['country_of_origin']
         dim_uom     = safe(drow.get(col_map.get('dim_uom',''), '')) or 'cm'
         fw_type     = safe(drow.get(col_map.get('fw_type',''), ''))
         prod_desc   = safe(drow.get(col_map.get('product_desc',''), ''))
 
         for v, field in [(packing,'packing'),(country,'country')]:
             if v in ('nan','None',''): 
-                if field == 'country': country = config['country_of_origin']
+                if field == 'country': country = _cfg['country_of_origin']
                 if field == 'packing': packing = 'Loose Packing'
 
         sizes_list = expand_size_range(sizes_raw, size_type)
@@ -482,9 +521,9 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'CategoryType *':                              st_data.get('CategoryType *', ''),
             'SubType':                                     subtype,
             'PVID *':                                      st_data.get('PVID *', ''),
-            'BusinessCategoryId *':                        config['biz_cat_id'],
-            'BusinessCategoryName *':                      config['biz_cat_name'],
-            'Relationship *':                              config['relationship'],
+            'BusinessCategoryId *':                        _cfg['biz_cat_id'],
+            'BusinessCategoryName *':                      _cfg['biz_cat_name'],
+            'Relationship *':                              _cfg['relationship'],
             'ParentProductId *':                           sku_raw,
             'ChildSKU *':                                  sku_raw,
             'MRP *':                                       mrp,
@@ -495,9 +534,9 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'brandId *':                                   brand_id,
             'brandName *':                                 brand,
             'imageURL1 *':                                 img_url,
-            'catalogStatus *':                             config['catalog_status'],
-            'statusRemark':                                config['status_remark'],
-            'discoveryCategoryIds':                        st_data.get('discoveryCategoryIds', config['discovery_cat']),
+            'catalogStatus *':                             _cfg['catalog_status'],
+            'statusRemark':                                _cfg['status_remark'],
+            'discoveryCategoryIds':                        st_data.get('discoveryCategoryIds', _cfg['discovery_cat']),
             'productDescription *':                        description,
             'PRODUCT_IDENTIFIER *':                        'Set',
             'SET_NAME *':                                  f'Set of {set_count}',
@@ -511,7 +550,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'PRODUCT_COLOR *':                             color,
             'ARTICLE_NUMBER *':                            article,
             'MODEL_NAME *':                                article,
-            'PRODUCT_CONDITION *':                         config['product_condition'],
+            'PRODUCT_CONDITION *':                         _cfg['product_condition'],
             'UNIT_OF_MEASUREMENT_SINGULAR *':              'Pair',
             'UNIT_OF_MEASUREMENT_PLURAL *':                'Pairs',
             'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pair',
@@ -522,7 +561,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'AGE_GROUP *':                                 '',
             'CLOSURE_TYPE *':                              closure,
             'COUNTRY_OF_ORIGIN *':                         country,
-            'MANUFACTURING_YEAR':                          config['manufacturing_year'],
+            'MANUFACTURING_YEAR':                          _cfg['manufacturing_year'],
             'PRODUCT_LENGTH *':                            L,
             'PRODUCT_BREADTH *':                           B,
             'PRODUCT_HEIGHT *':                            H,
@@ -535,10 +574,10 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'UPPER_MATERIAL *':                            upper_mat,
             'hsnCode *':                                   hsn,
             'gstPercentage *':                             gst,
-            'cgstShare *':                                 config['gst_cgst'],
-            'sgstShare *':                                 config['gst_sgst'],
-            'igstShare *':                                 config['gst_igst'],
-            'taxMasterStatus':                             config['tax_master_status'],
+            'cgstShare *':                                 _cfg['gst_cgst'],
+            'sgstShare *':                                 _cfg['gst_sgst'],
+            'igstShare *':                                 _cfg['gst_igst'],
+            'taxMasterStatus':                             _cfg['tax_master_status'],
         }
 
         for col_name, val in row_data.items():
@@ -622,7 +661,7 @@ CE_DEFAULT_CONFIG = {
     "manufacturing_year":  "2026",
     "discovery_cat":       "DISCAT-135528",
 }
-ce_config = {k: v for k, v in CE_DEFAULT_CONFIG.items()}
+# ce_config loaded from disk at request time via get_ce_config_from_disk()
 
 CE_DUMP_COL_HINTS = {
     'sku':              ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
@@ -775,7 +814,8 @@ def get_ce_template_wb_for_subtype(subtype):
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
     # ── FIX: normalise brands once and keep a reliable fallback ──────────
-    brands_dict    = normalize_brands(ce_config.get('brands', {}))
+    _ce_cfg = get_ce_config_from_disk()
+    brands_dict    = normalize_brands(_ce_cfg.get('brands', {}))
     fallback_brand = ''
     fallback_id    = ''
     if brands_dict:
@@ -814,7 +854,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         hsn          = drow.get(col_map.get('hsn',''), '')
         gst          = drow.get(col_map.get('gst',''), 18)
         packing      = safe(drow.get(col_map.get('packing',''), '')) or 'BOX'
-        country      = safe(drow.get(col_map.get('country',''), '')) or ce_config['country_of_origin']
+        country      = safe(drow.get(col_map.get('country',''), '')) or _ce_cfg['country_of_origin']
         dim_uom      = safe(drow.get(col_map.get('dim_uom',''), '')) or 'cm'
         prod_desc    = safe(drow.get(col_map.get('product_desc',''), ''))
         warranty     = safe(drow.get(col_map.get('warranty',''), ''))
@@ -853,7 +893,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             ram_rom = f"{ram} + {storage}"
 
         ram_storage = ram_rom if ram_rom else (ram or storage or '')
-        condition = safe(drow.get(col_map.get('product_condition',''), '')) or ce_config['product_condition']
+        condition = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
         title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
         internal_title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
 
@@ -891,9 +931,9 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'CategoryType *':                              subtype,
             'SubType':                                     subtype,
             'PVID *':                                      st_data.get('PVID *', ''),
-            'BusinessCategoryId *':                        ce_config['biz_cat_id'],
-            'BusinessCategoryName *':                      ce_config['biz_cat_name'],
-            'Relationship *':                              ce_config['relationship'],
+            'BusinessCategoryId *':                        _ce_cfg['biz_cat_id'],
+            'BusinessCategoryName *':                      _ce_cfg['biz_cat_name'],
+            'Relationship *':                              _ce_cfg['relationship'],
             'ParentProductId *':                           sku_raw,
             'ChildSKU *':                                  sku_raw,
             'MRP *':                                       mrp,
@@ -909,9 +949,9 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'imageURL4':                                   img4_url,
             'imageURL5':                                   img5_url,
             'imageURL6':                                   img6_url,
-            'catalogStatus *':                             ce_config['catalog_status'],
-            'statusRemark':                                ce_config['status_remark'],
-            'discoveryCategoryIds':                        st_data.get('discoveryCategoryIds', ce_config['discovery_cat']),
+            'catalogStatus *':                             _ce_cfg['catalog_status'],
+            'statusRemark':                                _ce_cfg['status_remark'],
+            'discoveryCategoryIds':                        st_data.get('discoveryCategoryIds', _ce_cfg['discovery_cat']),
             'productDescription *':                        description,
             'PRODUCT_IDENTIFIER *':                        'Set',
             'SET_NAME *':                                  'Set of 1',
@@ -925,7 +965,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'PRODUCT_COLOR *':                             color,
             'ARTICLE_NUMBER *':                            article,
             'MODEL_NAME *':                                model_name,
-            'PRODUCT_CONDITION *':                         ce_config['product_condition'],
+            'PRODUCT_CONDITION *':                         _ce_cfg['product_condition'],
             'UNIT_OF_MEASUREMENT_SINGULAR *':              'Piece',
             'UNIT_OF_MEASUREMENT_PLURAL *':                'Pieces',
             'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pc',
@@ -939,7 +979,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'EAN *':                                       '',
             'IMPORTED_BY':                                 '',
             'KEY_FEATURES':                                '',
-            'MANUFACTURING_YEAR':                          ce_config['manufacturing_year'],
+            'MANUFACTURING_YEAR':                          _ce_cfg['manufacturing_year'],
             'PACKAGE_CONTENTS *':                          package_contents,
             'PORT_TYPE':                                   '',
             'PRODUCT_BREADTH *':                           B,
@@ -995,9 +1035,9 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'WATER_RESISTANCE_RATING':                     '',
             'hsnCode *':                                   hsn,
             'gstPercentage *':                             gst,
-            'cgstShare *':                                 ce_config['gst_cgst'],
-            'sgstShare *':                                 ce_config['gst_sgst'],
-            'igstShare *':                                 ce_config['gst_igst'],
+            'cgstShare *':                                 _ce_cfg['gst_cgst'],
+            'sgstShare *':                                 _ce_cfg['gst_sgst'],
+            'igstShare *':                                 _ce_cfg['gst_igst'],
             'cess':                                        '',
             'sinTax':                                      '',
             'vatPercentage':                               '',
@@ -1005,7 +1045,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'validityPeriodStartDate':                     '',
             'validityPeriodEndDate':                       '',
             'declarationForm':                             '',
-            'taxMasterStatus':                             ce_config['tax_master_status'],
+            'taxMasterStatus':                             _ce_cfg['tax_master_status'],
         }
 
         for col_name, val in row_data.items():
@@ -1049,31 +1089,33 @@ def get_ce_subtypes():
     return jsonify({'subtypes': CE_PV_LIST})
 
 @app.route('/config', methods=['GET'])
-def get_config():
-    return jsonify(config)
+def config_get_route():
+    return jsonify(get_config())
 
 @app.route('/ce_config', methods=['GET'])
-def get_ce_config():
-    return jsonify(ce_config)
+def ce_config_get_route():
+    return jsonify(get_ce_config_from_disk())
 
 @app.route('/config', methods=['POST'])
 def update_config():
-    global config
+    cfg = get_config()
     data = request.json
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
-    config.update(data)
-    write_log('anonymous', 'config_updated', f"brands={config.get('brands')}")
+    cfg.update(data)
+    _save_config(CONFIG_PATH, cfg)
+    write_log('anonymous', 'config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/ce_config', methods=['POST'])
 def update_ce_config():
-    global ce_config
+    cfg = get_ce_config_from_disk()
     data = request.json
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
-    ce_config.update(data)
-    write_log('anonymous', 'ce_config_updated', f"brands={ce_config.get('brands')}")
+    cfg.update(data)
+    _save_config(CE_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ce_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')
@@ -1093,7 +1135,6 @@ def detect_verticals():
             except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
-        config['brands'] = normalize_brands(config.get('brands', {}))
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
             found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
@@ -1156,7 +1197,6 @@ def process():
             return jsonify({'error': 'Could not read any data from dump file'}), 400
 
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
-        config['brands'] = normalize_brands(config.get('brands', {}))
         vert_col = col_map.get('vertical')
 
         existing_articles, existing_skus = set(), set()

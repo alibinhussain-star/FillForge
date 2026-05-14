@@ -296,16 +296,23 @@ def normalize_brands(brands_data):
 
 def get_brand_info(drow, col_map, brands_dict):
     """Look up brand & brand_id from the dump file's Brand column.
-    Returns (brand_name, brand_id). Falls back to first configured brand if no match."""
+    Returns (brand_name, brand_id). Falls back to first configured brand if no match.
+
+    Match priority:
+      1. Exact match (case-insensitive)
+      2. Partial / word match (case-insensitive)
+      3. First word of dump brand matches first word of configured brand
+      4. Hard fallback: first configured brand (brand is NEVER left empty)
+    """
     brands_dict = normalize_brands(brands_dict)
     if not brands_dict:
         return '', ''
 
     fallback_brand, fallback_id = next(iter(brands_dict.items()))
 
+    # No brand column in dump at all → use fallback
     brand_col = col_map.get('brand')
     if not brand_col:
-        # No brand column in dump — use configured fallback directly
         return fallback_brand, fallback_id
 
     try:
@@ -313,21 +320,33 @@ def get_brand_info(drow, col_map, brands_dict):
     except:
         file_brand = ''
 
+    # Empty / null brand value in dump → use fallback
     if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
         return fallback_brand, fallback_id
 
-    file_brand_lower = file_brand.lower()
+    file_brand_lower = file_brand.lower().strip()
 
+    # 1. Exact match (case-insensitive)
     for b_name, b_id in brands_dict.items():
-        if b_name.lower() == file_brand_lower:
+        if b_name.lower().strip() == file_brand_lower:
             return b_name, b_id
 
+    # 2. Substring match either way
     for b_name, b_id in brands_dict.items():
-        if b_name.lower() in file_brand_lower or file_brand_lower in b_name.lower():
+        bn = b_name.lower().strip()
+        if bn in file_brand_lower or file_brand_lower in bn:
             return b_name, b_id
 
-    # Dump has a brand value but it doesn't match any configured brand —
-    # still return the fallback so title is never missing a brand
+    # 3. First-word match (handles "ASIAN" vs "Asian Footwear" etc.)
+    file_first_word = file_brand_lower.split()[0] if file_brand_lower.split() else ''
+    if file_first_word:
+        for b_name, b_id in brands_dict.items():
+            cfg_first_word = b_name.lower().strip().split()[0] if b_name.strip().split() else ''
+            if cfg_first_word and cfg_first_word == file_first_word:
+                return b_name, b_id
+
+    # 4. No match at all → always fall back to first configured brand
+    #    so the title is NEVER left without a brand name
     return fallback_brand, fallback_id
 
 

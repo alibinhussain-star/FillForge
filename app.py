@@ -96,7 +96,6 @@ except Exception as e:
     PV_LIST = []
 
 def get_template_wb_for_subtype(subtype):
-    from openpyxl import Workbook
     try:
         wb_src  = load_workbook(TEMPLATE_PATH)
         ws_src  = wb_src['PV Template']
@@ -116,7 +115,7 @@ def get_template_wb_for_subtype(subtype):
 
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
-    "brands":              {},   # {"Samsung": "BR-123", "Redmi": "BR-456"}
+    "brands":              {},
     "biz_cat_id":          "BCAT-139461",
     "biz_cat_name":        "Footwear",
     "relationship":        "Parent",
@@ -132,17 +131,12 @@ DEFAULT_CONFIG = {
     "discovery_cat":       "DISCAT-135542",
 }
 
-# ── Persistent config helpers ───────────────────────────────────
-# Config is saved to disk so it survives Gunicorn multi-worker
-# deployments and server restarts (fixes brand loss between requests).
-# Use /tmp for config so it is always writable on Render / any host.
-# Also mirror next to the app file as fallback (for local dev).
-_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# ── Persistent config ───────────────────────────────────────────
+# /tmp is always writable on Render and other PaaS hosts.
 CONFIG_PATH    = '/tmp/fillforge_config.json'
 CE_CONFIG_PATH = '/tmp/fillforge_ce_config.json'
 
 def _load_config(path, defaults):
-    """Load config from JSON file, falling back to defaults for missing keys."""
     cfg = {k: v for k, v in defaults.items()}
     if os.path.exists(path):
         try:
@@ -154,24 +148,20 @@ def _load_config(path, defaults):
     return cfg
 
 def _save_config(path, cfg):
-    """Persist config to JSON file atomically."""
     try:
         tmp = path + '.tmp'
         with open(tmp, 'w', encoding='utf-8') as f:
             json.dump(cfg, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)   # atomic on POSIX
+        os.replace(tmp, path)
     except Exception as e:
         print(f'Warning: could not save config to {path}: {e}')
 
 def get_config():
-    """Always read from disk so all Gunicorn workers stay in sync."""
     return _load_config(CONFIG_PATH, DEFAULT_CONFIG)
 
 def get_ce_config_from_disk():
-    """Always read from disk so all Gunicorn workers stay in sync."""
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
-# Boot-time load
 config = get_config()
 
 # ── Utility ────────────────────────────────────────────────────
@@ -240,7 +230,6 @@ def expand_size_range(size_str, size_type='UK'):
     if m:
         start, end = int(m.group(1)), int(m.group(2))
         pfx = f"{size_type} " if size_type else ''
-        # Handle wrap-around ranges like 9X1 (UK 9,10,11,12,13,1)
         if start > end:
             return [f"{pfx}{i}" for i in list(range(start, 14)) + list(range(1, end + 1))]
         return [f"{pfx}{i}" for i in range(start, end + 1)]
@@ -251,14 +240,14 @@ def build_set_details(sizes_list, set_details_raw):
     raw = str(set_details_raw).strip() if set_details_raw else ''
     full = re.findall(r'((?:UK\s*)?\d+)\s*/\s*(\d+)', raw)
     if full:
-        det  = [f'{s}/{q}' for s, q in full]
-        desc = [f'{q} pcs of {s}' for s, q in full]
+        det   = [f'{s}/{q}' for s, q in full]
+        desc  = [f'{q} pcs of {s}' for s, q in full]
         avail = ', '.join(s for s, _ in full)
         return ', '.join(det), ', '.join(desc), avail
     dash = re.findall(r'((?:UK\s*)?\d+)\s*[-–]+\s*(\d+)', raw)
     if dash:
-        det  = [f'{s}/{q}' for s, q in dash]
-        desc = [f'{q} pcs of {s}' for s, q in dash]
+        det   = [f'{s}/{q}' for s, q in dash]
+        desc  = [f'{q} pcs of {s}' for s, q in dash]
         avail = ', '.join(s for s, _ in dash)
         return ', '.join(det), ', '.join(desc), avail
     qty_parts = [x.strip() for x in raw.split(',') if x.strip()]
@@ -268,8 +257,8 @@ def build_set_details(sizes_list, set_details_raw):
         else:
             qty   = sum(int(q) for q in qty_parts) // max(len(sizes_list), 1)
             pairs = [(s, str(qty)) for s in sizes_list]
-        det   = [f'{s}/{q}' for s, q in pairs]
-        desc  = [f'{q} pcs of {s}' for s, q in pairs]
+        det  = [f'{s}/{q}' for s, q in pairs]
+        desc = [f'{q} pcs of {s}' for s, q in pairs]
         return ', '.join(det), ', '.join(desc), ', '.join(s for s, _ in pairs)
     if sizes_list:
         det  = [f'{s}/1' for s in sizes_list]
@@ -303,10 +292,10 @@ def make_internal_title(brand, article, gender, upper, closure, fw_type, color, 
     return f"{base}, {color}, Set of {set_count} ({set_details_tpl})"
 
 def make_description(brand, article, gender, upper, closure, fw_type, sole, color, sizes, set_count):
-    title_part    = ' '.join(p for p in [brand, gender, upper, closure, fw_type] if p)
-    upper_l  = upper.lower()   if upper   else 'upper'
-    sole_l   = sole.lower()    if sole    else 'sole'
-    closure_l= closure.lower() if closure else 'slip-on'
+    title_part = ' '.join(p for p in [brand, gender, upper, closure, fw_type] if p)
+    upper_l    = upper.lower()   if upper   else 'upper'
+    sole_l     = sole.lower()    if sole    else 'sole'
+    closure_l  = closure.lower() if closure else 'slip-on'
     return (
         f"Step out in style with the {title_part} ({article}). "
         f"The {upper_l} upper offers a snug, comfortable fit, while the {sole_l} sole delivers "
@@ -327,7 +316,7 @@ def normalize_brands(brands_data):
         for item in brands_data:
             if isinstance(item, dict):
                 name = item.get('name', item.get('brandName', ''))
-                bid = item.get('id', item.get('brandId', ''))
+                bid  = item.get('id',   item.get('brandId',   ''))
                 if name:
                     result[name] = bid
             elif isinstance(item, (list, tuple)) and len(item) >= 2:
@@ -336,14 +325,14 @@ def normalize_brands(brands_data):
     return {}
 
 def get_brand_info(drow, col_map, brands_dict):
-    """Look up brand & brand_id from the dump file's Brand column.
-    Returns (brand_name, brand_id). Falls back to first configured brand if no match.
+    """Multi-brand lookup: reads Brand column from dump file and matches against
+    all configured brands. Returns (brand_name, brand_id).
 
     Match priority:
       1. Exact match (case-insensitive)
-      2. Partial / word match (case-insensitive)
-      3. First word of dump brand matches first word of configured brand
-      4. Hard fallback: first configured brand (brand is NEVER left empty)
+      2. Substring match either way
+      3. First-word match  e.g. 'ASIAN' matches 'Asian Footwear'
+      4. Hard fallback: first configured brand — title is NEVER left without a brand
     """
     brands_dict = normalize_brands(brands_dict)
     if not brands_dict:
@@ -351,7 +340,6 @@ def get_brand_info(drow, col_map, brands_dict):
 
     fallback_brand, fallback_id = next(iter(brands_dict.items()))
 
-    # No brand column in dump at all → use fallback
     brand_col = col_map.get('brand')
     if not brand_col:
         return fallback_brand, fallback_id
@@ -361,13 +349,12 @@ def get_brand_info(drow, col_map, brands_dict):
     except:
         file_brand = ''
 
-    # Empty / null brand value in dump → use fallback
     if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
         return fallback_brand, fallback_id
 
     file_brand_lower = file_brand.lower().strip()
 
-    # 1. Exact match (case-insensitive)
+    # 1. Exact match
     for b_name, b_id in brands_dict.items():
         if b_name.lower().strip() == file_brand_lower:
             return b_name, b_id
@@ -378,7 +365,7 @@ def get_brand_info(drow, col_map, brands_dict):
         if bn in file_brand_lower or file_brand_lower in bn:
             return b_name, b_id
 
-    # 3. First-word match (handles "ASIAN" vs "Asian Footwear" etc.)
+    # 3. First-word match
     file_first_word = file_brand_lower.split()[0] if file_brand_lower.split() else ''
     if file_first_word:
         for b_name, b_id in brands_dict.items():
@@ -386,11 +373,11 @@ def get_brand_info(drow, col_map, brands_dict):
             if cfg_first_word and cfg_first_word == file_first_word:
                 return b_name, b_id
 
-    # 4. No match at all → always fall back to first configured brand
-    #    so the title is NEVER left without a brand name
+    # 4. Hard fallback — never leave brand empty
     return fallback_brand, fallback_id
 
 
+# ── Column hints ────────────────────────────────────────────────
 DUMP_COL_HINTS = {
     'sku':            ['Seller SKU ID','Seller SKU_ID','ChildSKU *','ChildSKU','SKU'],
     'article':        ['Article Code','Article Number','ARTICLE_NUMBER'],
@@ -429,27 +416,22 @@ BASE_COL_HINTS = {
 }
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
-    tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    # ── FIX: normalise brands once and keep a reliable fallback ──────────
-    _cfg = get_config()
+    tcol        = {h: i+1 for i, h in enumerate(headers) if h}
+    _cfg        = get_config()
     brands_dict = normalize_brands(_cfg.get('brands', {}))
-    fallback_brand = ''
-    fallback_id    = ''
+    fallback_brand, fallback_id = ('', '')
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    # ─────────────────────────────────────────────────────────────────────
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
-
-        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        # Safety net: only fires when brand is genuinely empty after all lookups
         if not brand and fallback_brand:
             brand    = fallback_brand
             brand_id = fallback_id
-        # ─────────────────────────────────────────────────────────────────────────
 
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         art_raw = safe(drow.get(col_map.get('article',''), ''))
@@ -465,9 +447,9 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         size_type   = safe(drow.get(col_map.get('size_type',''), 'UK')) or 'UK'
         sizes_raw   = safe(drow.get(col_map.get('sizes',''), ''))
         set_det_raw = safe(drow.get(col_map.get('set_details',''), ''))
-        _sc_raw   = safe(drow.get(col_map.get('set_of',''), '0'))
-        _sc_nums  = re.findall(r'\d+', str(_sc_raw))
-        set_count = int(_sc_nums[0]) if _sc_nums else 0
+        _sc_raw     = safe(drow.get(col_map.get('set_of',''), '0'))
+        _sc_nums    = re.findall(r'\d+', str(_sc_raw))
+        set_count   = int(_sc_nums[0]) if _sc_nums else 0
         color       = merge_colors(
             drow.get(col_map.get('color',''), ''),
             drow.get(col_map.get('color2',''), '')
@@ -492,7 +474,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         prod_desc   = safe(drow.get(col_map.get('product_desc',''), ''))
 
         for v, field in [(packing,'packing'),(country,'country')]:
-            if v in ('nan','None',''): 
+            if v in ('nan','None',''):
                 if field == 'country': country = _cfg['country_of_origin']
                 if field == 'packing': packing = 'Loose Packing'
 
@@ -571,8 +553,10 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'PRODUCT_DIMENSION_UOM *':                     dim_uom,
             'PRODUCT_WEIGHT_IN_KG *':                      weight,
             'FOOTWEAR_TYPE *':                             fw_type,
-            'HEEL_HEIGHT':                                 heel_ht, 'HEEL_HEIGHT *': heel_ht,
-            'HEEL_TYPE':                                   heel_type, 'HEEL_TYPE *': heel_type,
+            'HEEL_HEIGHT':                                 heel_ht,
+            'HEEL_HEIGHT *':                               heel_ht,
+            'HEEL_TYPE':                                   heel_type,
+            'HEEL_TYPE *':                                 heel_type,
             'SOLE_MATERIAL *':                             sole_mat,
             'UPPER_MATERIAL *':                            upper_mat,
             'hsnCode *':                                   hsn,
@@ -591,7 +575,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
 
 
 # ═══════════════════════════════════════════════════════════════
-# CONSUMER ELECTRONICS MODULE (integrated, no footwear changes)
+# CONSUMER ELECTRONICS MODULE
 # ═══════════════════════════════════════════════════════════════
 
 CE_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Consumer Electronic Mapping Logic & templates.xlsx')
@@ -604,17 +588,14 @@ def _build_ce_header_row_map():
     for r in range(1, ws.max_row + 1):
         if ws.cell(r, 1).value == 'Category *':
             for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
-                # CE template: subtype is in Column C (CategoryType *), not Column D (SubType)
-                # Column D (SubType) is empty in CE data rows
-                c3_val = ws.cell(r2, 3).value  # Column C = CategoryType *
-                c4_val = ws.cell(r2, 4).value  # Column D = SubType (may be empty)
-                # Use CategoryType * as the subtype key since SubType is empty
+                c3_val      = ws.cell(r2, 3).value
+                c4_val      = ws.cell(r2, 4).value
                 subtype_val = c3_val if c3_val else c4_val
                 if subtype_val and str(subtype_val).strip() not in ('CategoryType *','SubType','Category *','nan',''):
                     st = str(subtype_val).strip()
                     if st not in hdr_map:
                         hdr_map[st] = r
-                        hdrs = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
+                        hdrs  = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
                         entry = {}
                         for ci, col in enumerate(hdrs):
                             if col in ('Category *','SubCategory *','CategoryType *',
@@ -634,9 +615,9 @@ except Exception as e:
 
 def load_ce_pv_list():
     try:
-        pv = pd.read_excel(CE_TEMPLATE_PATH, sheet_name='Category List')
+        pv  = pd.read_excel(CE_TEMPLATE_PATH, sheet_name='Category List')
         col = pv.columns[0]
-        return [str(v).strip() for v in pv[col].dropna() 
+        return [str(v).strip() for v in pv[col].dropna()
                 if str(v).strip() not in ('nan','CategoryType *','')]
     except Exception as e:
         print(f"Warning: Could not load CE Category List: {e}")
@@ -649,7 +630,7 @@ except Exception as e:
     CE_PV_LIST = []
 
 CE_DEFAULT_CONFIG = {
-    "brands":              {},   # {"Samsung": "BR-123", "Redmi": "BR-456"}
+    "brands":              {},
     "biz_cat_id":          "BCAT-139438",
     "biz_cat_name":        "Consumer Electronics",
     "relationship":        "Parent",
@@ -664,51 +645,53 @@ CE_DEFAULT_CONFIG = {
     "manufacturing_year":  "2026",
     "discovery_cat":       "DISCAT-135528",
 }
-# ce_config loaded from disk at request time via get_ce_config_from_disk()
 
 CE_DUMP_COL_HINTS = {
-    'sku':              ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
-    'article':          ['Model Number','MODEL NUMBER','Model NUMBER','Article Number','Article Code','ARTICLE_NUMBER','Name of the model/Title name'],
-    'image':            ['Main Image URL','Image Links','Image Link','ImageURL1','imageURL1 *'],
-    'image2':           ['Other Image URL 1','Other Image URL1'],
-    'image3':           ['Other Image URL 2','Other Image URL2'],
-    'image4':           ['Other Image URL 3','Other Image URL3'],
-    'image5':           ['Other Image URL 4','Other Image URL4'],
-    'image6':           ['Other Image URL 5','Other Image URL5'],
-    'vertical':         ['Product Type','Product Sub-type','CategoryType *','Subtype','SubType'],
-    'brand':            ['Brand','Brand Name'],
-    'mrp':              ['MRP','*MRP full Set','MRP *','MRP full Set'],
-    'sp':               ['Selling Price','SellingPrice *','*Selling Price per Pair'],
-    'moq':              ['*Minimum Order Quantity','*MOQ','MOQ *','MOQ'],
-    'color':            ['Product Color','Product Colour','Primary Colour','PRODUCT_COLOR *'],
-    'product_desc':     ['Product Description','productDescription *'],
-    'hsn':              ['HSN Code','*HSN Code','hsnCode *'],
-    'gst':              ['GST','*GST','gstPercentage *'],
-    'weight':           ['Product Weight','*Product Weight (In KG) Full Ste','PRODUCT_WEIGHT_IN_KG *'],
-    'dims':             ['*Product Dimension (LXBXH)','Product Dimension (LXBXH) Full Set','Product Dimension'],
-    'dim_uom':          ['*Product Dimension UOM','PRODUCT_DIMENSION_UOM *'],
-    'packing':          ['Packaging Type','PACKAGING_TYPE *'],
-    'country':          ['Country/Region of Origin','Country of Origin','COUNTRY_OF_ORIGIN *'],
-    'warranty':         ['Warranty Period','Warranty'],
-    'battery':          ['Battery Capacity','BATTERY_CAPACITY_MAH *'],
-    'charging_type':    ['Charging type supported','CHARGING_TYPE_SUPPORTED *'],
-    'ram':              ['RAM','RAM *'],
-    'storage':          ['Storage Capacity','INTERNAL_STORAGE *'],
-    'sim_type':         ['Sim Type','SIM_TYPE *'],
-    'os':               ['Operating System','OPERATING_SYSTEM_OS *'],
-    'front_camera':     ['Front Camera','FRONT_CAMERA_RESOLUTION *'],
-    'back_camera':      ['Back Camera','PRIMARY_CAMERA_RESOLUTION *'],
-    'screen_size':      ['Screen Size','DISPLAY_SIZE *'],
-    'display_type':     ['Display Type','DISPLAY_TYPE *'],
-    'processor_core':   ['Processor Core','NUMBER_OF_PROCESSOR_CORES *'],
-    'network_support':  ['Network Support','Network'],
-    'bluetooth':        ['Bluetooth Version','BLUETOOTH_VERSION *'],
-    'product_type':     ['Product Type','Product Sub-type'],
-    'brand':            ['Brand','Brand Name','brandName *','brand_name'],
+    'sku':            ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
+    # 'Model Number' is top priority for article / model name
+    'article':        ['Model Number','MODEL NUMBER','Model NUMBER',
+                       'Article Number','Article Code','ARTICLE_NUMBER',
+                       'Name of the model/Title name'],
+    'image':          ['Main Image URL','Image Links','Image Link','ImageURL1','imageURL1 *'],
+    'image2':         ['Other Image URL 1','Other Image URL1'],
+    'image3':         ['Other Image URL 2','Other Image URL2'],
+    'image4':         ['Other Image URL 3','Other Image URL3'],
+    'image5':         ['Other Image URL 4','Other Image URL4'],
+    'image6':         ['Other Image URL 5','Other Image URL5'],
+    'vertical':       ['Product Type','Product Sub-type','CategoryType *','Subtype','SubType'],
+    'brand':          ['Brand','Brand Name','brandName *','brand_name'],
+    'mrp':            ['MRP','*MRP full Set','MRP *','MRP full Set'],
+    'sp':             ['Selling Price','SellingPrice *','*Selling Price per Pair'],
+    'moq':            ['*Minimum Order Quantity','*MOQ','MOQ *','MOQ'],
+    'color':          ['Product Color','Product Colour','Primary Colour','PRODUCT_COLOR *'],
+    'product_desc':   ['Product Description','productDescription *'],
+    'hsn':            ['HSN Code','*HSN Code','hsnCode *'],
+    'gst':            ['GST','*GST','gstPercentage *'],
+    'weight':         ['Product Weight','*Product Weight (In KG) Full Ste','PRODUCT_WEIGHT_IN_KG *'],
+    'dims':           ['*Product Dimension (LXBXH)','Product Dimension (LXBXH) Full Set','Product Dimension'],
+    'dim_uom':        ['*Product Dimension UOM','PRODUCT_DIMENSION_UOM *'],
+    'packing':        ['Packaging Type','PACKAGING_TYPE *'],
+    'country':        ['Country/Region of Origin','Country of Origin','COUNTRY_OF_ORIGIN *'],
+    'warranty':       ['Warranty Period','Warranty'],
+    'battery':        ['Battery Capacity','BATTERY_CAPACITY_MAH *'],
+    'charging_type':  ['Charging type supported','CHARGING_TYPE_SUPPORTED *'],
+    'ram':            ['RAM','RAM *'],
+    'storage':        ['Storage Capacity','INTERNAL_STORAGE *'],
+    'sim_type':       ['Sim Type','SIM_TYPE *'],
+    'os':             ['Operating System','OPERATING_SYSTEM_OS *'],
+    'front_camera':   ['Front Camera','FRONT_CAMERA_RESOLUTION *'],
+    'back_camera':    ['Back Camera','PRIMARY_CAMERA_RESOLUTION *'],
+    'screen_size':    ['Screen Size','DISPLAY_SIZE *'],
+    'display_type':   ['Display Type','DISPLAY_TYPE *'],
+    'processor_core': ['Processor Core','NUMBER_OF_PROCESSOR_CORES *'],
+    'network_support':['Network Support','Network'],
+    'bluetooth':      ['Bluetooth Version','BLUETOOTH_VERSION *'],
+    'product_type':   ['Product Type','Product Sub-type'],
 }
 
 CE_BASE_COL_HINTS = {
-    'article': ['Name of the model/Title name','Article Number','Article Code','ARTICLE_NUMBER'],
+    'article': ['Model Number','MODEL NUMBER','Name of the model/Title name',
+                'Article Number','Article Code','ARTICLE_NUMBER'],
     'sku':     ['Child SKU','ChildSKU'],
 }
 
@@ -724,25 +707,28 @@ def extract_model_name(title_name):
     return cleaned if cleaned else s
 
 def make_ce_title(brand, model_name, back_camera, category_type, ram_storage, color, condition):
-    # Format: Brand Model Camera Category_Type, RAM+Storage, Color (Condition)
-    # e.g.  Vivo Mini 6 8 MP Camera Smart Phone, 4 GB + 32 GB, Orange (Fresh)
+    """Format: Brand Model Camera Category_Type, RAM+Storage, Color (Condition)
+    e.g.  Vivo Mini 6 8 MP Camera Smart Phone, 4 GB + 32 GB, Orange (Fresh)
+    Note: color and condition are joined with a space (no comma between them).
+    """
     core_parts = []
     if brand:         core_parts.append(brand)
     if model_name:    core_parts.append(model_name)
     if back_camera:   core_parts.append(f'{back_camera} Camera')
     if category_type: core_parts.append(category_type)
-    base = ' '.join(core_parts)          # "Vivo Mini 6 8 MP Camera Smart Phone"
+    base = ' '.join(core_parts)
 
     suffix_parts = []
-    if ram_storage: suffix_parts.append(ram_storage)       # "4 GB + 32 GB"
-    if color:       suffix_parts.append(color)              # "Orange"
-    if condition:   suffix_parts.append(f'({condition})')   # "(Fresh)"
+    if ram_storage: suffix_parts.append(ram_storage)
+    # Color and condition joined WITHOUT comma: "Orange (Fresh)"
+    color_condition = ' '.join(p for p in [color, f'({condition})' if condition else ''] if p)
+    if color_condition: suffix_parts.append(color_condition)
 
     if suffix_parts:
         return f"{base}, {', '.join(suffix_parts)}"
     return base
 
-def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery, 
+def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery,
                         screen_size, display_type, color, front_camera, back_camera, os):
     parts = []
     if brand and model_name:
@@ -769,11 +755,10 @@ def extract_from_description(desc, field_type):
     if not desc: return ''
     desc_lower = str(desc).lower()
     if field_type == 'display_type':
-        display_types = ['super amoled', 'amoled', 'pls lcd', 'lcd', 'ips', 'oled', 'tft']
-        for dt in display_types:
+        for dt in ['super amoled','amoled','pls lcd','lcd','ips','oled','tft']:
             if dt in desc_lower:
                 if dt == 'super amoled': return 'Super AMOLED'
-                if dt == 'pls lcd': return 'PLS LCD'
+                if dt == 'pls lcd':      return 'PLS LCD'
                 return dt.upper()
         return ''
     if field_type == 'charging_type':
@@ -786,12 +771,9 @@ def extract_from_description(desc, field_type):
         return ''
     if field_type == 'bluetooth':
         m = re.search(r'bluetooth\s*(\d+\.?\d*)', desc_lower)
-        if m:
-            return f'Bluetooth {m.group(1)}'
-        return ''
+        return f'Bluetooth {m.group(1)}' if m else ''
     if field_type == 'processor':
-        processors = ['dimensity', 'snapdragon', 'helio', 'exynos', 'kirin', 'mediatek']
-        for proc in processors:
+        for proc in ['dimensity','snapdragon','helio','exynos','kirin','mediatek']:
             if proc in desc_lower:
                 m = re.search(rf'{proc}\s+([a-z]*\d+\s*[a-z]*)', desc_lower, re.IGNORECASE)
                 if m:
@@ -819,34 +801,27 @@ def get_ce_template_wb_for_subtype(subtype):
     return wb_new, headers
 
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
-    tcol = {h: i+1 for i, h in enumerate(headers) if h}
-    # ── FIX: normalise brands once and keep a reliable fallback ──────────
-    _ce_cfg = get_ce_config_from_disk()
-    brands_dict    = normalize_brands(_ce_cfg.get('brands', {}))
-    fallback_brand = ''
-    fallback_id    = ''
+    tcol        = {h: i+1 for i, h in enumerate(headers) if h}
+    _ce_cfg     = get_ce_config_from_disk()
+    brands_dict = normalize_brands(_ce_cfg.get('brands', {}))
+    fallback_brand, fallback_id = ('', '')
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    # ─────────────────────────────────────────────────────────────────────
     st_data = CE_SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
-
-        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        # Safety net: only fires when brand is truly empty after all lookups
         if not brand and fallback_brand:
             brand    = fallback_brand
             brand_id = fallback_id
-        # ─────────────────────────────────────────────────────────────────────────
 
         sku_raw    = safe(drow.get(col_map.get('sku',''), ''))
-        # 'article' col_map now points to 'Model Number' (top priority in CE_DUMP_COL_HINTS)
-        # Use the raw value directly — no stripping/cleaning needed for a model number
+        # article & model_name from 'Model Number' column (top priority in CE_DUMP_COL_HINTS)
         model_num  = safe(drow.get(col_map.get('article',''), ''))
         article    = model_num if model_num else sku_raw
-        # title_name kept separately for description generation fallback
-        title_name = model_num
+        model_name = article
 
         if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
             skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
@@ -855,8 +830,6 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         filled  += 1
         row_idx  = filled + 1
 
-        # model_name = same Model Number column value
-        model_name   = article
         mrp          = drow.get(col_map.get('mrp',''), '')
         sp           = drow.get(col_map.get('sp',''), '')
         moq          = drow.get(col_map.get('moq',''), 1)
@@ -900,42 +873,37 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         if not bluetooth:
             bluetooth = extract_from_description(desc, 'bluetooth')
 
-        ram_rom = ''
-        if ram and storage:
-            ram_rom = f"{ram} + {storage}"
-
+        ram_rom     = f"{ram} + {storage}" if (ram and storage) else ''
         ram_storage = ram_rom if ram_rom else (ram or storage or '')
-        condition = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
-        title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
-        internal_title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
+        condition   = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
+
+        title          = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
+        internal_title = title
 
         description = prod_desc if prod_desc else make_ce_description(
             brand, model_name, subtype, ram, storage, proc_core, battery,
             screen_size, display_type, color, front_cam, back_cam, os
         )
 
-        package_contents = ''
-        if prod_type and 'smart phone' in prod_type.lower():
-            package_contents = 'Handset'
+        package_contents = 'Handset' if (prod_type and 'smart phone' in prod_type.lower()) else ''
 
         L, B, H = parse_lbh(dim_raw)
 
         weight_clean = ''
         if weight:
             m = re.search(r'([0-9.]+)', str(weight))
-            if m:
-                weight_clean = float(m.group(1))
+            if m: weight_clean = float(m.group(1))
 
-        try:    mrp    = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
-        except: mrp    = ''
-        try:    sp     = float(sp)       if str(sp).strip()     not in ('','nan') else ''
-        except: sp     = ''
-        try:    hsn    = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
-        except: hsn    = ''
-        try:    gst    = int(float(gst))
-        except: gst    = 18
-        try:    moq    = int(float(moq))
-        except: moq    = 1
+        try:    mrp = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
+        except: mrp = ''
+        try:    sp  = float(sp)       if str(sp).strip()     not in ('','nan') else ''
+        except: sp  = ''
+        try:    hsn = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
+        except: hsn = ''
+        try:    gst = int(float(gst))
+        except: gst = 18
+        try:    moq = int(float(moq))
+        except: moq = 1
 
         row_data = {
             'Category *':                                  st_data.get('Category *', 'Consumer Electronics'),
@@ -1023,8 +991,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'FM_RADIO *':                                  '',
             'TORCH_OR_FLASHLIGHT *':                       '',
             'RAM_ROM *':                                   ram_rom,
-            'PROCESSOR_BRAND_AND_MODEL_NAME':            extract_from_description(desc, 'processor'),
-            'NUMBER_OF_PROCESSOR_CORES *':               proc_core,
+            'PROCESSOR_BRAND_AND_MODEL_NAME':              extract_from_description(desc, 'processor'),
+            'NUMBER_OF_PROCESSOR_CORES *':                 proc_core,
             'PRIMARY_CAMERA_RESOLUTION *':                 back_cam,
             'FRONT_CAMERA_RESOLUTION *':                   front_cam,
             'REAR_FLASH':                                  '',
@@ -1068,7 +1036,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
 
 # ═══════════════════════════════════════════════════════════════
-# IN-MEMORY FILE STORAGE (avoids temp file deletion on Render)
+# IN-MEMORY FILE STORAGE
 FILE_STORE = {}
 
 # ═══════════════════════════════════════════════════════════════
@@ -1110,7 +1078,7 @@ def ce_config_get_route():
 
 @app.route('/config', methods=['POST'])
 def update_config():
-    cfg = get_config()
+    cfg  = get_config()
     data = request.json
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
@@ -1121,7 +1089,7 @@ def update_config():
 
 @app.route('/ce_config', methods=['POST'])
 def update_ce_config():
-    cfg = get_ce_config_from_disk()
+    cfg  = get_ce_config_from_disk()
     data = request.json
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
@@ -1149,8 +1117,8 @@ def detect_verticals():
         col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
-            found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
-                     if str(v).strip() not in ('nan','None','')]
+            found   = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
+                       if str(v).strip() not in ('nan','None','')]
             matched = [v for v in found if v in SUBTYPE_MAP]
             return jsonify({'verticals': matched, 'all_found': found})
         return jsonify({'verticals': [], 'all_found': []})
@@ -1172,8 +1140,8 @@ def detect_ce_verticals():
         col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
-            found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
-                     if str(v).strip() not in ('nan','None','')]
+            found   = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
+                       if str(v).strip() not in ('nan','None','')]
             matched = [v for v in found if v in CE_SUBTYPE_MAP]
             return jsonify({'verticals': matched, 'all_found': found})
         return jsonify({'verticals': [], 'all_found': []})
@@ -1187,23 +1155,18 @@ def process():
         try:    subtypes = json.loads(subtypes_raw)
         except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
 
-        # Accept inline config sent with the request (most reliable —
-        # avoids any cross-worker / ephemeral-filesystem issues)
+        # Accept inline config with request to survive ephemeral filesystem / multi-worker
         inline_cfg_raw = request.form.get('config', '')
         if inline_cfg_raw:
             try:
                 inline_cfg = json.loads(inline_cfg_raw)
                 if inline_cfg.get('brands'):
                     inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
-                    # Persist to disk too (best effort)
-                    try:
-                        disk_cfg = get_config()
-                        disk_cfg.update(inline_cfg)
-                        _save_config(CONFIG_PATH, disk_cfg)
-                    except: pass
-                    # Write directly into the in-memory config as well
-                    global config
-                    config.update(inline_cfg)
+                try:
+                    disk_cfg = get_config()
+                    disk_cfg.update(inline_cfg)
+                    _save_config(CONFIG_PATH, disk_cfg)
+                except: pass
             except Exception as e:
                 print(f'inline config parse error: {e}')
 
@@ -1244,11 +1207,8 @@ def process():
                         existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
                 except: pass
 
-        results        = []
-        all_skipped    = []
-        grand_filled   = 0
-        preview_rows   = []
-        preview_cols   = []
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
@@ -1272,12 +1232,11 @@ def process():
                 all_skipped.extend(skipped)
                 grand_filled += filled
 
-                safe_st   = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
-                fname     = f'filled_{safe_st}.xlsx'
-                xls_buf   = io.BytesIO()
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
                 wb.save(xls_buf)
                 zout.writestr(fname, xls_buf.getvalue())
-
                 results.append({'subtype': subtype, 'filled': filled,
                                  'skipped': len(skipped), 'filename': fname})
 
@@ -1304,27 +1263,18 @@ def process():
             out_bytes = zip_buf.getvalue()
 
         file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-        FILE_STORE[file_token] = {
-            'bytes': out_bytes,
-            'filename': out_name,
-            'ext': out_ext,
-            'created': time.time()
-        }
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
 
         write_log('anonymous', 'catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
-            'status':           'ok',
-            'grand_filled':     grand_filled,
-            'grand_skipped':    len(all_skipped),
-            'results':          results,
-            'skipped_details':  all_skipped[:50],
-            'preview':          preview_rows,
-            'preview_cols':     preview_cols,
-            'download_token':   file_token,
-            'filename':         out_name,
-            'is_zip':           len(subtypes) > 1,
+            'status': 'ok', 'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped), 'results': results,
+            'skipped_details': all_skipped[:50], 'preview': preview_rows,
+            'preview_cols': preview_cols, 'download_token': file_token,
+            'filename': out_name, 'is_zip': len(subtypes) > 1,
         })
 
     except Exception as e:
@@ -1338,20 +1288,17 @@ def process_ce():
         try:    subtypes = json.loads(subtypes_raw)
         except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
 
-        # Accept inline CE config sent with the request
         inline_cfg_raw = request.form.get('ce_config', '')
         if inline_cfg_raw:
             try:
                 inline_cfg = json.loads(inline_cfg_raw)
                 if inline_cfg.get('brands'):
                     inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
-                    try:
-                        disk_cfg = get_ce_config_from_disk()
-                        disk_cfg.update(inline_cfg)
-                        _save_config(CE_CONFIG_PATH, disk_cfg)
-                    except: pass
-                    global ce_config
-                    ce_config = disk_cfg
+                try:
+                    disk_cfg = get_ce_config_from_disk()
+                    disk_cfg.update(inline_cfg)
+                    _save_config(CE_CONFIG_PATH, disk_cfg)
+                except: pass
             except Exception as e:
                 print(f'inline ce_config parse error: {e}')
 
@@ -1392,11 +1339,8 @@ def process_ce():
                         existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
                 except: pass
 
-        results        = []
-        all_skipped    = []
-        grand_filled   = 0
-        preview_rows   = []
-        preview_cols   = []
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
@@ -1420,12 +1364,11 @@ def process_ce():
                 all_skipped.extend(skipped)
                 grand_filled += filled
 
-                safe_st   = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
-                fname     = f'ce_filled_{safe_st}.xlsx'
-                xls_buf   = io.BytesIO()
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'ce_filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
                 wb.save(xls_buf)
                 zout.writestr(fname, xls_buf.getvalue())
-
                 results.append({'subtype': subtype, 'filled': filled,
                                  'skipped': len(skipped), 'filename': fname})
 
@@ -1452,27 +1395,18 @@ def process_ce():
             out_bytes = zip_buf.getvalue()
 
         file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-        FILE_STORE[file_token] = {
-            'bytes': out_bytes,
-            'filename': out_name,
-            'ext': out_ext,
-            'created': time.time()
-        }
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
 
         write_log('anonymous', 'ce_catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
-            'status':           'ok',
-            'grand_filled':     grand_filled,
-            'grand_skipped':    len(all_skipped),
-            'results':          results,
-            'skipped_details':  all_skipped[:50],
-            'preview':          preview_rows,
-            'preview_cols':     preview_cols,
-            'download_token':   file_token,
-            'filename':         out_name,
-            'is_zip':           len(subtypes) > 1,
+            'status': 'ok', 'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped), 'results': results,
+            'skipped_details': all_skipped[:50], 'preview': preview_rows,
+            'preview_cols': preview_cols, 'download_token': file_token,
+            'filename': out_name, 'is_zip': len(subtypes) > 1,
         })
 
     except Exception as e:
@@ -1482,45 +1416,34 @@ def process_ce():
 @app.route('/download/<token>')
 def download(token):
     if '..' in token or '/' in token or '\\' in token: return 'Invalid', 400
-
     if token in FILE_STORE:
         file_data = FILE_STORE[token]
-        ext = file_data['ext']
+        ext   = file_data['ext']
         fname = request.args.get('filename', file_data['filename'])
-        mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        mtype = 'application/zip' if ext == '.zip' else \
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         write_log('anonymous', 'file_downloaded', fname)
-        return send_file(
-            io.BytesIO(file_data['bytes']),
-            as_attachment=True,
-            download_name=fname,
-            mimetype=mtype
-        )
-
+        return send_file(io.BytesIO(file_data['bytes']), as_attachment=True,
+                         download_name=fname, mimetype=mtype)
     tmpdir = tempfile.gettempdir()
     for ext in ['', '.zip', '.xlsx']:
         path = os.path.join(tmpdir, token + ext)
         if os.path.exists(path):
             fname = request.args.get('filename', 'filled_template' + ext)
-            mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            mtype = 'application/zip' if ext == '.zip' else \
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             write_log('anonymous', 'file_downloaded', fname)
             return send_file(path, as_attachment=True, download_name=fname, mimetype=mtype)
-
     return 'File not found', 404
-
-
 
 @app.route('/test_brand')
 def test_brand():
-    """Tests the full brand lookup chain end-to-end."""
-    cfg = get_config()
-    brands_raw = cfg.get('brands', {})
+    cfg         = get_config()
+    brands_raw  = cfg.get('brands', {})
     brands_dict = normalize_brands(brands_raw)
-    
-    fallback_brand = ''
-    fallback_id = ''
+    fallback_brand, fallback_id = ('', '')
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    
     return jsonify({
         'step1_raw_from_config_json': brands_raw,
         'step2_after_normalize':      brands_dict,
@@ -1533,18 +1456,17 @@ def test_brand():
 
 @app.route('/debug_config')
 def debug_config():
-    """Diagnostic endpoint — shows exactly what is stored in config files."""
     cfg    = get_config()
     ce_cfg = get_ce_config_from_disk()
     return jsonify({
-        'config_path':    CONFIG_PATH,
-        'ce_config_path': CE_CONFIG_PATH,
+        'config_path':           CONFIG_PATH,
+        'ce_config_path':        CE_CONFIG_PATH,
         'config_file_exists':    os.path.exists(CONFIG_PATH),
         'ce_config_file_exists': os.path.exists(CE_CONFIG_PATH),
-        'footwear_brands': cfg.get('brands', {}),
-        'ce_brands':       ce_cfg.get('brands', {}),
-        'footwear_config': cfg,
-        'ce_config':       ce_cfg,
+        'footwear_brands':       cfg.get('brands', {}),
+        'ce_brands':             ce_cfg.get('brands', {}),
+        'footwear_config':       cfg,
+        'ce_config':             ce_cfg,
     })
 
 if __name__ == '__main__':

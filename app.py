@@ -135,8 +135,11 @@ DEFAULT_CONFIG = {
 # ── Persistent config helpers ───────────────────────────────────
 # Config is saved to disk so it survives Gunicorn multi-worker
 # deployments and server restarts (fixes brand loss between requests).
-CONFIG_PATH    = os.path.join(os.path.dirname(__file__), 'config.json')
-CE_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'ce_config.json')
+# Use /tmp for config so it is always writable on Render / any host.
+# Also mirror next to the app file as fallback (for local dev).
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH    = '/tmp/fillforge_config.json'
+CE_CONFIG_PATH = '/tmp/fillforge_ce_config.json'
 
 def _load_config(path, defaults):
     """Load config from JSON file, falling back to defaults for missing keys."""
@@ -290,16 +293,14 @@ def derive_gender(subtype):
     return ""
 
 def make_title(brand, gender, upper, closure, fw_type, color):
-    """Form title: Brand Name + Gender + Upper Material + Closure Type + Foot Wear Type, + Colour"""
     parts = [p for p in [brand, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
     return f"{base}, {color}" if color else base
 
-def make_internal_title(brand, article, gender, upper, closure, fw_type, color, set_name, set_details_tpl):
-    """Form internal title: Brand + Article + Gender + Upper Material + Closure Type + Foot Wear Type, + Colour, + Set Name + (SET_DETAILS)"""
+def make_internal_title(brand, article, gender, upper, closure, fw_type, color, set_count, set_details_tpl):
     parts = [p for p in [brand, article, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
-    return f"{base}, {color}, {set_name} ({set_details_tpl})"
+    return f"{base}, {color}, Set of {set_count} ({set_details_tpl})"
 
 def make_description(brand, article, gender, upper, closure, fw_type, sole, color, sizes, set_count):
     title_part    = ' '.join(p for p in [brand, gender, upper, closure, fw_type] if p)
@@ -335,13 +336,59 @@ def normalize_brands(brands_data):
     return {}
 
 def get_brand_info(drow, col_map, brands_dict):
-    """Return the single brand configured in settings (name, id).
-    No multi-brand lookup — whatever is saved in config is used directly."""
+    """Look up brand & brand_id from the dump file's Brand column.
+    Returns (brand_name, brand_id). Falls back to first configured brand if no match.
+
+    Match priority:
+      1. Exact match (case-insensitive)
+      2. Partial / word match (case-insensitive)
+      3. First word of dump brand matches first word of configured brand
+      4. Hard fallback: first configured brand (brand is NEVER left empty)
+    """
     brands_dict = normalize_brands(brands_dict)
     if not brands_dict:
         return '', ''
-    # Return the first (and only) configured brand
-    return next(iter(brands_dict.items()))
+
+    fallback_brand, fallback_id = next(iter(brands_dict.items()))
+
+    # No brand column in dump at all → use fallback
+    brand_col = col_map.get('brand')
+    if not brand_col:
+        return fallback_brand, fallback_id
+
+    try:
+        file_brand = str(drow.get(brand_col, '')).strip()
+    except:
+        file_brand = ''
+
+    # Empty / null brand value in dump → use fallback
+    if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
+        return fallback_brand, fallback_id
+
+    file_brand_lower = file_brand.lower().strip()
+
+    # 1. Exact match (case-insensitive)
+    for b_name, b_id in brands_dict.items():
+        if b_name.lower().strip() == file_brand_lower:
+            return b_name, b_id
+
+    # 2. Substring match either way
+    for b_name, b_id in brands_dict.items():
+        bn = b_name.lower().strip()
+        if bn in file_brand_lower or file_brand_lower in bn:
+            return b_name, b_id
+
+    # 3. First-word match (handles "ASIAN" vs "Asian Footwear" etc.)
+    file_first_word = file_brand_lower.split()[0] if file_brand_lower.split() else ''
+    if file_first_word:
+        for b_name, b_id in brands_dict.items():
+            cfg_first_word = b_name.lower().strip().split()[0] if b_name.strip().split() else ''
+            if cfg_first_word and cfg_first_word == file_first_word:
+                return b_name, b_id
+
+    # 4. No match at all → always fall back to first configured brand
+    #    so the title is NEVER left without a brand name
+    return fallback_brand, fallback_id
 
 
 DUMP_COL_HINTS = {
@@ -383,14 +430,26 @@ BASE_COL_HINTS = {
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
     tcol = {h: i+1 for i, h in enumerate(headers) if h}
+    # ── FIX: normalise brands once and keep a reliable fallback ──────────
     _cfg = get_config()
     brands_dict = normalize_brands(_cfg.get('brands', {}))
+    fallback_brand = ''
+    fallback_id    = ''
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    # ─────────────────────────────────────────────────────────────────────
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
     skipped, filled = [], 0
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+
+        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        if not brand and fallback_brand:
+            brand    = fallback_brand
+            brand_id = fallback_id
+        # ─────────────────────────────────────────────────────────────────────────
 
         sku_raw = safe(drow.get(col_map.get('sku',''), ''))
         art_raw = safe(drow.get(col_map.get('article',''), ''))
@@ -442,7 +501,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         if not avail_sizes: avail_sizes = ', '.join(sizes_list)
 
         title          = make_title(brand, gender, upper_mat, closure, fw_type, color)
-        internal_title = make_internal_title(brand, article, gender, upper_mat, closure, fw_type, color, f'Set of {set_count}', set_details_tpl)
+        internal_title = make_internal_title(brand, article, gender, upper_mat, closure, fw_type, color, set_count, set_details_tpl)
         description    = prod_desc if prod_desc else make_description(brand, article, gender, upper_mat, closure, fw_type, sole_mat, color, avail_sizes, set_count)
 
         try:    mrp    = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
@@ -609,7 +668,7 @@ CE_DEFAULT_CONFIG = {
 
 CE_DUMP_COL_HINTS = {
     'sku':              ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
-    'article':          ['Name of the model/Title name','Article Number','Article Code','ARTICLE_NUMBER'],
+    'article':          ['Model Number','MODEL NUMBER','Model NUMBER','Article Number','Article Code','ARTICLE_NUMBER','Name of the model/Title name'],
     'image':            ['Main Image URL','Image Links','Image Link','ImageURL1','imageURL1 *'],
     'image2':           ['Other Image URL 1','Other Image URL1'],
     'image3':           ['Other Image URL 2','Other Image URL2'],
@@ -649,7 +708,7 @@ CE_DUMP_COL_HINTS = {
 }
 
 CE_BASE_COL_HINTS = {
-    'article': ['Model Number','MODEL NUMBER','Model NUMBER','Model Name'],
+    'article': ['Name of the model/Title name','Article Number','Article Code','ARTICLE_NUMBER'],
     'sku':     ['Child SKU','ChildSKU'],
 }
 
@@ -771,9 +830,19 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
 
-        sku_raw = safe(drow.get(col_map.get('sku',''), ''))
-        title_name = safe(drow.get(col_map.get('article',''), ''))
-        article = extract_model_name(title_name) if title_name else extract_model_name(sku_raw)
+        # ── FIX: hard fallback — brand must never be empty if config has brands ──
+        if not brand and fallback_brand:
+            brand    = fallback_brand
+            brand_id = fallback_id
+        # ─────────────────────────────────────────────────────────────────────────
+
+        sku_raw    = safe(drow.get(col_map.get('sku',''), ''))
+        # 'article' col_map now points to 'Model Number' (top priority in CE_DUMP_COL_HINTS)
+        # Use the raw value directly — no stripping/cleaning needed for a model number
+        model_num  = safe(drow.get(col_map.get('article',''), ''))
+        article    = model_num if model_num else sku_raw
+        # title_name kept separately for description generation fallback
+        title_name = model_num
 
         if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
             skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
@@ -782,7 +851,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         filled  += 1
         row_idx  = filled + 1
 
-        model_name   = extract_model_name(title_name) if title_name else extract_model_name(sku_raw)
+        # model_name = same Model Number column value
+        model_name   = article
         mrp          = drow.get(col_map.get('mrp',''), '')
         sp           = drow.get(col_map.get('sp',''), '')
         moq          = drow.get(col_map.get('moq',''), 1)
@@ -1113,6 +1183,26 @@ def process():
         try:    subtypes = json.loads(subtypes_raw)
         except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
 
+        # Accept inline config sent with the request (most reliable —
+        # avoids any cross-worker / ephemeral-filesystem issues)
+        inline_cfg_raw = request.form.get('config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                    # Persist to disk too (best effort)
+                    try:
+                        disk_cfg = get_config()
+                        disk_cfg.update(inline_cfg)
+                        _save_config(CONFIG_PATH, disk_cfg)
+                    except: pass
+                    # Write directly into the in-memory config as well
+                    global config
+                    config.update(inline_cfg)
+            except Exception as e:
+                print(f'inline config parse error: {e}')
+
         base_file = request.files.get('base_data')
         dump_file = request.files.get('dump')
 
@@ -1243,6 +1333,23 @@ def process_ce():
         subtypes_raw = request.form.get('subtypes', '')
         try:    subtypes = json.loads(subtypes_raw)
         except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
+
+        # Accept inline CE config sent with the request
+        inline_cfg_raw = request.form.get('ce_config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                    try:
+                        disk_cfg = get_ce_config_from_disk()
+                        disk_cfg.update(inline_cfg)
+                        _save_config(CE_CONFIG_PATH, disk_cfg)
+                    except: pass
+                    global ce_config
+                    ce_config = disk_cfg
+            except Exception as e:
+                print(f'inline ce_config parse error: {e}')
 
         base_file = request.files.get('base_data')
         dump_file = request.files.get('dump')

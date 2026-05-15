@@ -724,18 +724,22 @@ def extract_model_name(title_name):
     return cleaned if cleaned else s
 
 def make_ce_title(brand, model_name, back_camera, category_type, ram_storage, color, condition):
-    parts = []
-    if brand: parts.append(brand)
-    if model_name: parts.append(model_name)
-    if back_camera: parts.append(f'{back_camera} Camera')
-    if category_type: parts.append(category_type)
-    if ram_storage: parts.append(ram_storage)
-    base = ' '.join(parts)
+    # Format: Brand Model Camera Category_Type, RAM+Storage, Color (Condition)
+    # e.g.  Vivo Mini 6 8 MP Camera Smart Phone, 4 GB + 32 GB, Orange (Fresh)
+    core_parts = []
+    if brand:         core_parts.append(brand)
+    if model_name:    core_parts.append(model_name)
+    if back_camera:   core_parts.append(f'{back_camera} Camera')
+    if category_type: core_parts.append(category_type)
+    base = ' '.join(core_parts)          # "Vivo Mini 6 8 MP Camera Smart Phone"
+
     suffix_parts = []
-    if color: suffix_parts.append(color)
-    if condition: suffix_parts.append(f'({condition})')
+    if ram_storage: suffix_parts.append(ram_storage)       # "4 GB + 32 GB"
+    if color:       suffix_parts.append(color)              # "Orange"
+    if condition:   suffix_parts.append(f'({condition})')   # "(Fresh)"
+
     if suffix_parts:
-        return f"{base}, {' '.join(suffix_parts)}"
+        return f"{base}, {', '.join(suffix_parts)}"
     return base
 
 def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery, 

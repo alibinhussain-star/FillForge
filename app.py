@@ -649,7 +649,7 @@ CE_DUMP_COL_HINTS = {
 }
 
 CE_BASE_COL_HINTS = {
-    'article': ['Name of the model/Title name','Article Number','Article Code','ARTICLE_NUMBER'],
+    'article': ['Model Number','MODEL NUMBER','Model NUMBER','Model Name'],
     'sku':     ['Child SKU','ChildSKU'],
 }
 

@@ -515,7 +515,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pair',
             'UNIT_OF_MEASUREMENT_PLURAL_ABBREVIATION *':   'Pairs',
             'SELLER_SKU_ID *':                             sku_raw,
-            'PACKAGING_TYPE *':                            packing,
+            'PACKAGING_TYPE *':                            'Branded Box',
             'GENDER *':                                    gender,
             'AGE_GROUP *':                                 '',
             'CLOSURE_TYPE *':                              closure,

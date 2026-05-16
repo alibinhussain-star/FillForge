@@ -482,6 +482,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'PVID *':                                      st_data.get('PVID *', ''),
             'BusinessCategoryId *':                        _cfg['biz_cat_id'],
             'BusinessCategoryName *':                      _cfg['biz_cat_name'],
+            'ProductCode *' :                               Product Name,  
             'Relationship *':                              _cfg['relationship'],
             'ParentProductId *':                           sku_raw,
             'ChildSKU *':                                  sku_raw,

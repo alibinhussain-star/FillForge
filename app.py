@@ -517,7 +517,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'SELLER_SKU_ID *':                             sku_raw,
             'PACKAGING_TYPE *':                            'Branded Box',
             'GENDER *':                                    gender,
-            'AGE_GROUP *':                                 '',
+            'AGE_GROUP *':                                 '4- 5 Years,5 - 6 Years,6 - 7 Years,7 - 8 Years',
             'CLOSURE_TYPE *':                              closure,
             'COUNTRY_OF_ORIGIN *':                         country,
             'MANUFACTURING_YEAR':                          _cfg['manufacturing_year'],

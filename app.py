@@ -3,6 +3,7 @@ import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zip
 from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
+from openpyxl.styles import PatternFill
 
 app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
@@ -1025,7 +1026,44 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-        }
+            "pav_config_key":        "bottom_wear",
+        },
+        "shirts": {
+            "pv_id":   "PV-1914272808",
+            "pv_name": "Men's Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "pav_config_key":        "top_wear",
+        },
+        "t-shirts": {
+            "pv_id":   "PV-1914272809",
+            "pv_name": "Men's T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "T-Shirts",
+            "pav_config_key":        "top_wear",
+        },
+        "track_pants": {
+            "pv_id":   "PV-1914272810",
+            "pv_name": "Men's Track Pants",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Track Pants",
+            "pav_config_key":        "bottom_wear",
+        },
+        "cargo": {
+            "pv_id":   "PV-1914272811",
+            "pv_name": "Men's Cargo",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Cargo",
+            "pav_config_key":        "bottom_wear",
+        },
     },
 }
 
@@ -1091,7 +1129,122 @@ AP_BASE_COL_HINTS = {
 }
 
 # Apparel categories currently supported
-AP_CATEGORIES = ['Jeans']
+AP_CATEGORIES = ['Jeans', 'Shirts', 'T-Shirts', 'Track Pants', 'Cargo']
+
+# Per-category PAV configuration — defines which columns appear in the
+# ProductAttributeValue worksheet, which are mandatory (green fill), and
+# how to map each PAV column back to source listing-file fields.
+AP_PAV_CONFIGS = {
+    "bottom_wear": {
+        "headers": [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'USER_TYPE','DESCRIPTION','CLOSURE_TYPE','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
+            'KEY_FEATURES','MANUFACTURING_YEAR',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
+            'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'DISTRESS','FABRIC_MATERIAL','FIT','LENGTH','MANUFACTURER',
+            'NUMBER_OF_POCKETS','OCCASION','PATTERN','RISE','STRETCHABILITY',
+            'FADE','WAIST_BAND','FABRIC_COMPOSITION',
+        ],
+        "mandatory": {
+            'PvId','PvName','BrandId','BrandName',
+            'CatalogStatus','StatusRemark',
+            'USER_TYPE','CLOSURE_TYPE','COUNTRY_OF_ORIGIN',
+            'PRODUCT_TYPE','FABRIC_MATERIAL','LENGTH','FIT',
+        },
+        "field_map": {
+            'CLOSURE_TYPE':        'closure',
+            'COUNTRY_OF_ORIGIN':   'country',
+            'DISTRESS':            'distress',
+            'FABRIC_MATERIAL':     'fabric',
+            'FIT':                 'fit',
+            'LENGTH':              'length',
+            'NUMBER_OF_POCKETS':   'num_pockets',
+            'PATTERN':             'trend',
+            'RISE':                'waist_rise',
+            'STRETCHABILITY':      'stretch',
+            'USER_TYPE':           'gender',
+            'FADE':                'fade',
+            'WAIST_BAND':          'waist_band',
+            'FABRIC_COMPOSITION':  'fabric_composition',
+        },
+        "matches": ["jeans","track pants","cargo","trouser","shorts","capri","bermuda","pant","skirt","leggings","chino"],
+    },
+    "top_wear": {
+        "headers": [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'USER_TYPE','DESCRIPTION','CLOSURE_TYPE','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
+            'KEY_FEATURES','MANUFACTURING_YEAR',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
+            'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'FABRIC_MATERIAL','FIT','LENGTH','MANUFACTURER',
+            'NUMBER_OF_POCKETS','OCCASION','PATTERN','NECK','SLEEVE',
+            'FABRIC_COMPOSITION',
+        ],
+        "mandatory": {
+            'PvId','PvName','BrandId','BrandName',
+            'CatalogStatus','StatusRemark',
+            'USER_TYPE','CLOSURE_TYPE','COUNTRY_OF_ORIGIN',
+            'PRODUCT_TYPE','FABRIC_MATERIAL','LENGTH','FIT','PATTERN',
+        },
+        "field_map": {
+            'CLOSURE_TYPE':       'closure',
+            'COUNTRY_OF_ORIGIN':  'country',
+            'FABRIC_MATERIAL':    'fabric',
+            'FIT':                'fit',
+            'LENGTH':             'length',
+            'NUMBER_OF_POCKETS':  'num_pockets',
+            'PATTERN':            'trend',
+            'USER_TYPE':          'gender',
+            'NECK':               None,
+            'SLEEVE':             None,
+            'FABRIC_COMPOSITION': 'fabric_composition',
+        },
+        "matches": ["shirt","t-shirt","tshirt","blouse","camisole","top","tank top","kurti","shirts","t-shirts","turtleneck","polo"],
+    },
+    "top_and_bottom": {
+        "headers": [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'USER_TYPE','DESCRIPTION','CLOSURE_TYPE','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
+            'KEY_FEATURES','MANUFACTURING_YEAR',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
+            'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'DISTRESS','FABRIC_MATERIAL','FIT','LENGTH','MANUFACTURER',
+            'NUMBER_OF_POCKETS','OCCASION','PATTERN','RISE','STRETCHABILITY',
+            'FADE','NECK','SLEEVE','FABRIC_COMPOSITION',
+        ],
+        "mandatory": {
+            'PvId','PvName','BrandId','BrandName',
+            'CatalogStatus','StatusRemark',
+            'USER_TYPE','CLOSURE_TYPE','COUNTRY_OF_ORIGIN',
+            'PRODUCT_TYPE','FABRIC_MATERIAL','LENGTH','FIT',
+        },
+        "field_map": {
+            'CLOSURE_TYPE':        'closure',
+            'COUNTRY_OF_ORIGIN':   'country',
+            'DISTRESS':            'distress',
+            'FABRIC_MATERIAL':     'fabric',
+            'FIT':                 'fit',
+            'LENGTH':              'length',
+            'NUMBER_OF_POCKETS':   'num_pockets',
+            'PATTERN':             'trend',
+            'RISE':                'waist_rise',
+            'STRETCHABILITY':      'stretch',
+            'USER_TYPE':           'gender',
+            'FADE':                'fade',
+            'NECK':                None,
+            'SLEEVE':              None,
+            'FABRIC_COMPOSITION':  'fabric_composition',
+        },
+        "matches": ["dress","jumpsuit","gown","night suit","pajama","kurti set","suit","lehenga","saree"],
+    },
+}
 
 
 def _ap_normalize_gender(raw):
@@ -1203,10 +1356,46 @@ def _ap_derive_product_type(ind_sub_type, pv_name):
     for c in candidates:
         if not c: continue
         c_lower = c.lower()
-        for pt in ['jeans','track pants','shirts','camisole','slips','cargo']:
+        for pt in ['jeans','track pants','shirts','t-shirts','camisole','slips','cargo','trouser','shorts','capri','bermuda','pant','skirt','leggings','chino','blouse','top','tank top','kurti','turtleneck','polo','dress','jumpsuit','gown','night suit','pajama','kurti set','suit','lehenga','saree']:
             if pt in c_lower:
                 return pt.title()
     return ind_sub_type or ''
+
+
+def _ap_get_pav_config(category_key):
+    """Return the AP_PAV_CONFIGS entry matching category_key (case-insensitive)."""
+    for cfg_key, cfg in AP_PAV_CONFIGS.items():
+        for m in cfg.get("matches", []):
+            if m.lower() == category_key.lower():
+                return cfg
+    for cfg_key, cfg in AP_PAV_CONFIGS.items():
+        for m in cfg.get("matches", []):
+            if category_key.lower() in m.lower() or m.lower() in category_key.lower():
+                return cfg
+    # Fallback to bottom_wear
+    return AP_PAV_CONFIGS.get("bottom_wear", {})
+
+
+def _ap_build_pav_worksheet(pav_cfg):
+    """
+    Build a PAV Workbook with the dynamic headers from pav_cfg.
+    Mandatory columns are highlighted with green fill in the header row.
+    Returns (wb, ws, tcol, green_fill).
+    """
+    headers = list(pav_cfg.get("headers", []))
+    mandatory = pav_cfg.get("mandatory", set())
+    green_fill = PatternFill(start_color="92D050", end_color="92D050", fill_type="solid")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ProductAttributeValue"
+    tcol = {}
+    for ci, h in enumerate(headers, 1):
+        ws.cell(1, ci).value = h
+        if h in mandatory:
+            ws.cell(1, ci).fill = green_fill
+        tcol[h] = ci
+    return wb, ws, tcol, green_fill
 
 
 def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_skus):
@@ -1252,18 +1441,9 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
     ]
 
-    # ── ProductAttributeValue headers ────────────────────────
-    PAV_HEADERS = [
-        'Jpin','Title','PvId','PvName','BrandId','BrandName',
-        'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
-        'USER_TYPE','DESCRIPTION','CLOSURE_TYPE','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
-        'KEY_FEATURES','MANUFACTURING_YEAR',
-        'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
-        'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
-        'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
-        'DISTRESS','FABRIC_MATERIAL','FIT','LENGTH','MANUFACTURER',
-        'NUMBER_OF_POCKETS','OCCASION','PATTERN','RISE','STRETCHABILITY',
-    ]
+    # ── ProductAttributeValue headers (dynamic per PV) ───────
+    pav_cfg = _ap_get_pav_config(category_key)
+    PAV_HEADERS = list(pav_cfg.get("headers", []))
 
     # ── L4 headers ────────────────────────────────────────────
     L4_HEADERS = [
@@ -1295,7 +1475,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     wb_jpin, ws_jpin = _make_wb(JPIN_HEADERS, 'JPIN Template')
     wb_tax,  ws_tax  = _make_wb(TAX_HEADERS,  'TaxMaster')
-    wb_pav,  ws_pav  = _make_wb(PAV_HEADERS,  'ProductAttributeValue')
+    wb_pav,  ws_pav, tcol_pav, green_fill = _ap_build_pav_worksheet(pav_cfg)
     wb_l4,   ws_l4   = _make_wb(L4_HEADERS,   'L4')
 
     def _col(headers):
@@ -1303,7 +1483,6 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     tcol_jpin = _col(JPIN_HEADERS)
     tcol_tax  = _col(TAX_HEADERS)
-    tcol_pav  = _col(PAV_HEADERS)
     tcol_l4   = _col(L4_HEADERS)
 
     def _write(ws, tcol, data, row_idx):
@@ -1482,46 +1661,112 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_tax, tcol_tax, tax_row, row_idx)
 
-        # ── ProductAttributeValue row ─────────────────────────
-        pav_row = {
-            'Jpin':                          '',
-            'Title':                         title,
-            'PvId':                          pv_id,
-            'PvName':                        pv_name,
-            'BrandId':                       brand_id,
-            'BrandName':                     brand,
-            'ImageURL1':                     img_url,
-            'ImageURL2':                     img2_url,
-            'CatalogStatus':                 _ap_cfg['catalog_status'],
-            'StatusRemark':                  _ap_cfg['status_remark'],
-            'USER_TYPE':                     gender,
-            'DESCRIPTION':                   '',
-            'CLOSURE_TYPE':                  closure,
-            'COUNTRY_OF_ORIGIN':             country,
-            'EAN':                           '',
-            'IMPORTED_BY':                   '',
-            'KEY_FEATURES':                  '',
-            'MANUFACTURING_YEAR':            '',
-            'PRODUCT_BREADTH':               0,
-            'PRODUCT_DIMENSION_UOM':         0,
-            'PRODUCT_HEIGHT':                0,
-            'PRODUCT_LENGTH':                0,
-            'PRODUCT_TYPE':                  product_type_val,
-            'PRODUCT_WEIGHT_IN_KG':          0,
-            'PRODUCT_MANUFACTURING_CITY':    '',
-            'PRODUCT_MANUFACTURING_STATE':   '',
-            'DISTRESS':                      distress,
-            'FABRIC_MATERIAL':               fabric if fabric else '#',
-            'FIT':                           fit,
-            'LENGTH':                        length if length else '#',
-            'MANUFACTURER':                  '',
-            'NUMBER_OF_POCKETS':             '',
-            'OCCASION':                      '',
-            'PATTERN':                       pattern_val,
-            'RISE':                          '',
-            'STRETCHABILITY':                '',
-        }
-        _write(ws_pav, tcol_pav, pav_row, row_idx)
+        # ── ProductAttributeValue row (dynamic per PV) ────────
+        pav_field_map = pav_cfg.get("field_map", {})
+        pav_mandatory = pav_cfg.get("mandatory", set())
+        pav_row = {}
+        for col_name in PAV_HEADERS:
+            if not col_name:
+                continue
+            # Resolve value for this PAV column
+            if col_name in pav_field_map:
+                src_key = pav_field_map[col_name]
+                if src_key is None:
+                    val = ''
+                elif src_key == 'gender':
+                    val = gender
+                elif src_key == 'closure':
+                    val = closure
+                elif src_key == 'country':
+                    val = country
+                elif src_key == 'fabric':
+                    val = fabric if fabric else '#'
+                elif src_key == 'fit':
+                    val = fit
+                elif src_key == 'length':
+                    val = length if length else '#'
+                elif src_key == 'distress':
+                    val = distress
+                elif src_key == 'num_pockets':
+                    val = num_pockets
+                elif src_key == 'trend':
+                    val = pattern_val
+                elif src_key == 'waist_rise':
+                    val = waist_rise
+                elif src_key == 'stretch':
+                    val = stretch
+                elif src_key == 'fade':
+                    val = fade
+                elif src_key == 'waist_band':
+                    val = waist_band
+                elif src_key == 'fabric_composition':
+                    val = fabric_comp
+                else:
+                    val = ''
+            else:
+                val = ''
+            # Hard-coded column overrides
+            if col_name == 'Jpin':
+                val = ''
+            elif col_name == 'Title':
+                val = title
+            elif col_name == 'PvId':
+                val = pv_id
+            elif col_name == 'PvName':
+                val = pv_name
+            elif col_name == 'BrandId':
+                val = brand_id
+            elif col_name == 'BrandName':
+                val = brand
+            elif col_name == 'ImageURL1':
+                val = img_url
+            elif col_name == 'ImageURL2':
+                val = img2_url
+            elif col_name == 'CatalogStatus':
+                val = _ap_cfg['catalog_status']
+            elif col_name == 'StatusRemark':
+                val = _ap_cfg['status_remark']
+            elif col_name == 'DESCRIPTION':
+                val = ''
+            elif col_name == 'EAN':
+                val = ''
+            elif col_name == 'IMPORTED_BY':
+                val = ''
+            elif col_name == 'KEY_FEATURES':
+                val = ''
+            elif col_name == 'MANUFACTURING_YEAR':
+                val = ''
+            elif col_name == 'PRODUCT_BREADTH':
+                val = 0
+            elif col_name == 'PRODUCT_DIMENSION_UOM':
+                val = 0
+            elif col_name == 'PRODUCT_HEIGHT':
+                val = 0
+            elif col_name == 'PRODUCT_LENGTH':
+                val = 0
+            elif col_name == 'PRODUCT_TYPE':
+                val = product_type_val
+            elif col_name == 'PRODUCT_WEIGHT_IN_KG':
+                val = 0
+            elif col_name == 'PRODUCT_MANUFACTURING_CITY':
+                val = ''
+            elif col_name == 'PRODUCT_MANUFACTURING_STATE':
+                val = ''
+            elif col_name == 'MANUFACTURER':
+                val = ''
+            elif col_name == 'OCCASION':
+                val = ''
+            # If mandatory and empty → '#'
+            if col_name in pav_mandatory and (val is None or str(val).strip() in ('', 'None', 'nan')):
+                val = '#'
+            pav_row[col_name] = val
+        # Write PAV row with green fill on mandatory cells
+        for col_name, val in pav_row.items():
+            if col_name in tcol_pav and val is not None and str(val) not in ('None',):
+                cell = ws_pav.cell(row=row_idx, column=tcol_pav[col_name])
+                cell.value = val
+                if col_name in pav_mandatory:
+                    cell.fill = green_fill
 
         # ── L4 row ────────────────────────────────────────────
         l4_row = {

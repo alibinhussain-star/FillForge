@@ -482,7 +482,7 @@ svg{display:block}
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/></svg></div>
           <div class="tpl-card-name">Apparels &amp; Fashion</div>
         </div>
-        <div class="tpl-card-desc">Master template for Jeans with JPIN, TaxMaster, PAV & L4 sheets.</div>
+        <div class="tpl-card-desc">Multi-PV template for Jeans, Shirts, T-Shirts, Track Pants &amp; Cargo with JPIN, TaxMaster, PAV &amp; L4 sheets.</div>
         <button class="tpl-dl-btn" onclick="downloadTpl('Apparels & Fashion')">Download .xlsx</button>
       </div>
       <div class="tpl-card locked">
@@ -529,7 +529,7 @@ svg{display:block}
     </div>
     <div class="help-card">
       <h3>👖 Apparels & Fashion</h3>
-      <p>Apparel processing generates <b>4 files per category</b>: JPIN, TaxMaster, ProductAttributeValue, and L4. Currently supports Jeans with auto-detection of fabric, fit, length, closure, color, and size. Set composition is automatically calculated from quantity and size columns. Configure brands and PV settings in <b>Apparel Settings</b>.</p>
+      <p>Apparel processing generates <b>4 files per category</b>: JPIN, TaxMaster, ProductAttributeValue, and L4. Supports <b>Jeans, Shirts, T-Shirts, Track Pants &amp; Cargo</b> with per-PV dynamic PAV templates. Mandatory columns are highlighted green and auto-filled with <code>#</code> if empty. Auto-detects fabric, fit, length, closure, color, size, pockets, pattern, rise, stretch, fade, and more. Set composition is automatically calculated from quantity and size columns. Configure brands and per-PV settings in <b>Apparel Settings</b>.</p>
     </div>
     <div class="help-card">
       <h3>📱 Consumer Electronics</h3>
@@ -675,9 +675,61 @@ svg{display:block}
       <div class="fg"><div class="fl">GST IGST Share</div><input class="fi" id="ap-cfg-gst_igst" type="number"></div>
     </div>
     <div class="modal-sec">PV Configuration</div>
-    <div class="form-grid">
-      <div class="fg"><div class="fl">Jeans PV ID</div><input class="fi" id="ap-cfg-jeans-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
-      <div class="fg"><div class="fl">Jeans PV Name</div><input class="fi" id="ap-cfg-jeans-pv-name" type="text" placeholder="Men's Jeans"></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Configure PV IDs, names, and industry mappings for each product vertical.</div>
+    <!-- Jeans -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">👖 Jeans</div>
+      <div class="form-grid">
+        <div class="fg"><div class="fl">PV ID</div><input class="fi" id="ap-cfg-jeans-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
+        <div class="fg"><div class="fl">PV Name</div><input class="fi" id="ap-cfg-jeans-pv-name" type="text" placeholder="Men's Jeans"></div>
+        <div class="fg"><div class="fl">Industry Sub-Category</div><input class="fi" id="ap-cfg-jeans-ind-sub-cat" type="text" placeholder="Menswear"></div>
+        <div class="fg"><div class="fl">Industry Product Type</div><input class="fi" id="ap-cfg-jeans-ind-prod-type" type="text" placeholder="Westernwear"></div>
+        <div class="fg full"><div class="fl">Industry Sub-Type</div><input class="fi" id="ap-cfg-jeans-ind-sub-type" type="text" placeholder="Jeans"></div>
+      </div>
+    </div>
+    <!-- Shirts -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">👔 Shirts</div>
+      <div class="form-grid">
+        <div class="fg"><div class="fl">PV ID</div><input class="fi" id="ap-cfg-shirts-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
+        <div class="fg"><div class="fl">PV Name</div><input class="fi" id="ap-cfg-shirts-pv-name" type="text" placeholder="Men's Shirts"></div>
+        <div class="fg"><div class="fl">Industry Sub-Category</div><input class="fi" id="ap-cfg-shirts-ind-sub-cat" type="text" placeholder="Menswear"></div>
+        <div class="fg"><div class="fl">Industry Product Type</div><input class="fi" id="ap-cfg-shirts-ind-prod-type" type="text" placeholder="Westernwear"></div>
+        <div class="fg full"><div class="fl">Industry Sub-Type</div><input class="fi" id="ap-cfg-shirts-ind-sub-type" type="text" placeholder="Shirts"></div>
+      </div>
+    </div>
+    <!-- T-Shirts -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">👕 T-Shirts</div>
+      <div class="form-grid">
+        <div class="fg"><div class="fl">PV ID</div><input class="fi" id="ap-cfg-tshirts-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
+        <div class="fg"><div class="fl">PV Name</div><input class="fi" id="ap-cfg-tshirts-pv-name" type="text" placeholder="Men's T-Shirts"></div>
+        <div class="fg"><div class="fl">Industry Sub-Category</div><input class="fi" id="ap-cfg-tshirts-ind-sub-cat" type="text" placeholder="Menswear"></div>
+        <div class="fg"><div class="fl">Industry Product Type</div><input class="fi" id="ap-cfg-tshirts-ind-prod-type" type="text" placeholder="Westernwear"></div>
+        <div class="fg full"><div class="fl">Industry Sub-Type</div><input class="fi" id="ap-cfg-tshirts-ind-sub-type" type="text" placeholder="T-Shirts"></div>
+      </div>
+    </div>
+    <!-- Track Pants -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">🏃 Track Pants</div>
+      <div class="form-grid">
+        <div class="fg"><div class="fl">PV ID</div><input class="fi" id="ap-cfg-trackpants-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
+        <div class="fg"><div class="fl">PV Name</div><input class="fi" id="ap-cfg-trackpants-pv-name" type="text" placeholder="Men's Track Pants"></div>
+        <div class="fg"><div class="fl">Industry Sub-Category</div><input class="fi" id="ap-cfg-trackpants-ind-sub-cat" type="text" placeholder="Menswear"></div>
+        <div class="fg"><div class="fl">Industry Product Type</div><input class="fi" id="ap-cfg-trackpants-ind-prod-type" type="text" placeholder="Westernwear"></div>
+        <div class="fg full"><div class="fl">Industry Sub-Type</div><input class="fi" id="ap-cfg-trackpants-ind-sub-type" type="text" placeholder="Track Pants"></div>
+      </div>
+    </div>
+    <!-- Cargo -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">👜 Cargo</div>
+      <div class="form-grid">
+        <div class="fg"><div class="fl">PV ID</div><input class="fi" id="ap-cfg-cargo-pv-id" type="text" placeholder="PV-XXXXXXXXXX"></div>
+        <div class="fg"><div class="fl">PV Name</div><input class="fi" id="ap-cfg-cargo-pv-name" type="text" placeholder="Men's Cargo"></div>
+        <div class="fg"><div class="fl">Industry Sub-Category</div><input class="fi" id="ap-cfg-cargo-ind-sub-cat" type="text" placeholder="Menswear"></div>
+        <div class="fg"><div class="fl">Industry Product Type</div><input class="fi" id="ap-cfg-cargo-ind-prod-type" type="text" placeholder="Westernwear"></div>
+        <div class="fg full"><div class="fl">Industry Sub-Type</div><input class="fi" id="ap-cfg-cargo-ind-sub-type" type="text" placeholder="Cargo"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeAPConfig()">Cancel</button>
@@ -1194,7 +1246,16 @@ const AP_CFG_FIELDS=['biz_cat_id','biz_cat_name','discovery_cat',
   'relationship','catalog_status','status_remark','country_of_origin','product_condition',
   'manufacturing_year','tax_master_status','gst_cgst','gst_sgst','gst_igst'];
 let apCfgBrands = {};  // {name: id}
-let apPvConfig = {};   // {jeans: {pv_id, pv_name, ...}}
+let apPvConfig = {};   // {key: {pv_id, pv_name, ...}}
+
+// All supported PV keys with their field suffix patterns
+const AP_PV_KEYS = ['jeans', 'shirts', 'tshirts', 'trackpants', 'cargo'];
+
+function _pvId(key) { return 'ap-cfg-' + key + '-pv-id'; }
+function _pvName(key) { return 'ap-cfg-' + key + '-pv-name'; }
+function _pvIndSubCat(key) { return 'ap-cfg-' + key + '-ind-sub-cat'; }
+function _pvIndProdType(key) { return 'ap-cfg-' + key + '-ind-prod-type'; }
+function _pvIndSubType(key) { return 'ap-cfg-' + key + '-ind-sub-type'; }
 
 async function openAPConfig(){
   const res=await fetch('/ap_config'); const d=await res.json();
@@ -1203,12 +1264,15 @@ async function openAPConfig(){
   renderBrandTags('ap-cfg', apCfgBrands, 'ap-cfg-brands-list');
   AP_CFG_FIELDS.forEach(k => { const el=document.getElementById('ap-cfg-'+k); if(el) el.value=d[k]??''; });
 
-  // Load PV config if available
-  const jeansCfg = apPvConfig['jeans'] || {};
-  const jeansPvId = document.getElementById('ap-cfg-jeans-pv-id');
-  const jeansPvName = document.getElementById('ap-cfg-jeans-pv-name');
-  if(jeansPvId) jeansPvId.value = jeansCfg.pv_id || '';
-  if(jeansPvName) jeansPvName.value = jeansCfg.pv_name || '';
+  // Load PV config for all keys
+  AP_PV_KEYS.forEach(key => {
+    const pv = apPvConfig[key] || {};
+    document.getElementById(_pvId(key)).value = pv.pv_id || '';
+    document.getElementById(_pvName(key)).value = pv.pv_name || '';
+    document.getElementById(_pvIndSubCat(key)).value = pv.industry_sub_category || '';
+    document.getElementById(_pvIndProdType(key)).value = pv.industry_product_type || '';
+    document.getElementById(_pvIndSubType(key)).value = pv.industry_sub_type || '';
+  });
 
   document.getElementById('ap-cfg-modal').classList.add('open');
 }
@@ -1218,21 +1282,26 @@ async function saveAPConfig(){
   AP_CFG_FIELDS.forEach(k => { const el=document.getElementById('ap-cfg-'+k); if(!el) return;
     cfg[k]=['gst_cgst','gst_sgst','gst_igst'].includes(k)?parseInt(el.value)||0:el.value;});
 
-  // Save PV config
-  const jeansPvId = document.getElementById('ap-cfg-jeans-pv-id');
-  const jeansPvName = document.getElementById('ap-cfg-jeans-pv-name');
-  if(jeansPvId && jeansPvName) {
-    cfg.pv_config = {
-      jeans: {
-        pv_id: jeansPvId.value.trim(),
-        pv_name: jeansPvName.value.trim(),
+  // Save PV config for all keys
+  cfg.pv_config = {};
+  AP_PV_KEYS.forEach(key => {
+    const pvId = document.getElementById(_pvId(key)).value.trim();
+    const pvName = document.getElementById(_pvName(key)).value.trim();
+    const indSubCat = document.getElementById(_pvIndSubCat(key)).value.trim();
+    const indProdType = document.getElementById(_pvIndProdType(key)).value.trim();
+    const indSubType = document.getElementById(_pvIndSubType(key)).value.trim();
+    
+    if (pvId || pvName) {
+      cfg.pv_config[key] = {
+        pv_id: pvId,
+        pv_name: pvName,
         industry_category: 'Apparels & Fashion',
-        industry_sub_category: 'Menswear',
-        industry_product_type: 'Westernwear',
-        industry_sub_type: 'Jeans'
-      }
-    };
-  }
+        industry_sub_category: indSubCat || 'Menswear',
+        industry_product_type: indProdType || 'Westernwear',
+        industry_sub_type: indSubType || ({jeans:'Jeans',shirts:'Shirts',tshirts:'T-Shirts',trackpants:'Track Pants',cargo:'Cargo'})[key],
+      };
+    }
+  });
 
   await fetch('/ap_config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
   closeAPConfig(); showToast('Apparel settings saved ✓','success');

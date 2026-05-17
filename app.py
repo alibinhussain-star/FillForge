@@ -1082,7 +1082,8 @@ AP_DUMP_COL_HINTS = {
     'image5':            ['Other Image URL4','Other Image URL 4'],
     'image6':            ['Other Image URL5','Other Image URL 5'],
     'brand':             ['*Brand Name','Brand Name','Brand'],
-    'new_brand':         ['New Brand'],
+    'new_brand':         ['New Brand']
+    'pattern': ['Pattern'],
 }
 
 AP_BASE_COL_HINTS = {
@@ -1168,14 +1169,14 @@ def _ap_build_set_fields(sizes_list, set_count):
     set_comp     = ' | '.join(f'Size {s} :- {q}' for s, q in pairs)
     return set_details, set_desc, set_comp
 
-def _ap_make_title(brand, gender, fabric, length, pattern, product_type, color):
+def __ap_make_title(brand, gender, fabric, length, pattern_val, product_type_val, color):
     """Brand Gender Fabric Length Pattern ProductType, Color"""
     parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
     base = ' '.join(parts)
     return f"{base}, {color}" if color else base
 
 
-def _ap_make_internal_title(brand, product_code, gender, fabric, length, pattern, product_type, color, set_name, set_details):
+def _ap_make_internal_title(brand, article, gender, fabric, length, pattern_val, product_type_val, color, set_name_str, set_details):
     """Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)"""
     parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
     base = ' '.join(parts)
@@ -1358,7 +1359,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         closure     = safe(drow.get(col_map.get('closure',''), ''))
         distress    = safe(drow.get(col_map.get('distress',''), '')) or '#'
         fit         = safe(drow.get(col_map.get('fit',''), '')) or '#'
-        pattern_val = safe(drow.get(col_map.get('trend',''), '')) or '#'
+        pattern_val = safe(drow.get(col_map.get('pattern',''), '')) or '#'
         color       = title_case_color(safe(drow.get(col_map.get('color',''), '')))
         product_type_val = _ap_derive_product_type(ind_sub_type, pv_name)
 

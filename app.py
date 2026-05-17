@@ -1456,10 +1456,10 @@ def _ap_get_pv_config(category_key, ap_cfg):
     return {}
 
 
-def _ap_detect_pv_from_row(drow, col_map, ap_cfg):
+ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
     Auto-detect PV config from the row's *Industry Product Sub-type column.
-    Falls back to first available PV if not found.
+    Falls back to category_key match, then first available PV if not found.
     Returns (pv_cfg_dict, super_category, detected_key)
     """
     pv_cfg_map = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
@@ -1485,6 +1485,10 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg):
                 return v, v.get('super_category', 'Jeans'), k
 
     if pv_cfg_map:
+        if category_key:
+            for k, v in pv_cfg_map.items():
+                if v.get('super_category', '').lower() == category_key.lower():
+                    return v, v.get('super_category', 'Jeans'), k
         first_k = next(iter(pv_cfg_map))
         first_v = pv_cfg_map[first_k]
         return first_v, first_v.get('super_category', 'Jeans'), first_k
@@ -1732,7 +1736,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     for _, drow in work_df.iterrows():
         # ── Auto-detect PV and super-category from row ────────
-        pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg)
+        pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg, category_key)
 
         if not pv_cfg:
             skipped.append({'sku': '', 'article': '', 'reason': f'No PV config found for sub-type: {detected_key}'})

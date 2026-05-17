@@ -1082,8 +1082,8 @@ AP_DUMP_COL_HINTS = {
     'image5':            ['Other Image URL4','Other Image URL 4'],
     'image6':            ['Other Image URL5','Other Image URL 5'],
     'brand':             ['*Brand Name','Brand Name','Brand'],
-    'new_brand':         ['New Brand']
-    'pattern': ['Pattern'],
+    'new_brand':         ['New Brand'],
+    'pattern':           ['Pattern'],
 }
 
 AP_BASE_COL_HINTS = {

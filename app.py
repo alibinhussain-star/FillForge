@@ -1465,7 +1465,6 @@ def _ap_get_pv_config(category_key, ap_cfg):
             return v
     return {}
 
-
 def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
     Auto-detect PV config from the row's *Industry Product Sub-type column.
@@ -1488,32 +1487,39 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
                     sub_type_raw = val
                     break
 
-    # 1) Match by sub_type_raw against PV config keys
+    # ── 1) Match by sub_type_raw against PV config keys ──
     if sub_type_raw:
         sub_type_lower = sub_type_raw.lower()
         for k, v in pv_cfg_map.items():
-            if k.lower() == sub_type_lower or sub_type_lower in k.lower() or k.lower() in sub_type_lower:
+            k_lower = k.lower()
+            if k_lower == sub_type_lower or sub_type_lower in k_lower or k_lower in sub_type_lower:
                 return v, v.get('super_category', 'Jeans'), k
 
-    # 2) Match category_key against PV config KEYS (not just super_category)
+    # ── 2) Match category_key against PV config keys or super_category ──
     if category_key and pv_cfg_map:
         cat_lower = category_key.lower().strip()
         for k, v in pv_cfg_map.items():
-            # Match against the config key itself
-            if k.lower() == cat_lower or cat_lower in k.lower() or k.lower() in cat_lower:
-                return v, v.get('super_category', 'Jeans'), k
-            # Also match against super_category value
+            k_lower = k.lower()
             super_cat = v.get('super_category', '').lower()
-            if super_cat and (super_cat == cat_lower or cat_lower in super_cat or super_cat in cat_lower):
+            # Match against the config key itself
+            if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
                 return v, v.get('super_category', 'Jeans'), k
+            # Match against super_category (handle plural/singular: "T-Shirts" vs "T-Shirt")
+            if super_cat:
+                # Normalize: remove trailing 's' for comparison
+                cat_norm = cat_lower.rstrip('s')
+                super_norm = super_cat.rstrip('s')
+                if super_cat == cat_lower or cat_lower in super_cat or super_cat in cat_lower \
+                   or cat_norm == super_norm:
+                    return v, v.get('super_category', 'Jeans'), k
 
-    # 3) Only fall back to first PV if no category_key was provided at all
+    # ── 3) Only fall back to first PV if no category_key was provided ──
     if not category_key and pv_cfg_map:
         first_k = next(iter(pv_cfg_map))
         first_v = pv_cfg_map[first_k]
         return first_v, first_v.get('super_category', 'Jeans'), first_k
 
-    # Return empty if truly nothing found (caller should handle)
+    # Return empty if truly nothing found
     return {}, 'Jeans', ''
 
 
@@ -2896,26 +2902,46 @@ def process_ap():
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for category in categories:
-                                # Filter rows by ind_sub_type OR super_category match
+                                                # Filter rows by ind_sub_type OR by super_category match
                 sub_type_col = col_map.get('ind_sub_type')
                 if sub_type_col and sub_type_col in all_dump.columns:
                     col_lower = all_dump[sub_type_col].astype(str).str.lower().str.strip()
-                    # Exact match on category
-                    mask = col_lower == category.lower()
+                    cat_lower = category.lower()
+                    
+                    # Exact match
+                    mask = col_lower == cat_lower
                     filtered = all_dump[mask].copy()
-                    # Partial match
+                    
+                    # Partial match on category string
                     if filtered.empty:
-                        mask2 = col_lower.str.contains(re.escape(category.lower()), na=False)
+                        mask2 = col_lower.str.contains(re.escape(cat_lower), na=False)
                         filtered = all_dump[mask2].copy()
-                    # Match against super_category (e.g. "Shirts" matches "men's casual shirts")
+                    
+                    # Match any PV key belonging to this super_category
                     if filtered.empty:
-                        # Build a regex of all PV keys for this super_category
                         sc_keys = [k for k, v in _ap_cfg.get('pv_config', {}).items()
-                                   if v.get('super_category', '').lower() == category.lower()]
+                                   if v.get('super_category', '').lower().rstrip('s') == cat_lower.rstrip('s')]
                         if sc_keys:
                             pattern = '|'.join(re.escape(k.lower()) for k in sc_keys)
                             mask3 = col_lower.str.contains(pattern, na=False, regex=True)
                             filtered = all_dump[mask3].copy()
+                    
+                    # Last resort: if column contains "t-shirt" or "shirt" etc, broad match
+                    if filtered.empty:
+                        # Broad keyword match based on category
+                        broad_keywords = {
+                            't-shirts': ['t-shirt', 'tshirt', 'tee'],
+                            'shirts': ['shirt'],
+                            'jeans': ['jeans'],
+                            'sarees': ['saree'],
+                        }
+                        keywords = broad_keywords.get(cat_lower, [cat_lower])
+                        for kw in keywords:
+                            mask_broad = col_lower.str.contains(kw, na=False)
+                            if mask_broad.any():
+                                filtered = all_dump[mask_broad].copy()
+                                break
+                    
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:

@@ -259,6 +259,7 @@ svg{display:block}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -1061,7 +1062,7 @@ function renderResults(data){
       '<div class="rb-card-icon">📄</div>' +
       '<div style="flex:1;min-width:0">' +
         '<div class="rb-card-name">' + label + '</div>' +
-        '<div class="rb-card-val">' + (isAP ? (apFileCount || 5) + ' files generated' : r.filename) + '</div>' +
+        '<div class="rb-card-val">' + (isAP ? ((r.files ? r.files.length : 5) + ' files generated') : r.filename) + '</div>' +
         '<div>' + (r.filled>0?'<span class="rb-card-count">✓ ' + r.filled + ' filled</span>':'') +
           (r.skipped>0?'<span class="rb-card-skip"> ✗ ' + r.skipped + ' skipped</span>':'') + '</div>' +
         filesList +

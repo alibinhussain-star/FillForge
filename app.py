@@ -1168,19 +1168,18 @@ def _ap_build_set_fields(sizes_list, set_count):
     set_comp     = ' | '.join(f'Size {s} :- {q}' for s, q in pairs)
     return set_details, set_desc, set_comp
 
-
-def _ap_make_title(brand, gender, fabric, length, product_type, color):
-    """Brand Gender Fabric Length ProductType, Color"""
-    parts = [p for p in [brand, gender, fabric, length, product_type] if p]
-    base  = ' '.join(parts)
+def _ap_make_title(brand, gender, fabric, length, pattern, product_type, color):
+    """Brand Gender Fabric Length Pattern ProductType, Color"""
+    parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
+    base = ' '.join(parts)
     return f"{base}, {color}" if color else base
 
 
-def _ap_make_internal_title(brand, product_code, gender, fabric, length, product_type, color, set_name, set_details):
-    """Brand ProductCode Gender Fabric Length ProductType, Color, SetName (SetDetails)"""
-    parts = [p for p in [brand, product_code, gender, fabric, length, product_type] if p]
-    base  = ' '.join(parts)
-    suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+def _ap_make_internal_title(brand, product_code, gender, fabric, length, pattern, product_type, color, set_name, set_details):
+    """Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)"""
+    parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
+    base = ' '.join(parts)
+    suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_details}"
     return f"{base}, {suffix}"
 
 

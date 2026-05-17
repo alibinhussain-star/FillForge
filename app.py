@@ -152,7 +152,11 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 def get_ap_config_from_disk():
-    return _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
+    cfg = _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
+    # NEVER let a saved (possibly empty/wrong) pv_config overwrite the hardcoded defaults
+    # The frontend saves pv_config with wrong keys; always use the code defaults
+    cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
+    return cfg
 
 config = get_config()
 
@@ -1456,7 +1460,7 @@ def _ap_make_internal_title(super_category, brand, product_code, gender, fabric,
 
 def _ap_get_pv_config(category_key, ap_cfg):
     """Get PV config dict for a given category keyword (case-insensitive)."""
-    pv_cfg = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
+    pv_cfg = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
     for k, v in pv_cfg.items():
         if k.lower() == category_key.lower():
             return v
@@ -1471,8 +1475,7 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     Falls back to category_key match, then first available PV if not found.
     Returns (pv_cfg_dict, super_category, detected_key)
     """
-    pv_cfg_map = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
-
+    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
     # ── Helper: clean raw values ──
     def _clean(val):
         if val is None or (isinstance(val, float) and pd.isna(val)):

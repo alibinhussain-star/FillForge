@@ -1456,7 +1456,7 @@ def _ap_get_pv_config(category_key, ap_cfg):
     return {}
 
 
- def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
+def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
     Auto-detect PV config from the row's *Industry Product Sub-type column.
     Falls back to category_key match, then first available PV if not found.

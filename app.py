@@ -2950,11 +2950,12 @@ def process_ce():
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
     """
-    Apparel & Fashion processor. Produces a ZIP containing 4 files per category:
+    Apparel & Fashion processor. Produces a ZIP containing 5 files per category:
       - ap_JPIN_<category>.xlsx
       - ap_TaxMaster_<category>.xlsx
       - ap_ProductAttributeValue_<category>.xlsx
       - ap_L4_<category>.xlsx
+      - ap_SCM_<category>.xlsx
     """
     try:
         categories_raw = request.form.get('categories', '')

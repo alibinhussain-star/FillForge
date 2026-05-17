@@ -1073,6 +1073,7 @@ AP_DUMP_COL_HINTS = {
     'closure':           ['*Closure','Closure'],
     'packing':           ['Packaging Type','*Packaging Type'],
     'length':            ['*Length','Length'],
+    'pattern':           ['Pattern'],
     'color':             ['*Select color','Select color','*Select Color','Select Color'],
     'size':              ['*Size','Size'],
     'image':             ['*Main Image URL','Main Image URL'],
@@ -1083,7 +1084,6 @@ AP_DUMP_COL_HINTS = {
     'image6':            ['Other Image URL5','Other Image URL 5'],
     'brand':             ['*Brand Name','Brand Name','Brand'],
     'new_brand':         ['New Brand'],
-    'pattern':           ['Pattern'],
 }
 
 AP_BASE_COL_HINTS = {
@@ -1169,18 +1169,19 @@ def _ap_build_set_fields(sizes_list, set_count):
     set_comp     = ' | '.join(f'Size {s} :- {q}' for s, q in pairs)
     return set_details, set_desc, set_comp
 
-def __ap_make_title(brand, gender, fabric, length, pattern_val, product_type_val, color):
+
+def _ap_make_title(brand, gender, fabric, length, pattern, product_type, color):
     """Brand Gender Fabric Length Pattern ProductType, Color"""
     parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
     base = ' '.join(parts)
     return f"{base}, {color}" if color else base
 
 
-def _ap_make_internal_title(brand, article, gender, fabric, length, pattern_val, product_type_val, color, set_name_str, set_details):
+def _ap_make_internal_title(brand, product_code, gender, fabric, length, pattern, product_type, color, set_name, set_details):
     """Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)"""
     parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
     base = ' '.join(parts)
-    suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_details}"
+    suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
     return f"{base}, {suffix}"
 
 
@@ -1282,7 +1283,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'Closure','Packaging Type','Length',
         '*Select color','*Size',
         '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3','Other Image URL4',
-        '*Brand Name','New Brand',
+        '*Brand Name','New Brand','Pattern',
     ]
 
     def _make_wb(headers, sheet_name):
@@ -1402,8 +1403,8 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         except: weight = ''
 
         # Derived title fields
-        title          = _ap_make_title(brand, gender, fabric, length, product_type_val, color)
-        internal_title = _ap_make_internal_title(brand, article, gender, fabric, length, product_type_val, color, set_name_str, set_details)
+        title          = _ap_make_title(brand, gender, fabric, length, pattern_val, product_type_val, color)
+        internal_title = _ap_make_internal_title(brand, article, gender, fabric, length, pattern_val, product_type_val, color, set_name_str, set_details)
 
         filled  += 1
         row_idx  = filled + 1
@@ -1576,6 +1577,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
             'Other Image URL4':              img5_url,
             '*Brand Name':                   brand,
             'New Brand':                     '',
+            'Pattern':                       pattern_val,
         }
         _write(ws_l4, tcol_l4, l4_row, row_idx)
 

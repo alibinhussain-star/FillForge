@@ -1389,9 +1389,9 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
 
-    elif sc == 'T-Shirt':
+        elif sc == 'T-Shirt':
         pv_short = _ap_pv_name_for_title(product_type)
-        parts = [p for p in [brand, gender, fabric, neck, sleeve_length, pattern, pv_short] if p]
+        parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
 
@@ -1473,19 +1473,33 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
     pv_cfg_map = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
 
+    # ── Helper: clean raw values ──
+    def _clean(val):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return ''
+        s = str(val).strip()
+        return '' if s.lower() in ('nan', 'none', '') else s
+
     sub_type_raw = ''
     sub_type_col = col_map.get('ind_sub_type')
-    if sub_type_col and sub_type_col in drow:
-        sub_type_raw = str(drow.get(sub_type_col, '')).strip()
+    if sub_type_col:
+        try:
+            sub_type_raw = _clean(drow.get(sub_type_col, ''))
+        except:
+            sub_type_raw = ''
 
+    # Fallback hint columns
     if not sub_type_raw:
         for hint_col in ['product_name', 'ind_product_type', 'type']:
             c = col_map.get(hint_col)
-            if c and c in drow:
-                val = str(drow.get(c, '')).strip()
-                if val:
-                    sub_type_raw = val
-                    break
+            if c:
+                try:
+                    val = _clean(drow.get(c, ''))
+                    if val:
+                        sub_type_raw = val
+                        break
+                except:
+                    pass
 
     # ── 1) Match by sub_type_raw against PV config keys ──
     if sub_type_raw:
@@ -1495,22 +1509,23 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
             if k_lower == sub_type_lower or sub_type_lower in k_lower or k_lower in sub_type_lower:
                 return v, v.get('super_category', 'Jeans'), k
 
-    # ── 2) Match category_key against PV config keys or super_category ──
+    # ── 2) Match category_key against PV config keys OR super_category ──
     if category_key and pv_cfg_map:
         cat_lower = category_key.lower().strip()
         for k, v in pv_cfg_map.items():
             k_lower = k.lower()
             super_cat = v.get('super_category', '').lower()
-            # Match against the config key itself
+
+            # Match against the config KEY itself (e.g. "T-Shirts" matches "men's casual t-shirts")
             if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
                 return v, v.get('super_category', 'Jeans'), k
-            # Match against super_category (handle plural/singular: "T-Shirts" vs "T-Shirt")
+
+            # Match against super_category with normalization
             if super_cat:
-                # Normalize: remove trailing 's' for comparison
-                cat_norm = cat_lower.rstrip('s')
-                super_norm = super_cat.rstrip('s')
-                if super_cat == cat_lower or cat_lower in super_cat or super_cat in cat_lower \
-                   or cat_norm == super_norm:
+                # Normalize: remove trailing 's', spaces, hyphens for fuzzy match
+                def _norm(s):
+                    return s.lower().replace('-', '').replace(' ', '').rstrip('s')
+                if _norm(super_cat) == _norm(cat_lower):
                     return v, v.get('super_category', 'Jeans'), k
 
     # ── 3) Only fall back to first PV if no category_key was provided ──
@@ -2902,7 +2917,7 @@ def process_ap():
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for category in categories:
-                                                # Filter rows by ind_sub_type OR by super_category match
+                                                                # Filter rows by ind_sub_type OR by super_category match
                 sub_type_col = col_map.get('ind_sub_type')
                 if sub_type_col and sub_type_col in all_dump.columns:
                     col_lower = all_dump[sub_type_col].astype(str).str.lower().str.strip()
@@ -2919,16 +2934,17 @@ def process_ap():
                     
                     # Match any PV key belonging to this super_category
                     if filtered.empty:
-                        sc_keys = [k for k, v in _ap_cfg.get('pv_config', {}).items()
-                                   if v.get('super_category', '').lower().rstrip('s') == cat_lower.rstrip('s')]
+                        # Load config here since _ap_cfg is not in this scope
+                        ap_cfg_local = get_ap_config_from_disk()
+                        sc_keys = [k for k, v in ap_cfg_local.get('pv_config', {}).items()
+                                   if v.get('super_category', '').lower().replace('-', '').rstrip('s') == cat_lower.replace('-', '').rstrip('s')]
                         if sc_keys:
                             pattern = '|'.join(re.escape(k.lower()) for k in sc_keys)
                             mask3 = col_lower.str.contains(pattern, na=False, regex=True)
                             filtered = all_dump[mask3].copy()
                     
-                    # Last resort: if column contains "t-shirt" or "shirt" etc, broad match
+                    # Last resort: broad keyword match
                     if filtered.empty:
-                        # Broad keyword match based on category
                         broad_keywords = {
                             't-shirts': ['t-shirt', 'tshirt', 'tee'],
                             'shirts': ['shirt'],

@@ -1381,7 +1381,7 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
 
     elif sc == 'T-Shirt':
         pv_short = _ap_pv_name_for_title(product_type)
-        parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
+        parts = [p for p in [brand, gender, fabric, neck, sleeve_length, pattern, pv_short] if p]
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
 

@@ -2644,37 +2644,42 @@ def detect_ap_categories():
     except Exception as e:
         return jsonify({'categories': AP_CATEGORIES, 'error': str(e)})
 
-@app.route('/process', methods=['POST'])
-def process():
+@app.route('/process_ap', methods=['POST'])
+def process_ap():
+    """
+    Apparel & Fashion processor. Produces a ZIP containing 5 files per category:
+      - ap_JPIN_<category>.xlsx
+      - ap_TaxMaster_<category>.xlsx
+      - ap_SCM_<category>.xlsx
+      - ap_ProductAttributeValue_<category>_<super>.xlsx  (per super-category)
+      - ap_L4_<category>_<super>.xlsx                     (per super-category)
+    """
     try:
-        subtypes_raw = request.form.get('subtypes', '')
-        try:    subtypes = json.loads(subtypes_raw)
-        except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
+        categories_raw = request.form.get('categories', '')
+        try:    categories = json.loads(categories_raw)
+        except: categories = [s.strip() for s in categories_raw.split(',') if s.strip()]
 
-        inline_cfg_raw = request.form.get('config', '')
+        inline_cfg_raw = request.form.get('ap_config', '')
         if inline_cfg_raw:
             try:
                 inline_cfg = json.loads(inline_cfg_raw)
                 if inline_cfg.get('brands'):
                     inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
                 try:
-                    disk_cfg = get_config()
+                    disk_cfg = get_ap_config_from_disk()
                     disk_cfg.update(inline_cfg)
-                    _save_config(CONFIG_PATH, disk_cfg)
+                    _save_config(AP_CONFIG_PATH, disk_cfg)
                 except: pass
             except Exception as e:
-                print(f'inline config parse error: {e}')
+                print(f'inline ap_config parse error: {e}')
 
         base_file = request.files.get('base_data')
         dump_file = request.files.get('dump')
 
-        if not subtypes:
-            return jsonify({'error': 'Please select at least one SubType'}), 400
+        if not categories:
+            return jsonify({'error': 'Please select at least one category'}), 400
         if not dump_file:
-            return jsonify({'error': 'Dump / listing file is required'}), 400
-        for st in subtypes:
-            if st not in SUBTYPE_MAP:
-                return jsonify({'error': f'SubType "{st}" not found in template'}), 400
+            return jsonify({'error': 'Listing file is required'}), 400
 
         dump_bytes = dump_file.read()
         xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
@@ -2684,10 +2689,9 @@ def process():
             except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if all_dump.empty:
-            return jsonify({'error': 'Could not read any data from dump file'}), 400
+            return jsonify({'error': 'Could not read any data from listing file'}), 400
 
-        col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
-        vert_col = col_map.get('vertical')
+        col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
 
         existing_articles, existing_skus = set(), set()
         if base_file:
@@ -2695,7 +2699,7 @@ def process():
             for sname in bxl.sheet_names:
                 try:
                     bdf  = bxl.parse(sname)
-                    bcol = build_col_map(bdf, BASE_COL_HINTS)
+                    bcol = build_col_map(bdf, AP_BASE_COL_HINTS)
                     if 'article' in bcol:
                         existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
                     if 'sku' in bcol:
@@ -2703,73 +2707,108 @@ def process():
                 except: pass
 
         results, all_skipped, grand_filled = [], [], 0
-        preview_rows, preview_cols = [], []
+        preview_rows = []
+        preview_cols = ['Title','Seller SKU ID','Article Number','Product Color',
+                        'Available Sizes','Set Details','Set Count']
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
-            for subtype in subtypes:
-                if vert_col and vert_col in all_dump.columns:
-                    mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+            for category in categories:
+                # Filter rows by ind_sub_type
+                sub_type_col = col_map.get('ind_sub_type')
+                if sub_type_col and sub_type_col in all_dump.columns:
+                    mask = all_dump[sub_type_col].astype(str).str.lower().str.strip() == category.lower()
                     filtered = all_dump[mask].copy()
                     if filtered.empty:
-                        mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
+                        mask2 = all_dump[sub_type_col].astype(str).str.lower().str.contains(
+                            re.escape(category.lower()), na=False)
                         filtered = all_dump[mask2].copy()
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:
                     filtered = all_dump.copy()
 
-                wb, headers = get_template_wb_for_subtype(subtype)
-                ws = wb.active
-                filled, skipped = fill_template(
-                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                # ── NOW UNPACKS 7 VALUES (was 6) ─────────────────
+                wb_jpin, wb_tax, wb_scm, wb_pav_map, wb_l4_map, filled, skipped = fill_ap_files(
+                    filtered, col_map, category, existing_articles, existing_skus
                 )
                 all_skipped.extend(skipped)
                 grand_filled += filled
 
-                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
-                fname   = f'filled_{safe_st}.xlsx'
-                xls_buf = io.BytesIO()
-                wb.save(xls_buf)
-                zout.writestr(fname, xls_buf.getvalue())
-                results.append({'subtype': subtype, 'filled': filled,
-                                 'skipped': len(skipped), 'filename': fname})
+                safe_cat = re.sub(r"[^\w\s-]", "", category).replace(" ", "_")
+                files_written = []
 
-                if not preview_cols:
-                    pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
-                             'PRODUCT_COLOR *','AVAILABLE_SIZES *','SET_DETAILS *',
-                             'UPPER_MATERIAL *','SOLE_MATERIAL *','hsnCode *','SET_COUNT *']
-                    preview_cols = [c for c in pcols if c in headers]
-                    for r in range(2, min(filled + 2, 52)):
-                        rdata = {c: ws.cell(r, headers.index(c)+1).value for c in preview_cols}
-                        if any(v for v in rdata.values()):
-                            preview_rows.append({**rdata, '_subtype': subtype})
+                # Single workbooks (one per category)
+                for wb_obj, label in [
+                    (wb_jpin, 'JPIN'),
+                    (wb_tax,  'TaxMaster'),
+                    (wb_scm,  'SCM'),
+                ]:
+                    fname   = f'ap_{label}_{safe_cat}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
 
+                # PAV workbooks (one per super-category)
+                for super_cat, wb_obj in wb_pav_map.items():
+                    safe_super = re.sub(r"[^\w\s-]", "", super_cat).replace(" ", "_")
+                    fname   = f'ap_ProductAttributeValue_{safe_cat}_{safe_super}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
+
+                # L4 workbooks (one per super-category)
+                for super_cat, wb_obj in wb_l4_map.items():
+                    safe_super = re.sub(r"[^\w\s-]", "", super_cat).replace(" ", "_")
+                    fname   = f'ap_L4_{safe_cat}_{safe_super}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
+
+                results.append({
+                    'category': category,
+                    'filled':   filled,
+                    'skipped':  len(skipped),
+                    'files':    files_written,
+                })
+
+                # Build preview from JPIN sheet
+                ws_jpin = wb_jpin.active
+                jpin_headers = [ws_jpin.cell(1, c).value for c in range(1, ws_jpin.max_column + 1)]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for pc in preview_cols:
+                        if pc in jpin_headers:
+                            rdata[pc] = ws_jpin.cell(r, jpin_headers.index(pc)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_category': category})
+
+        out_name  = 'ap_filled_templates.zip'
+        out_ext   = '.zip'
         zip_buf.seek(0)
-        if len(subtypes) == 1:
-            safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
-            out_name = f'filled_{safe_st}.xlsx'
-            out_ext  = '.xlsx'
-            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
-                out_bytes = zin.read(results[0]['filename'])
-        else:
-            out_name  = 'filled_templates.zip'
-            out_ext   = '.zip'
-            out_bytes = zip_buf.getvalue()
+        out_bytes = zip_buf.getvalue()
 
         file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
         FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
                                    'ext': out_ext, 'created': time.time()}
 
-        write_log('anonymous', 'catalog_generated',
-                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
+        write_log('anonymous', 'ap_catalog_generated',
+                  f'categories={categories} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
-            'status': 'ok', 'grand_filled': grand_filled,
-            'grand_skipped': len(all_skipped), 'results': results,
-            'skipped_details': all_skipped[:50], 'preview': preview_rows,
-            'preview_cols': preview_cols, 'download_token': file_token,
-            'filename': out_name, 'is_zip': len(subtypes) > 1,
+            'status':         'ok',
+            'grand_filled':   grand_filled,
+            'grand_skipped':  len(all_skipped),
+            'results':        results,
+            'skipped_details':all_skipped[:50],
+            'preview':        preview_rows,
+            'preview_cols':   preview_cols,
+            'download_token': file_token,
+            'filename':       out_name,
+            'is_zip':         True,
         })
 
     except Exception as e:

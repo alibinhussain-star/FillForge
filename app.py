@@ -2680,6 +2680,141 @@ def detect_ap_categories():
     except Exception as e:
         return jsonify({'categories': AP_CATEGORIES, 'error': str(e)})
 
+
+@app.route('/process', methods=['POST'])
+def process():
+    """Footwear catalog processor. Generates a filled PV Template .xlsx."""
+    try:
+        subtypes_raw = request.form.get('subtypes', '')
+        try:    subtypes = json.loads(subtypes_raw)
+        except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
+
+        inline_cfg_raw = request.form.get('config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                disk_cfg = get_config()
+                disk_cfg.update(inline_cfg)
+                _save_config(CONFIG_PATH, disk_cfg)
+            except Exception as e:
+                print(f'inline config parse error: {e}')
+
+        base_file = request.files.get('base_data')
+        dump_file = request.files.get('dump')
+
+        if not subtypes:
+            return jsonify({'error': 'Please select at least one SubType'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Dump / listing file is required'}), 400
+        for st in subtypes:
+            if st not in SUBTYPE_MAP:
+                return jsonify({'error': f'SubType "{st}" not found in template'}), 400
+
+        dump_bytes = dump_file.read()
+        xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames     = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from dump file'}), 400
+
+        col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')
+
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf  = bxl.parse(sname)
+                    bcol = build_col_map(bdf, BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except: pass
+
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for subtype in subtypes:
+                if vert_col and vert_col in all_dump.columns:
+                    mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                wb, headers = get_template_wb_for_subtype(subtype)
+                ws = wb.active
+                filled, skipped = fill_template(
+                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
+                wb.save(xls_buf)
+                zout.writestr(fname, xls_buf.getvalue())
+                results.append({'subtype': subtype, 'filled': filled,
+                                 'skipped': len(skipped), 'filename': fname})
+
+                if not preview_cols:
+                    pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
+                             'PRODUCT_COLOR *','AVAILABLE_SIZES *','SET_DETAILS *',
+                             'SET_COUNT *','FOOTWEAR_TYPE *','hsnCode *']
+                    preview_cols = [c for c in pcols if c in headers]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for c in preview_cols:
+                        if c in headers:
+                            rdata[c] = ws.cell(r, headers.index(c)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_subtype': subtype})
+
+        zip_buf.seek(0)
+        if len(subtypes) == 1:
+            safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
+            out_name = f'filled_{safe_st}.xlsx'
+            out_ext  = '.xlsx'
+            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
+                out_bytes = zin.read(results[0]['filename'])
+        else:
+            out_name  = 'filled_footwear_templates.zip'
+            out_ext   = '.zip'
+            out_bytes = zip_buf.getvalue()
+
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
+
+        write_log('anonymous', 'fw_catalog_generated',
+                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
+
+        return jsonify({
+            'status': 'ok', 'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped), 'results': results,
+            'skipped_details': all_skipped[:50], 'preview': preview_rows,
+            'preview_cols': preview_cols, 'download_token': file_token,
+            'filename': out_name, 'is_zip': len(subtypes) > 1,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
     """
@@ -2983,6 +3118,27 @@ def process_ce():
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+
+
+@app.route('/download_template/<path:category>')
+def download_template(category):
+    """Serve the master template file for a given vertical."""
+    category_lower = category.lower().strip()
+    if 'electronic' in category_lower or category_lower == 'ce':
+        path  = CE_TEMPLATE_PATH
+        fname = 'Consumer_Electronics_Template.xlsx'
+    elif 'apparel' in category_lower or category_lower in ('ap', 'fashion'):
+        path  = os.path.join(os.path.dirname(__file__), 'Apparel Mapping & Logic Template.xlsx')
+        fname = 'Apparels_Fashion_Template.xlsx'
+    else:
+        path  = TEMPLATE_PATH
+        fname = 'Footwear_Template.xlsx'
+
+    if not os.path.exists(path):
+        return jsonify({'error': f'Template file not found: {fname}'}), 404
+
+    return send_file(path, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/download/<token>')
 def download(token):

@@ -1007,10 +1007,20 @@ from openpyxl import Workbook
 
 # ── Default Config ──────────────────────────────────────────
 AP_DEFAULT_CONFIG = {
-    "brands":             {},
-    "biz_cat_id":         "BCAT-139439",
-    "biz_cat_name":       "Apparel & Fashion",
-    # ... other defaults ...
+    "brands":              {},
+    "biz_cat_id":          "BCAT-139439",
+    "biz_cat_name":        "Apparel & Fashion",
+    "relationship":        "Parent",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2026",
+    "discovery_cat":       "DISCAT-135542",
     "pv_config": {
         # ── JEANS ───────────────────────────────────────────
         "jeans": {
@@ -1640,6 +1650,19 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
     wb_pav_dict and wb_l4_dict are keyed by super_category.
     """
     _ap_cfg     = get_ap_config_from_disk()
+    # Ensure all required keys exist with safe defaults
+    _ap_cfg.setdefault('gst_cgst', 50)
+    _ap_cfg.setdefault('gst_sgst', 50)
+    _ap_cfg.setdefault('gst_igst', 0)
+    _ap_cfg.setdefault('catalog_status', 'ACTIVE')
+    _ap_cfg.setdefault('status_remark', 'Ready to Launch')
+    _ap_cfg.setdefault('tax_master_status', 'active')
+    _ap_cfg.setdefault('biz_cat_id', 'BCAT-139439')
+    _ap_cfg.setdefault('biz_cat_name', 'Apparel & Fashion')
+    _ap_cfg.setdefault('country_of_origin', 'India')
+    _ap_cfg.setdefault('product_condition', 'Fresh')
+    _ap_cfg.setdefault('manufacturing_year', '2026')
+    _ap_cfg.setdefault('discovery_cat', 'DISCAT-135542')
     brands_dict = normalize_brands(_ap_cfg.get('brands', {}))
     fallback_brand, fallback_id = ('', '')
     if brands_dict:
@@ -2486,6 +2509,26 @@ FILE_STORE = {}
 # ═══════════════════════════════════════════════════════════════
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
+
+
+# ── Global error handlers — always return JSON, never HTML ────
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({'error': 'Bad request', 'details': str(e)}), 400
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Not found', 'details': str(e)}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    import traceback
+    return jsonify({'error': 'Internal server error', 'details': str(e), 'trace': traceback.format_exc()}), 500
+
+@app.errorhandler(Exception)
+def unhandled_exception(e):
+    import traceback
+    return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 @app.route('/')
 def index():

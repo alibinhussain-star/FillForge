@@ -1010,17 +1010,7 @@ AP_DEFAULT_CONFIG = {
     "brands":             {},
     "biz_cat_id":         "BCAT-139439",
     "biz_cat_name":       "Apparel & Fashion",
-    "catalog_status":     "ACTIVE",
-    "status_remark":      "Ready to Launch",
-    "tax_master_status":  "active",
-    "gst_cgst":           50,
-    "gst_sgst":           50,
-    "gst_igst":           0,
-    "country_of_origin":  "India",
-    "product_condition":  "Fresh",
-    "manufacturing_year": "2026",
-    "discovery_cat":      "DISCAT-135530",
-    # Per-category PV config — keyed by *Industry Product Sub-type value (case-insensitive)
+    # ... other defaults ...
     "pv_config": {
         # ── JEANS ───────────────────────────────────────────
         "jeans": {
@@ -1030,7 +1020,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "women's jeans": {
             "pv_id":   "PV-1914272940",
@@ -1039,7 +1029,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "boy's jeans": {
             "pv_id":   "PV-1914272259",
@@ -1048,7 +1038,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         # ── SHIRTS ──────────────────────────────────────────
         "men's casual shirts": {
@@ -1058,7 +1048,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "men's formal shirts": {
             "pv_id":   "PV-1914273102",
@@ -1067,7 +1057,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's casual shirts": {
             "pv_id":   "PV-1914272626",
@@ -1076,7 +1066,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's formal shirts": {
             "pv_id":   "PV-1914272626",
@@ -1085,7 +1075,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "women's shirts": {
             "pv_id":   "PV-1914273102",
@@ -1094,7 +1084,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         # ── T-SHIRTS ────────────────────────────────────────
         "men's casual t-shirts": {
@@ -1104,7 +1094,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "men's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1113,7 +1103,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1122,7 +1112,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1131,7 +1121,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1140,7 +1130,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1149,7 +1139,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "girl's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1158,7 +1148,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Girlswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "baby casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1167,7 +1157,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Babywear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         # ── SAREES ──────────────────────────────────────────
         "sarees & blouses": {
@@ -1177,11 +1167,10 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Ethnicwear",
             "industry_sub_type":     "Sarees & Blouses",
-            "super_category":        "Sarees",
+            "super_category":        "Sarees",  # ← ADD THIS
         },
     },
 }
-
 # ── Listing-file column hints for Apparel (L4-style input files) ──
 # These are COMMON across all super-categories. Per-category extras are handled dynamically.
 AP_DUMP_COL_HINTS = {

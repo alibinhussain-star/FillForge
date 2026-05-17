@@ -999,9 +999,13 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
 
 # ═══════════════════════════════════════════════════════════════
-# APPAREL & FASHION MODULE
+# APPAREL & FASHION MODULE — MULTI-PV SUPPORT
 # ═══════════════════════════════════════════════════════════════
 
+import re
+from openpyxl import Workbook
+
+# ── Default Config ──────────────────────────────────────────
 AP_DEFAULT_CONFIG = {
     "brands":             {},
     "biz_cat_id":         "BCAT-139439",
@@ -1018,18 +1022,168 @@ AP_DEFAULT_CONFIG = {
     "discovery_cat":      "DISCAT-135530",
     # Per-category PV config — keyed by *Industry Product Sub-type value (case-insensitive)
     "pv_config": {
+        # ── JEANS ───────────────────────────────────────────
         "jeans": {
-            "pv_id":   "PV-1914272807",
+            "pv_id":   "PV-1914272259",
             "pv_name": "Men's Jeans",
             "industry_category":     "Apparels & Fashion",
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-        }
+            "super_category":        "Jeans",
+        },
+        "women's jeans": {
+            "pv_id":   "PV-1914272940",
+            "pv_name": "Women's Jeans",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Womenswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Jeans",
+            "super_category":        "Jeans",
+        },
+        "boy's jeans": {
+            "pv_id":   "PV-1914272259",
+            "pv_name": "Boy's Jeans",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Boyswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Jeans",
+            "super_category":        "Jeans",
+        },
+        # ── SHIRTS ──────────────────────────────────────────
+        "men's casual shirts": {
+            "pv_id":   "PV-1914273102",
+            "pv_name": "Men's Casual Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "super_category":        "Shirts",
+        },
+        "men's formal shirts": {
+            "pv_id":   "PV-1914273102",
+            "pv_name": "Men's Formal Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "super_category":        "Shirts",
+        },
+        "boy's casual shirts": {
+            "pv_id":   "PV-1914272626",
+            "pv_name": "Boy's Casual Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Boyswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "super_category":        "Shirts",
+        },
+        "boy's formal shirts": {
+            "pv_id":   "PV-1914272626",
+            "pv_name": "Boy's Formal Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Boyswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "super_category":        "Shirts",
+        },
+        "women's shirts": {
+            "pv_id":   "PV-1914273102",
+            "pv_name": "Women's Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Womenswear",
+            "industry_product_type": "Westernwear",
+            "industry_sub_type":     "Shirts",
+            "super_category":        "Shirts",
+        },
+        # ── T-SHIRTS ────────────────────────────────────────
+        "men's casual t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Men's Casual T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "men's polo t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Men's Polo T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Menswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "women's t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Women's T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Womenswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "women's polo t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Women's Polo T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Womenswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "boy's casual t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Boy's Casual T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Boyswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "boy's polo t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Boy's Polo T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Boyswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "girl's t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Girl's T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Girlswear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        "baby casual t-shirts": {
+            "pv_id":   "PV-1914273100",
+            "pv_name": "Baby Casual T-Shirts",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Babywear",
+            "industry_product_type": "Casual & Sports",
+            "industry_sub_type":     "T-Shirts",
+            "super_category":        "T-Shirt",
+        },
+        # ── SAREES ──────────────────────────────────────────
+        "sarees & blouses": {
+            "pv_id":   "PV-1914272903",
+            "pv_name": "Women's Sarees",
+            "industry_category":     "Apparels & Fashion",
+            "industry_sub_category": "Womenswear",
+            "industry_product_type": "Ethnicwear",
+            "industry_sub_type":     "Sarees & Blouses",
+            "super_category":        "Sarees",
+        },
     },
 }
 
-# Listing-file column hints for Apparel (L4-style input files)
+# ── Listing-file column hints for Apparel (L4-style input files) ──
+# These are COMMON across all super-categories. Per-category extras are handled dynamically.
 AP_DUMP_COL_HINTS = {
     'type':              ['*Type','Type'],
     'ind_category':      ['*Industry Category','Industry Category'],
@@ -1073,7 +1227,7 @@ AP_DUMP_COL_HINTS = {
     'closure':           ['*Closure','Closure'],
     'packing':           ['Packaging Type','*Packaging Type'],
     'length':            ['*Length','Length'],
-    'pattern':           ['Pattern'],
+    'pattern':           ['*Pattern','Pattern'],
     'color':             ['*Select color','Select color','*Select Color','Select Color'],
     'size':              ['*Size','Size'],
     'image':             ['*Main Image URL','Main Image URL'],
@@ -1084,6 +1238,28 @@ AP_DUMP_COL_HINTS = {
     'image6':            ['Other Image URL5','Other Image URL 5'],
     'brand':             ['*Brand Name','Brand Name','Brand'],
     'new_brand':         ['New Brand'],
+    # ── T-Shirt / Shirt specific ──
+    'neck_type':         ['Neck','Neck Type','*Neck Type'],
+    'sleeve_length':     ['Sleeve Length','*Sleeve Length'],
+    'multipack_set':     ['*Multipack Set','Multipack Set'],
+    'occasion':          ['Occasion'],
+    'hemline':           ['Hemline'],
+    'shape':             ['Shape'],
+    'set_includes':      ['Set Includes'],
+    'bottom_type':       ['Bottom Type'],
+    'work_type':         ['Work Type'],
+    'stitch_type':       ['Stitch Type'],
+    'border':            ['Border'],
+    'collar':            ['Collar'],
+    # ── Saree specific ──
+    'blouse_fabric':     ['Blouse Fabric Material'],
+    'blouse_included':   ['Blouse Included'],
+    'blouse_neck':       ['Blouse Neck'],
+    'blouse_sleeve':     ['Blouse Sleeve'],
+    'blouse_type':       ['Blouse Type'],
+    'saree_type':        ['Saree Type'],
+    'saree_length':      ['Saree Length'],
+    'fabric_type':       ['*Fabric Type','Fabric Type'],
 }
 
 AP_BASE_COL_HINTS = {
@@ -1091,9 +1267,13 @@ AP_BASE_COL_HINTS = {
     'sku':     ['*Seller SKU','Seller SKU','Child SKU'],
 }
 
-# Apparel categories currently supported
-AP_CATEGORIES = ['Jeans']
+# Apparel super-categories currently supported
+AP_CATEGORIES = ['Jeans', 'Shirts', 'T-Shirt', 'Sarees']
 
+
+# ═══════════════════════════════════════════════════════════════
+# HELPER FUNCTIONS
+# ═══════════════════════════════════════════════════════════════
 
 def _ap_normalize_gender(raw):
     """Convert MALE / Man / Men etc → Men's; FEMALE / Woman / Women → Women's; etc."""
@@ -1103,6 +1283,7 @@ def _ap_normalize_gender(raw):
     if r in ('FEMALE','WOMAN','WOMEN','WOMEN\'S','WOMENS'): return "Women's"
     if r in ('BOY','BOYS','BOY\'S'): return "Boy's"
     if r in ('GIRL','GIRLS','GIRL\'S'): return "Girl's"
+    if r in ('BABY','BABIES','BABY\'S'): return "Baby's"
     return str(raw).strip()
 
 
@@ -1133,18 +1314,20 @@ def _ap_parse_set_count(qty_raw):
     return 0, ''
 
 
-def _ap_parse_sizes(size_raw):
+def _ap_parse_sizes(size_raw, super_category='Jeans'):
     """
     Parse *Size column. Handles:
-      '28, 30, 32, 34, 36'
-      '28-30-32-34-36'
-      '28 30 32 34 36'
+      '28, 30, 32, 34, 36'  → numeric sizes (Jeans)
+      'S, M, L, XL, 2XL'    → alpha sizes (Shirts, T-Shirts)
+      'Free Size'           → free size (Sarees)
     Returns list of size strings.
     """
     s = str(size_raw).strip()
+    if not s or s.lower() in ('nan', 'none', ''):
+        return []
     if ',' in s:
         return [x.strip() for x in s.split(',') if x.strip()]
-    if '-' in s:
+    if '-' in s and super_category in ('Jeans',):
         parts = [x.strip() for x in s.split('-') if x.strip() and re.match(r'^\d+$', x.strip())]
         if len(parts) > 1:
             return parts
@@ -1170,19 +1353,106 @@ def _ap_build_set_fields(sizes_list, set_count):
     return set_details, set_desc, set_comp
 
 
-def _ap_make_title(brand, gender, fabric, length, pattern, product_type, color):
-    """Brand Gender Fabric Length Pattern ProductType, Color"""
-    parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
-    base = ' '.join(parts)
-    return f"{base}, {color}" if color else base
+def _ap_pv_name_for_title(pv_name):
+    """Remove gender prefix from PV name for title usage.
+    e.g. 'Men's Casual Shirts' → 'Casual Shirts'
+         'Men's Polo T-Shirts' → 'Polo T-Shirts'
+    """
+    if not pv_name:
+        return pv_name
+    s = str(pv_name).strip()
+    for prefix in ("Men's ", "Women's ", "Boy's ", "Girl's ", "Baby's "):
+        if s.startswith(prefix):
+            return s[len(prefix):]
+    return s
 
 
-def _ap_make_internal_title(brand, product_code, gender, fabric, length, pattern, product_type, color, set_name, set_details):
-    """Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)"""
-    parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
-    base = ' '.join(parts)
-    suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
-    return f"{base}, {suffix}"
+def _ap_make_title(super_category, brand, gender, fabric, length, pattern, product_type, color,
+                     neck_type='', sleeve_length='', collar='', fit=''):
+    """
+    Form title based on super-category rules.
+
+    JEANS:     Brand Gender Fabric Length Pattern ProductType, Color
+    SHIRTS:    Brand Gender Fabric Collar Fit SleeveLength Pattern PVName(no gender), Color
+    T-SHIRT:   Brand Gender Fabric Neck SleeveLength Pattern PVName(no gender), Color
+    SAREES:    Brand Gender Fabric Size Pattern PVName(no gender), Color
+    """
+    sc = (super_category or 'Jeans').strip()
+
+    if sc == 'Jeans':
+        parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
+
+    elif sc == 'Shirts':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, gender, fabric, collar, fit, sleeve_length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
+
+    elif sc == 'T-Shirt':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
+
+    elif sc == 'Sarees':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, gender, fabric, length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
+
+    else:
+        parts = [p for p in [brand, gender, fabric, length, pattern, product_type] if p]
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
+
+
+def _ap_make_internal_title(super_category, brand, product_code, gender, fabric, length, pattern,
+                            product_type, color, set_name, set_details,
+                            neck_type='', sleeve_length='', collar='', fit=''):
+    """
+    Form internal title based on super-category rules.
+
+    JEANS:     Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)
+    SHIRTS:    Brand ProductCode Gender Fabric Collar Fit SleeveLength Pattern PVName, Color, SetName (SetDetails)
+    T-SHIRT:   Brand ProductCode Gender Fabric Neck SleeveLength Pattern PVName, Color, SetName (SetDetails)
+    SAREES:    Brand ProductCode Gender Fabric Size Pattern PVName, Color, SetName (SetDetails)
+    """
+    sc = (super_category or 'Jeans').strip()
+
+    if sc == 'Jeans':
+        parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
+        base = ' '.join(parts)
+        suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+        return f"{base}, {suffix}"
+
+    elif sc == 'Shirts':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, product_code, gender, fabric, collar, fit, sleeve_length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+        return f"{base}, {suffix}"
+
+    elif sc == 'T-Shirt':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, product_code, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+        return f"{base}, {suffix}"
+
+    elif sc == 'Sarees':
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, product_code, gender, fabric, length, pattern, pv_short] if p]
+        base = ' '.join(parts)
+        suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+        return f"{base}, {suffix}"
+
+    else:
+        parts = [p for p in [brand, product_code, gender, fabric, length, pattern, product_type] if p]
+        base = ' '.join(parts)
+        suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
+        return f"{base}, {suffix}"
 
 
 def _ap_get_pv_config(category_key, ap_cfg):
@@ -1191,45 +1461,198 @@ def _ap_get_pv_config(category_key, ap_cfg):
     for k, v in pv_cfg.items():
         if k.lower() == category_key.lower():
             return v
-    # Partial match
     for k, v in pv_cfg.items():
         if category_key.lower() in k.lower() or k.lower() in category_key.lower():
             return v
     return {}
 
 
-def _ap_derive_product_type(ind_sub_type, pv_name):
-    """Derive PRODUCT_TYPE from sub-type or PV name (e.g. 'Jeans')."""
-    candidates = [ind_sub_type, pv_name]
-    for c in candidates:
-        if not c: continue
-        c_lower = c.lower()
-        for pt in ['jeans','track pants','shirts','camisole','slips','cargo']:
-            if pt in c_lower:
-                return pt.title()
-    return ind_sub_type or ''
+def _ap_detect_pv_from_row(drow, col_map, ap_cfg):
+    """
+    Auto-detect PV config from the row's *Industry Product Sub-type column.
+    Falls back to first available PV if not found.
+    Returns (pv_cfg_dict, super_category, detected_key)
+    """
+    pv_cfg_map = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
 
+    sub_type_raw = ''
+    sub_type_col = col_map.get('ind_sub_type')
+    if sub_type_col and sub_type_col in drow:
+        sub_type_raw = str(drow.get(sub_type_col, '')).strip()
+
+    if not sub_type_raw:
+        for hint_col in ['product_name', 'ind_product_type', 'type']:
+            c = col_map.get(hint_col)
+            if c and c in drow:
+                val = str(drow.get(c, '')).strip()
+                if val:
+                    sub_type_raw = val
+                    break
+
+    if sub_type_raw:
+        sub_type_lower = sub_type_raw.lower()
+        for k, v in pv_cfg_map.items():
+            if k.lower() == sub_type_lower or sub_type_lower in k.lower() or k.lower() in sub_type_lower:
+                return v, v.get('super_category', 'Jeans'), k
+
+    if pv_cfg_map:
+        first_k = next(iter(pv_cfg_map))
+        first_v = pv_cfg_map[first_k]
+        return first_v, first_v.get('super_category', 'Jeans'), first_k
+
+    return {}, 'Jeans', ''
+
+
+def _ap_derive_product_type(pv_name):
+    """Derive PRODUCT_TYPE from PV name (e.g. 'Men's Jeans' → 'Jeans')."""
+    if not pv_name:
+        return ''
+    pv_lower = str(pv_name).lower()
+    for pt in ['jeans','track pants','shirts','camisole','slips','cargo',
+               'casual shirts','formal shirts','polo t-shirts','casual t-shirts',
+               't-shirts','sarees','blouses']:
+        if pt in pv_lower:
+            return pt.title()
+    return _ap_pv_name_for_title(pv_name) or pv_name
+
+
+# ═══════════════════════════════════════════════════════════════
+# PER-SUPER-CATEGORY PAV HEADERS
+# ═══════════════════════════════════════════════════════════════
+
+def _ap_get_pav_headers(super_category):
+    """Return PAV headers for a given super-category."""
+    sc = (super_category or 'Jeans').strip()
+
+    base = [
+        'Jpin','Title','PvId','PvName','BrandId','BrandName',
+        'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+        'USER_TYPE','DESCRIPTION','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
+        'KEY_FEATURES','MANUFACTURING_YEAR',
+        'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+        'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
+        'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+    ]
+
+    if sc == 'Jeans':
+        specific = [
+            'CLOSURE_TYPE','DISTRESS','FABRIC_MATERIAL','FIT','LENGTH',
+            'MANUFACTURER','NUMBER_OF_POCKETS','OCCASION','PATTERN','RISE','STRETCHABILITY',
+        ]
+    elif sc == 'Shirts':
+        specific = [
+            'CLOSURE_TYPE','FABRIC_MATERIAL','FIT','GSM','HEMLINE','LENGTH',
+            'MANUFACTURER','NECK_TYPE','NUMBER_OF_POCKETS','OCCASION','PATTERN','SLEEVE_TYPE',
+        ]
+    elif sc == 'T-Shirt':
+        specific = [
+            'CLOSURE_TYPE','FABRIC_MATERIAL','FIT','GSM','HEMLINE','LENGTH',
+            'MANUFACTURER','NECK_TYPE','NUMBER_OF_POCKETS','OCCASION','PATTERN','SLEEVE_TYPE',
+        ]
+    elif sc == 'Sarees':
+        specific = [
+            'BLOUSE_FABRIC_MATERIAL','BLOUSE_INCLUDED','BLOUSE_NECK','BLOUSE_SLEEVE',
+            'BLOUSE_TYPE','FABRIC_MATERIAL','LENGTH','MANUFACTURER','OCCASION',
+            'PATTERN','SAREE_TYPE',
+        ]
+    else:
+        specific = ['PATTERN']
+
+    return base + specific
+
+
+# ═══════════════════════════════════════════════════════════════
+# PER-SUPER-CATEGORY L4 HEADERS
+# ═══════════════════════════════════════════════════════════════
+
+def _ap_get_l4_headers(super_category):
+    """Return L4 headers for a given super-category."""
+    sc = (super_category or 'Jeans').strip()
+
+    base = [
+        '*Type','*Industry Category','*Industry Sub Category',
+        '*Industry Product Type','*Industry Product Sub-type',
+        '*Product Name','*Product Description','*Seller SKU','*Product Code',
+        '*Relationship','*Parent Product Id','*Child SKU',
+        '*Quantity','*Set Name','*HSN Code','*GST',
+        'Marketed By','*Country Of Origin','Imported By','EAN',
+        '*MOQ','*MRP','*Selling Price',
+        '*Product Weight (In KG)','*Product Dimension (LXBXH)',
+        'Manufacturing Year','*Unit Of Measure','*Product Dimension UOM',
+    ]
+
+    if sc == 'Jeans':
+        specific = [
+            '*Gender','*Select Fabric','Distress','Number of Pockets','Trend',
+            'Fabric Composition','Fade','Fit','Stretch','Waist Rise','Waist Band',
+            'Manufacturing Year','Closure','Packaging Type','Length',
+            '*Select color','*Size',
+            '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+            'Other Image URL4','Other Image URL5',
+            '*Brand Name','New Brand','*Pattern',
+        ]
+    elif sc == 'Shirts':
+        specific = [
+            '*Gender','*Select Fabric','Distress','Number of Pockets','Trend',
+            'Fabric Composition','Fade','Fit','Stretch','Waist Rise','Waist Band',
+            'Manufacturing Year','Closure','Packaging Type','Length',
+            '*Select color','*Size',
+            '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+            'Other Image URL4','Other Image URL5',
+            '*Brand Name','New Brand','*Pattern','Collar',
+        ]
+    elif sc == 'T-Shirt':
+        specific = [
+            '*Gender','*Select Fabric','*Pattern','*Multipack Set','Number of Pockets',
+            'Fabric Composition','Fit','Occasion','Manufacturing Year',
+            'Neck','Sleeve Length','Closure','Packaging Type',
+            '*Select color','*Size',
+            '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+            'Other Image URL4','Other Image URL5',
+            '*Brand Name','New Brand',
+        ]
+    elif sc == 'Sarees':
+        specific = [
+            '*Select Fabric','*Fabric Type','*Gender','*Pattern','Occasion',
+            'Hemline','Shape','Set Includes','Bottom Type','Fabric Composition',
+            'Number of Pockets','Work Type','Stitch Type','Border',
+            'Manufacturing Year','Neck','Sleeve Length','Closure','Product Type',
+            'Packaging Type','Length',
+            '*Select color','*Size',
+            '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+            'Other Image URL4','Other Image URL5',
+            '*Brand Name','New Brand',
+        ]
+    else:
+        specific = [
+            '*Gender','*Select Fabric',
+            '*Select color','*Size',
+            '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+            'Other Image URL4','Other Image URL5',
+            '*Brand Name','New Brand','*Pattern',
+        ]
+
+    return base + specific
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN GENERATOR
+# ═══════════════════════════════════════════════════════════════
 
 def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_skus):
     """
     Generate all 4 apparel output workbooks for one category.
-    Returns: (wb_jpin, wb_tax, wb_pav, wb_l4, filled_count, skipped_list)
+    Auto-detects PV from row's *Industry Product Sub-type.
+    Returns: (wb_jpin, wb_tax, wb_pav_dict, wb_l4_dict, filled_count, skipped_list)
+    wb_pav_dict and wb_l4_dict are keyed by super_category.
     """
     _ap_cfg     = get_ap_config_from_disk()
     brands_dict = normalize_brands(_ap_cfg.get('brands', {}))
     fallback_brand, fallback_id = ('', '')
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    pv_cfg = _ap_get_pv_config(category_key, _ap_cfg)
 
-    pv_id   = pv_cfg.get('pv_id', '')
-    pv_name = pv_cfg.get('pv_name', category_key)
-    ind_cat      = pv_cfg.get('industry_category', 'Apparels & Fashion')
-    ind_sub_cat  = pv_cfg.get('industry_sub_category', '')
-    ind_prod_type = pv_cfg.get('industry_product_type', '')
-    ind_sub_type  = pv_cfg.get('industry_sub_type', category_key)
-
-    # ── JPIN headers ──────────────────────────────────────────
+    # ── JPIN headers (same for all categories) ────────────────
     JPIN_HEADERS = [
         'JPIN','Title','Internal_Title','BrandID','BrandName','PVID','PVName',
         'Business Category Id','Business Category Name',
@@ -1245,7 +1668,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'CreatedTime','LastUpdatedTime','LastUpdatedBy','Ingestion Row Status','Exception',
     ]
 
-    # ── TaxMaster headers ─────────────────────────────────────
+    # ── TaxMaster headers (same for all categories) ───────────
     TAX_HEADERS = [
         'TaxMasterID','Jpin','Title','ProductVerticalId','ProductVerticalName',
         'hsnCode','sinTax','cess','vatPercentage','gstPercentage',
@@ -1253,38 +1676,28 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
     ]
 
-    # ── ProductAttributeValue headers ────────────────────────
-    PAV_HEADERS = [
-        'Jpin','Title','PvId','PvName','BrandId','BrandName',
-        'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
-        'USER_TYPE','DESCRIPTION','CLOSURE_TYPE','COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY',
-        'KEY_FEATURES','MANUFACTURING_YEAR',
-        'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
-        'PRODUCT_TYPE','PRODUCT_WEIGHT_IN_KG',
-        'PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
-        'DISTRESS','FABRIC_MATERIAL','FIT','LENGTH','MANUFACTURER',
-        'NUMBER_OF_POCKETS','OCCASION','PATTERN','RISE','STRETCHABILITY',
+    # ── SCM (Supply Chain Management) headers ─────────────────
+    SCM_HEADERS = [
+        'JPIN','Title','Net_Weight','Net_Weight_Measuring_Unit','DeadWeight',
+        'VolumetricWeight','ShippingCalculationType',
+        'L1-caseSize','L2-caseSize','L3-caseSize','L4-caseSize',
+        'L1-packagingType','L2-packagingType','L3-packagingType','L4-packagingType',
+        'L0-UnitShippingContainerType','L1-UnitShippingContainerType',
+        'L2-UnitShippingContainerType','L3-UnitShippingContainerType',
+        'L4-UnitShippingContainerType',
+        'Fragile','Brittle',
+        'length_l0','width_l0','height_l0',
+        'length_l1','width_l1','height_l1',
+        'length_l2','width_l2','height_l2',
+        'length_l3','width_l3','height_l3',
+        'length_l4','width_l4','height_l4',
+        'volumetricweight_l1','volumetricweight_l2','volumetricweight_l3','volumetricweight_l4',
+        'APMC Notified Commodity',
+        'L1-deadWeight','L2-deadWeight','L3-deadWeight','L4-deadWeight',
+        'Net_Quantity','Net_Quantity_Measuring_Unit',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy',
     ]
 
-    # ── L4 headers ────────────────────────────────────────────
-    L4_HEADERS = [
-        '*Type','*Industry Category','*Industry Sub Category',
-        '*Industry Product Type','*Industry Product Sub-type',
-        '*Product Name','*Product Description','*Seller SKU','*Product Code',
-        '*Relationship','*Parent Product Id','*Child SKU',
-        '*Quantity','*Set Name','*HSN Code','*GST',
-        'Marketed By','*Country Of Origin','Imported By','EAN',
-        '*MOQ','*MRP','*Selling Price',
-        '*Product Weight (In KG)','*Product Dimension (LXBXH)',
-        'Manufacturing Year','*Unit Of Measure','*Product Dimension UOM',
-        '*Gender','*Select Fabric',
-        'Distress','Number of Pockets','Trend','Fabric Composition','Fade',
-        'Fit','Stretch','Waist Rise','Waist Band','Manufacturing Year',
-        'Closure','Packaging Type','Length',
-        '*Select color','*Size',
-        '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3','Other Image URL4',
-        '*Brand Name','New Brand','Pattern',
-    ]
 
     def _make_wb(headers, sheet_name):
         wb = Workbook()
@@ -1296,16 +1709,20 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     wb_jpin, ws_jpin = _make_wb(JPIN_HEADERS, 'JPIN Template')
     wb_tax,  ws_tax  = _make_wb(TAX_HEADERS,  'TaxMaster')
-    wb_pav,  ws_pav  = _make_wb(PAV_HEADERS,  'ProductAttributeValue')
-    wb_l4,   ws_l4   = _make_wb(L4_HEADERS,   'L4')
+    wb_scm,  ws_scm  = _make_wb(SCM_HEADERS,  'SCM')
+
+    # PAV and L4 workbooks per super-category
+    wb_pav_map = {}
+    wb_l4_map  = {}
+    row_idx_pav = {}
+    row_idx_l4  = {}
 
     def _col(headers):
         return {h: i+1 for i, h in enumerate(headers) if h}
 
     tcol_jpin = _col(JPIN_HEADERS)
     tcol_tax  = _col(TAX_HEADERS)
-    tcol_pav  = _col(PAV_HEADERS)
-    tcol_l4   = _col(L4_HEADERS)
+    tcol_scm  = _col(SCM_HEADERS)
 
     def _write(ws, tcol, data, row_idx):
         for col_name, val in data.items():
@@ -1325,6 +1742,35 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         work_df = rows_df.copy()
 
     for _, drow in work_df.iterrows():
+        # ── Auto-detect PV and super-category from row ────────
+        pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg)
+
+        if not pv_cfg:
+            skipped.append({'sku': '', 'article': '', 'reason': f'No PV config found for sub-type: {detected_key}'})
+            continue
+
+        pv_id   = pv_cfg.get('pv_id', '')
+        pv_name = pv_cfg.get('pv_name', category_key)
+        ind_cat      = pv_cfg.get('industry_category', 'Apparels & Fashion')
+        ind_sub_cat  = pv_cfg.get('industry_sub_category', '')
+        ind_prod_type = pv_cfg.get('industry_product_type', '')
+        ind_sub_type  = pv_cfg.get('industry_sub_type', category_key)
+
+        # Lazy-init PAV and L4 workbooks per super-category
+        if super_category not in wb_pav_map:
+            pav_headers = _ap_get_pav_headers(super_category)
+            wb_pav_map[super_category], _ = _make_wb(pav_headers, 'ProductAttributeValue')
+            row_idx_pav[super_category] = 1
+        if super_category not in wb_l4_map:
+            l4_headers = _ap_get_l4_headers(super_category)
+            wb_l4_map[super_category], _ = _make_wb(l4_headers, 'L4')
+            row_idx_l4[super_category] = 1
+
+        ws_pav = wb_pav_map[super_category].active
+        ws_l4  = wb_l4_map[super_category].active
+        tcol_pav = _col(_ap_get_pav_headers(super_category))
+        tcol_l4  = _col(_ap_get_l4_headers(super_category))
+
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
         if not brand and fallback_brand:
             brand    = fallback_brand
@@ -1342,12 +1788,11 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         qty_raw     = safe(drow.get(col_map.get('quantity',''), ''))
         set_count, l4_qty_str = _ap_parse_set_count(qty_raw)
         if set_count == 0:
-            # Try *Set Name column
             sn_raw = safe(drow.get(col_map.get('set_name',''), ''))
             set_count, l4_qty_str = _ap_parse_set_count(sn_raw)
 
         size_raw    = safe(drow.get(col_map.get('size',''), ''))
-        sizes_list  = _ap_parse_sizes(size_raw)
+        sizes_list  = _ap_parse_sizes(size_raw, super_category)
         avail_sizes = ', '.join(sizes_list)
 
         set_details, set_desc, set_comp = _ap_build_set_fields(sizes_list, set_count)
@@ -1362,7 +1807,28 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         fit         = safe(drow.get(col_map.get('fit',''), '')) or '#'
         pattern_val = safe(drow.get(col_map.get('pattern',''), '')) or '#'
         color       = title_case_color(safe(drow.get(col_map.get('color',''), '')))
-        product_type_val = _ap_derive_product_type(ind_sub_type, pv_name)
+        product_type_val = _ap_derive_product_type(pv_name)
+
+        # Category-specific fields
+        neck_type_val    = safe(drow.get(col_map.get('neck_type',''), '')) or '#'
+        sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), '')) or '#'
+        collar_val       = safe(drow.get(col_map.get('collar',''), '')) or '#'
+        multipack_val    = safe(drow.get(col_map.get('multipack_set',''), '')) or '#'
+        occasion_val     = safe(drow.get(col_map.get('occasion',''), '')) or '#'
+        hemline_val      = safe(drow.get(col_map.get('hemline',''), '')) or '#'
+        shape_val        = safe(drow.get(col_map.get('shape',''), '')) or '#'
+        set_includes_val = safe(drow.get(col_map.get('set_includes',''), '')) or '#'
+        bottom_type_val  = safe(drow.get(col_map.get('bottom_type',''), '')) or '#'
+        work_type_val    = safe(drow.get(col_map.get('work_type',''), '')) or '#'
+        stitch_type_val  = safe(drow.get(col_map.get('stitch_type',''), '')) or '#'
+        border_val       = safe(drow.get(col_map.get('border',''), '')) or '#'
+        blouse_fabric_val= safe(drow.get(col_map.get('blouse_fabric',''), '')) or '#'
+        blouse_incl_val  = safe(drow.get(col_map.get('blouse_included',''), '')) or '#'
+        blouse_neck_val  = safe(drow.get(col_map.get('blouse_neck',''), '')) or '#'
+        blouse_sleeve_val= safe(drow.get(col_map.get('blouse_sleeve',''), '')) or '#'
+        blouse_type_val  = safe(drow.get(col_map.get('blouse_type',''), '')) or '#'
+        saree_type_val   = safe(drow.get(col_map.get('saree_type',''), '')) or '#'
+        fabric_type_val  = safe(drow.get(col_map.get('fabric_type',''), '')) or '#'
 
         img_url  = safe(drow.get(col_map.get('image',''), ''))
         img2_url = safe(drow.get(col_map.get('image2',''), ''))
@@ -1402,14 +1868,25 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         try:    weight = float(weight_raw) if str(weight_raw).strip() not in ('','nan') else ''
         except: weight = ''
 
-        # Derived title fields
-        title          = _ap_make_title(brand, gender, fabric, length, pattern_val, product_type_val, color)
-        internal_title = _ap_make_internal_title(brand, article, gender, fabric, length, pattern_val, product_type_val, color, set_name_str, set_details)
+        # ── Derived title fields (per super-category) ───────────
+        title = _ap_make_title(
+            super_category, brand, gender, fabric, length, pattern_val, product_type_val, color,
+            neck_type=neck_type_val, sleeve_length=sleeve_len_val, collar=collar_val, fit=fit
+        )
+        internal_title = _ap_make_internal_title(
+            super_category, brand, article, gender, fabric, length, pattern_val,
+            product_type_val, color, set_name_str, set_details,
+            neck_type=neck_type_val, sleeve_length=sleeve_len_val, collar=collar_val, fit=fit
+        )
 
         filled  += 1
         row_idx  = filled + 1
+        row_idx_pav[super_category] += 1
+        row_idx_l4[super_category]  += 1
+        pav_row_idx = row_idx_pav[super_category]
+        l4_row_idx  = row_idx_l4[super_category]
 
-        # ── JPIN row ──────────────────────────────────────────
+        # ── JPIN row (same for all) ───────────────────────────
         jpin_row = {
             'JPIN':                                    '',
             'Title':                                   title,
@@ -1460,7 +1937,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_jpin, tcol_jpin, jpin_row, row_idx)
 
-        # ── TaxMaster row ─────────────────────────────────────
+        # ── TaxMaster row (same for all) ──────────────────────
         tax_row = {
             'TaxMasterID':          '',
             'Jpin':                 '',
@@ -1483,106 +1960,531 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_tax, tcol_tax, tax_row, row_idx)
 
-        # ── ProductAttributeValue row ─────────────────────────
-        pav_row = {
-            'Jpin':                          '',
+        # ── SCM row (Supply Chain Management) ─────────────────
+        scm_row = {
+            'JPIN':                          '',
             'Title':                         title,
-            'PvId':                          pv_id,
-            'PvName':                        pv_name,
-            'BrandId':                       brand_id,
-            'BrandName':                     brand,
-            'ImageURL1':                     img_url,
-            'ImageURL2':                     img2_url,
-            'CatalogStatus':                 _ap_cfg['catalog_status'],
-            'StatusRemark':                  _ap_cfg['status_remark'],
-            'USER_TYPE':                     gender,
-            'DESCRIPTION':                   '',
-            'CLOSURE_TYPE':                  closure,
-            'COUNTRY_OF_ORIGIN':             country,
-            'EAN':                           '',
-            'IMPORTED_BY':                   '',
-            'KEY_FEATURES':                  '',
-            'MANUFACTURING_YEAR':            '',
-            'PRODUCT_BREADTH':               0,
-            'PRODUCT_DIMENSION_UOM':         0,
-            'PRODUCT_HEIGHT':                0,
-            'PRODUCT_LENGTH':                0,
-            'PRODUCT_TYPE':                  product_type_val,
-            'PRODUCT_WEIGHT_IN_KG':          0,
-            'PRODUCT_MANUFACTURING_CITY':    '',
-            'PRODUCT_MANUFACTURING_STATE':   '',
-            'DISTRESS':                      distress,
-            'FABRIC_MATERIAL':               fabric if fabric else '#',
-            'FIT':                           fit,
-            'LENGTH':                        length if length else '#',
-            'MANUFACTURER':                  '',
-            'NUMBER_OF_POCKETS':             '',
-            'OCCASION':                      '',
-            'PATTERN':                       pattern_val,
-            'RISE':                          '',
-            'STRETCHABILITY':                '',
+            'Net_Weight':                    0,
+            'Net_Weight_Measuring_Unit':     'g',
+            'DeadWeight':                    0.25,
+            'VolumetricWeight':              0,
+            'ShippingCalculationType':       'Dead Weight',
+            'L1-caseSize':                   1,
+            'L2-caseSize':                   0,
+            'L3-caseSize':                   0,
+            'L4-caseSize':                   0,
+            'L1-packagingType':              'Bag',
+            'L2-packagingType':              '',
+            'L3-packagingType':              '',
+            'L4-packagingType':              '',
+            'L0-UnitShippingContainerType':  'Crate - Medium',
+            'L1-UnitShippingContainerType':  'Bag',
+            'L2-UnitShippingContainerType':  'Bag',
+            'L3-UnitShippingContainerType':  '',
+            'L4-UnitShippingContainerType':  '',
+            'Fragile':                       'No',
+            'Brittle':                       'No',
+            'length_l0':                     0,
+            'width_l0':                      0,
+            'height_l0':                     0,
+            'length_l1':                     24,
+            'width_l1':                      24,
+            'height_l1':                     33,
+            'length_l2':                     0,
+            'width_l2':                      0,
+            'height_l2':                     0,
+            'length_l3':                     0,
+            'width_l3':                      0,
+            'height_l3':                     0,
+            'length_l4':                     0,
+            'width_l4':                      0,
+            'height_l4':                     0,
+            'volumetricweight_l1':           4.021675,
+            'volumetricweight_l2':           0,
+            'volumetricweight_l3':           0,
+            'volumetricweight_l4':           0,
+            'APMC Notified Commodity':       'No',
+            'L1-deadWeight':                 0,
+            'L2-deadWeight':                 0,
+            'L3-deadWeight':                 0,
+            'L4-deadWeight':                 0,
+            'Net_Quantity':                  1,
+            'Net_Quantity_Measuring_Unit':   'Pc',
+            'CreatedTime':                   '',
+            'LastUpdatedTime':               '',
+            'LastUpdatedBy':                 '',
         }
-        _write(ws_pav, tcol_pav, pav_row, row_idx)
+        _write(ws_scm, tcol_scm, scm_row, row_idx)
 
-        # ── L4 row ────────────────────────────────────────────
-        l4_row = {
-            '*Type':                         'SET',
-            '*Industry Category':            ind_cat,
-            '*Industry Sub Category':        ind_sub_cat,
-            '*Industry Product Type':        ind_prod_type,
-            '*Industry Product Sub-type':    ind_sub_type,
-            '*Product Name':                 title,
-            '*Product Description':          product_desc,
-            '*Seller SKU':                   seller_sku,
-            '*Product Code':                 article,
-            '*Relationship':                 'Parent',
-            '*Parent Product Id':            seller_sku,
-            '*Child SKU':                    seller_sku,
-            '*Quantity':                     l4_qty_str,
-            '*Set Name':                     set_name_str,
-            '*HSN Code':                     hsn,
-            '*GST':                          gst,
-            'Marketed By':                   '',
-            '*Country Of Origin':            country,
-            'Imported By':                   '',
-            'EAN':                           '',
-            '*MOQ':                          moq,
-            '*MRP':                          mrp,
-            '*Selling Price':                sp,
-            '*Product Weight (In KG)':       weight,
-            '*Product Dimension (LXBXH)':    dim_raw,
-            'Manufacturing Year':            '',
-            '*Unit Of Measure':              'Set',
-            '*Product Dimension UOM':        dim_uom,
-            '*Gender':                       gender,
-            '*Select Fabric':                fabric,
-            'Distress':                      distress,
-            'Number of Pockets':             num_pockets,
-            'Trend':                         '',
-            'Fabric Composition':            fabric_comp,
-            'Fade':                          fade,
-            'Fit':                           fit,
-            'Stretch':                       stretch,
-            'Waist Rise':                    waist_rise,
-            'Waist Band':                    waist_band,
-            'Closure':                       closure,
-            'Packaging Type':                packing,
-            'Length':                        length,
-            '*Select color':                 color,
-            '*Size':                         set_details,
-            '*Main Image URL':               img_url,
-            'Other Image URL1':              img2_url,
-            'Other Image URL2':              img3_url,
-            'Other Image URL3':              img4_url,
-            'Other Image URL4':              img5_url,
-            '*Brand Name':                   brand,
-            'New Brand':                     '',
-            'Pattern':                       pattern_val,
-        }
-        _write(ws_l4, tcol_l4, l4_row, row_idx)
+        # ── ProductAttributeValue row (per super-category) ────
+        if super_category == 'Jeans':
+            pav_row = {
+                'Jpin':                          '',
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ap_cfg['catalog_status'],
+                'StatusRemark':                  _ap_cfg['status_remark'],
+                'USER_TYPE':                     gender,
+                'DESCRIPTION':                   '',
+                'COUNTRY_OF_ORIGIN':             country,
+                'EAN':                           '',
+                'IMPORTED_BY':                   '',
+                'KEY_FEATURES':                  '',
+                'MANUFACTURING_YEAR':            '',
+                'PRODUCT_BREADTH':               0,
+                'PRODUCT_DIMENSION_UOM':         0,
+                'PRODUCT_HEIGHT':                0,
+                'PRODUCT_LENGTH':                0,
+                'PRODUCT_TYPE':                  product_type_val,
+                'PRODUCT_WEIGHT_IN_KG':          0,
+                'PRODUCT_MANUFACTURING_CITY':    '',
+                'PRODUCT_MANUFACTURING_STATE':   '',
+                'CLOSURE_TYPE':                  closure,
+                'DISTRESS':                      distress,
+                'FABRIC_MATERIAL':               fabric if fabric else '#',
+                'FIT':                           fit,
+                'LENGTH':                        length if length else '#',
+                'MANUFACTURER':                  '',
+                'NUMBER_OF_POCKETS':             '',
+                'OCCASION':                      '',
+                'PATTERN':                       pattern_val,
+                'RISE':                          '',
+                'STRETCHABILITY':                '',
+            }
+        elif super_category == 'Shirts':
+            pav_row = {
+                'Jpin':                          '',
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ap_cfg['catalog_status'],
+                'StatusRemark':                  _ap_cfg['status_remark'],
+                'USER_TYPE':                     gender,
+                'DESCRIPTION':                   '',
+                'COUNTRY_OF_ORIGIN':             country,
+                'EAN':                           '',
+                'IMPORTED_BY':                   '',
+                'KEY_FEATURES':                  '',
+                'MANUFACTURING_YEAR':            '',
+                'PRODUCT_BREADTH':               0,
+                'PRODUCT_DIMENSION_UOM':         0,
+                'PRODUCT_HEIGHT':                0,
+                'PRODUCT_LENGTH':                0,
+                'PRODUCT_TYPE':                  product_type_val,
+                'PRODUCT_WEIGHT_IN_KG':          0,
+                'PRODUCT_MANUFACTURING_CITY':    '',
+                'PRODUCT_MANUFACTURING_STATE':   '',
+                'CLOSURE_TYPE':                  closure,
+                'FABRIC_MATERIAL':               fabric if fabric else '#',
+                'FIT':                           fit,
+                'GSM':                           '',
+                'HEMLINE':                       '',
+                'LENGTH':                        length if length else '#',
+                'MANUFACTURER':                  '',
+                'NECK_TYPE':                     collar_val,
+                'NUMBER_OF_POCKETS':             '',
+                'OCCASION':                      '',
+                'PATTERN':                       pattern_val,
+                'SLEEVE_TYPE':                   sleeve_len_val,
+            }
+        elif super_category == 'T-Shirt':
+            pav_row = {
+                'Jpin':                          '',
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ap_cfg['catalog_status'],
+                'StatusRemark':                  _ap_cfg['status_remark'],
+                'USER_TYPE':                     gender,
+                'DESCRIPTION':                   '',
+                'COUNTRY_OF_ORIGIN':             country,
+                'EAN':                           '',
+                'IMPORTED_BY':                   '',
+                'KEY_FEATURES':                  '',
+                'MANUFACTURING_YEAR':            '',
+                'PRODUCT_BREADTH':               0,
+                'PRODUCT_DIMENSION_UOM':         0,
+                'PRODUCT_HEIGHT':                0,
+                'PRODUCT_LENGTH':                0,
+                'PRODUCT_TYPE':                  product_type_val,
+                'PRODUCT_WEIGHT_IN_KG':          0,
+                'PRODUCT_MANUFACTURING_CITY':    '',
+                'PRODUCT_MANUFACTURING_STATE':   '',
+                'CLOSURE_TYPE':                  closure,
+                'FABRIC_MATERIAL':               fabric if fabric else '#',
+                'FIT':                           fit,
+                'GSM':                           '',
+                'HEMLINE':                       '',
+                'LENGTH':                        length if length else '#',
+                'MANUFACTURER':                  '',
+                'NECK_TYPE':                     neck_type_val,
+                'NUMBER_OF_POCKETS':             '',
+                'OCCASION':                      '',
+                'PATTERN':                       pattern_val,
+                'SLEEVE_TYPE':                   sleeve_len_val,
+            }
+        elif super_category == 'Sarees':
+            pav_row = {
+                'Jpin':                          '',
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ap_cfg['catalog_status'],
+                'StatusRemark':                  _ap_cfg['status_remark'],
+                'USER_TYPE':                     gender,
+                'DESCRIPTION':                   '',
+                'COUNTRY_OF_ORIGIN':             country,
+                'EAN':                           '',
+                'IMPORTED_BY':                   '',
+                'KEY_FEATURES':                  '',
+                'MANUFACTURING_YEAR':            '',
+                'PRODUCT_BREADTH':               0,
+                'PRODUCT_DIMENSION_UOM':         0,
+                'PRODUCT_HEIGHT':                0,
+                'PRODUCT_LENGTH':                0,
+                'PRODUCT_TYPE':                  product_type_val,
+                'PRODUCT_WEIGHT_IN_KG':          0,
+                'PRODUCT_MANUFACTURING_CITY':    '',
+                'PRODUCT_MANUFACTURING_STATE':   '',
+                'BLOUSE_FABRIC_MATERIAL':        blouse_fabric_val,
+                'BLOUSE_INCLUDED':               blouse_incl_val,
+                'BLOUSE_NECK':                   blouse_neck_val,
+                'BLOUSE_SLEEVE':                 blouse_sleeve_val,
+                'BLOUSE_TYPE':                   blouse_type_val,
+                'FABRIC_MATERIAL':               fabric if fabric else '#',
+                'LENGTH':                        length if length else '#',
+                'MANUFACTURER':                  '',
+                'OCCASION':                      '',
+                'PATTERN':                       pattern_val,
+                'SAREE_TYPE':                    saree_type_val,
+            }
+        else:
+            pav_row = {
+                'Jpin':                          '',
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ap_cfg['catalog_status'],
+                'StatusRemark':                  _ap_cfg['status_remark'],
+                'USER_TYPE':                     gender,
+                'DESCRIPTION':                   '',
+                'COUNTRY_OF_ORIGIN':             country,
+                'EAN':                           '',
+                'IMPORTED_BY':                   '',
+                'KEY_FEATURES':                  '',
+                'MANUFACTURING_YEAR':            '',
+                'PRODUCT_BREADTH':               0,
+                'PRODUCT_DIMENSION_UOM':         0,
+                'PRODUCT_HEIGHT':                0,
+                'PRODUCT_LENGTH':                0,
+                'PRODUCT_TYPE':                  product_type_val,
+                'PRODUCT_WEIGHT_IN_KG':          0,
+                'PRODUCT_MANUFACTURING_CITY':    '',
+                'PRODUCT_MANUFACTURING_STATE':   '',
+                'PATTERN':                       pattern_val,
+            }
+        _write(ws_pav, tcol_pav, pav_row, pav_row_idx)
 
-    return wb_jpin, wb_tax, wb_pav, wb_l4, filled, skipped
+        # ── L4 row (per super-category) ───────────────────────
+        if super_category == 'Jeans':
+            l4_row = {
+                '*Type':                         'SET',
+                '*Industry Category':            ind_cat,
+                '*Industry Sub Category':        ind_sub_cat,
+                '*Industry Product Type':        ind_prod_type,
+                '*Industry Product Sub-type':    ind_sub_type,
+                '*Product Name':                 title,
+                '*Product Description':          product_desc,
+                '*Seller SKU':                   seller_sku,
+                '*Product Code':                 article,
+                '*Relationship':                 'Parent',
+                '*Parent Product Id':            seller_sku,
+                '*Child SKU':                    seller_sku,
+                '*Quantity':                     l4_qty_str,
+                '*Set Name':                     set_name_str,
+                '*HSN Code':                     hsn,
+                '*GST':                          gst,
+                'Marketed By':                   '',
+                '*Country Of Origin':            country,
+                'Imported By':                   '',
+                'EAN':                           '',
+                '*MOQ':                          moq,
+                '*MRP':                          mrp,
+                '*Selling Price':                sp,
+                '*Product Weight (In KG)':       weight,
+                '*Product Dimension (LXBXH)':    dim_raw,
+                'Manufacturing Year':            '',
+                '*Unit Of Measure':              'Set',
+                '*Product Dimension UOM':        dim_uom,
+                '*Gender':                       gender,
+                '*Select Fabric':                fabric,
+                'Distress':                      distress,
+                'Number of Pockets':             num_pockets,
+                'Trend':                         '',
+                'Fabric Composition':            fabric_comp,
+                'Fade':                          fade,
+                'Fit':                           fit,
+                'Stretch':                       stretch,
+                'Waist Rise':                    waist_rise,
+                'Waist Band':                    waist_band,
+                'Manufacturing Year':            '',
+                'Closure':                       closure,
+                'Packaging Type':                packing,
+                'Length':                        length,
+                '*Select color':                 color,
+                '*Size':                         set_details,
+                '*Main Image URL':               img_url,
+                'Other Image URL1':              img2_url,
+                'Other Image URL2':              img3_url,
+                'Other Image URL3':              img4_url,
+                'Other Image URL4':              img5_url,
+                'Other Image URL5':              '',
+                '*Brand Name':                   brand,
+                'New Brand':                     '',
+                '*Pattern':                      pattern_val,
+            }
+        elif super_category == 'Shirts':
+            l4_row = {
+                '*Type':                         'SET',
+                '*Industry Category':            ind_cat,
+                '*Industry Sub Category':        ind_sub_cat,
+                '*Industry Product Type':        ind_prod_type,
+                '*Industry Product Sub-type':    ind_sub_type,
+                '*Product Name':                 title,
+                '*Product Description':          product_desc,
+                '*Seller SKU':                   seller_sku,
+                '*Product Code':                 article,
+                '*Relationship':                 'Parent',
+                '*Parent Product Id':            seller_sku,
+                '*Child SKU':                    seller_sku,
+                '*Quantity':                     l4_qty_str,
+                '*Set Name':                     set_name_str,
+                '*HSN Code':                     hsn,
+                '*GST':                          gst,
+                'Marketed By':                   '',
+                '*Country Of Origin':            country,
+                'Imported By':                   '',
+                'EAN':                           '',
+                '*MOQ':                          moq,
+                '*MRP':                          mrp,
+                '*Selling Price':                sp,
+                '*Product Weight (In KG)':       weight,
+                '*Product Dimension (LXBXH)':    dim_raw,
+                'Manufacturing Year':            '',
+                '*Unit Of Measure':              'Set',
+                '*Product Dimension UOM':        dim_uom,
+                '*Gender':                       gender,
+                '*Select Fabric':                fabric,
+                'Distress':                      distress,
+                'Number of Pockets':             num_pockets,
+                'Trend':                         '',
+                'Fabric Composition':            fabric_comp,
+                'Fade':                          fade,
+                'Fit':                           fit,
+                'Stretch':                       stretch,
+                'Waist Rise':                    waist_rise,
+                'Waist Band':                    waist_band,
+                'Manufacturing Year':            '',
+                'Closure':                       closure,
+                'Packaging Type':                packing,
+                'Length':                        length,
+                '*Select color':                 color,
+                '*Size':                         set_details,
+                '*Main Image URL':               img_url,
+                'Other Image URL1':              img2_url,
+                'Other Image URL2':              img3_url,
+                'Other Image URL3':              img4_url,
+                'Other Image URL4':              img5_url,
+                'Other Image URL5':              '',
+                '*Brand Name':                   brand,
+                'New Brand':                     '',
+                '*Pattern':                      pattern_val,
+                'Collar':                        collar_val,
+            }
+        elif super_category == 'T-Shirt':
+            l4_row = {
+                '*Type':                         'SET',
+                '*Industry Category':            ind_cat,
+                '*Industry Sub Category':        ind_sub_cat,
+                '*Industry Product Type':        ind_prod_type,
+                '*Industry Product Sub-type':    ind_sub_type,
+                '*Product Name':                 title,
+                '*Product Description':          product_desc,
+                '*Seller SKU':                   seller_sku,
+                '*Product Code':                 article,
+                '*Relationship':                 'Parent',
+                '*Parent Product Id':            seller_sku,
+                '*Child SKU':                    seller_sku,
+                '*Quantity':                     l4_qty_str,
+                '*Set Name':                     set_name_str,
+                '*HSN Code':                     hsn,
+                '*GST':                          gst,
+                'Marketed By':                   '',
+                '*Country Of Origin':            country,
+                'Imported By':                   '',
+                'EAN':                           '',
+                '*MOQ':                          moq,
+                '*MRP':                          mrp,
+                '*Selling Price':                sp,
+                '*Product Weight (In KG)':       weight,
+                '*Product Dimension (LXBXH)':    dim_raw,
+                'Manufacturing Year':            '',
+                '*Unit Of Measure':              'Set',
+                '*Product Dimension UOM':        dim_uom,
+                '*Gender':                       gender,
+                '*Select Fabric':                fabric,
+                '*Pattern':                      pattern_val,
+                '*Multipack Set':                multipack_val,
+                'Number of Pockets':             num_pockets,
+                'Fabric Composition':            fabric_comp,
+                'Fit':                           fit,
+                'Occasion':                      occasion_val,
+                'Manufacturing Year':            '',
+                'Neck':                          neck_type_val,
+                'Sleeve Length':                 sleeve_len_val,
+                'Closure':                       closure,
+                'Packaging Type':                packing,
+                '*Select color':                 color,
+                '*Size':                         set_details,
+                '*Main Image URL':               img_url,
+                'Other Image URL1':              img2_url,
+                'Other Image URL2':              img3_url,
+                'Other Image URL3':              img4_url,
+                'Other Image URL4':              img5_url,
+                'Other Image URL5':              '',
+                '*Brand Name':                   brand,
+                'New Brand':                     '',
+            }
+        elif super_category == 'Sarees':
+            l4_row = {
+                '*Type':                         'SET',
+                '*Industry Category':            ind_cat,
+                '*Industry Sub Category':        ind_sub_cat,
+                '*Industry Product Type':        ind_prod_type,
+                '*Industry Product Sub-type':    ind_sub_type,
+                '*Product Name':                 title,
+                '*Product Description':          product_desc,
+                '*Seller SKU':                   seller_sku,
+                '*Product Code':                 article,
+                '*Relationship':                 'Parent',
+                '*Parent Product Id':            seller_sku,
+                '*Child SKU':                    seller_sku,
+                '*Quantity':                     l4_qty_str,
+                '*Set Name':                     set_name_str,
+                '*HSN Code':                     hsn,
+                '*GST':                          gst,
+                'Marketed By':                   '',
+                '*Country Of Origin':            country,
+                'Imported By':                   '',
+                'EAN':                           '',
+                '*MOQ':                          moq,
+                '*MRP':                          mrp,
+                '*Selling Price':                sp,
+                '*Product Weight (In KG)':       weight,
+                '*Product Dimension (LXBXH)':    dim_raw,
+                'Manufacturing Year':            '',
+                '*Unit Of Measure':              'Set',
+                '*Product Dimension UOM':        dim_uom,
+                '*Select Fabric':                fabric,
+                '*Fabric Type':                  fabric_type_val,
+                '*Gender':                       gender,
+                '*Pattern':                      pattern_val,
+                'Occasion':                      occasion_val,
+                'Hemline':                       hemline_val,
+                'Shape':                         shape_val,
+                'Set Includes':                  set_includes_val,
+                'Bottom Type':                   bottom_type_val,
+                'Fabric Composition':            fabric_comp,
+                'Number of Pockets':             num_pockets,
+                'Work Type':                     work_type_val,
+                'Stitch Type':                   stitch_type_val,
+                'Border':                        border_val,
+                'Manufacturing Year':            '',
+                'Neck':                          neck_type_val,
+                'Sleeve Length':                 sleeve_len_val,
+                'Closure':                       closure,
+                'Product Type':                    product_type_val,
+                'Packaging Type':                packing,
+                'Length':                        length,
+                '*Select color':                 color,
+                '*Size':                         set_details,
+                '*Main Image URL':               img_url,
+                'Other Image URL1':              img2_url,
+                'Other Image URL2':              img3_url,
+                'Other Image URL3':              img4_url,
+                'Other Image URL4':              img5_url,
+                'Other Image URL5':              '',
+                '*Brand Name':                   brand,
+                'New Brand':                     '',
+            }
+        else:
+            l4_row = {
+                '*Type':                         'SET',
+                '*Industry Category':            ind_cat,
+                '*Industry Sub Category':        ind_sub_cat,
+                '*Industry Product Type':        ind_prod_type,
+                '*Industry Product Sub-type':    ind_sub_type,
+                '*Product Name':                 title,
+                '*Product Description':          product_desc,
+                '*Seller SKU':                   seller_sku,
+                '*Product Code':                 article,
+                '*Relationship':                 'Parent',
+                '*Parent Product Id':            seller_sku,
+                '*Child SKU':                    seller_sku,
+                '*Quantity':                     l4_qty_str,
+                '*Set Name':                     set_name_str,
+                '*HSN Code':                     hsn,
+                '*GST':                          gst,
+                'Marketed By':                   '',
+                '*Country Of Origin':            country,
+                'Imported By':                   '',
+                'EAN':                           '',
+                '*MOQ':                          moq,
+                '*MRP':                          mrp,
+                '*Selling Price':                sp,
+                '*Product Weight (In KG)':       weight,
+                '*Product Dimension (LXBXH)':    dim_raw,
+                'Manufacturing Year':            '',
+                '*Unit Of Measure':              'Set',
+                '*Product Dimension UOM':        dim_uom,
+                '*Gender':                       gender,
+                '*Select Fabric':                fabric,
+                '*Select color':                 color,
+                '*Size':                         set_details,
+                '*Main Image URL':               img_url,
+                'Other Image URL1':              img2_url,
+                'Other Image URL2':              img3_url,
+                'Other Image URL3':              img4_url,
+                'Other Image URL4':              img5_url,
+                'Other Image URL5':              '',
+                '*Brand Name':                   brand,
+                'New Brand':                     '',
+                '*Pattern':                      pattern_val,
+            }
+        _write(ws_l4, tcol_l4, l4_row, l4_row_idx)
 
+    return wb_jpin, wb_tax, wb_scm, wb_pav_map, wb_l4_map, filled, skipped
 
 # ═══════════════════════════════════════════════════════════════
 # IN-MEMORY FILE STORAGE

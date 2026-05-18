@@ -170,11 +170,29 @@ def safe(val, default=''):
     return default if s in ('nan','None','NaN') else s
 
 def detect_col(df, candidates):
+    cols = list(df.columns)
+    # 1. Exact match
     for c in candidates:
-        if c in df.columns: return c
-    for c in df.columns:
+        if c in cols:
+            return c
+    # 2. Strip-whitespace exact match
+    stripped = {str(col).strip(): col for col in cols}
+    for c in candidates:
+        s = str(c).strip()
+        if s in stripped:
+            return stripped[s]
+    # 3. Lowercase exact match
+    lower_map = {str(col).strip().lower(): col for col in cols}
+    for c in candidates:
+        l = str(c).strip().lower()
+        if l in lower_map:
+            return lower_map[l]
+    # 4. Substring fallback
+    for col in cols:
+        col_l = str(col).strip().lower()
         for cand in candidates:
-            if cand.lower() in c.lower(): return c
+            if str(cand).strip().lower() in col_l:
+                return str(col)
     return None
 
 def build_col_map(df, hints):
@@ -1926,7 +1944,16 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         product_type_val = _ap_derive_product_type(pv_name)
 
         # Category-specific fields
-        neck_type_val    = safe(drow.get(col_map.get('neck_type',''), ''))
+        neck_type_val = safe(drow.get(col_map.get('neck_type',''), ''))
+
+# ── Safety fallback: search row directly if col_map missed it ──
+if not neck_type_val:
+    for col in rows_df.columns:
+        c = str(col).strip().lower()
+        if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
+            neck_type_val = safe(drow.get(col, ''))
+            if neck_type_val:
+                break
         sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), ''))
         collar_val       = safe(drow.get(col_map.get('collar',''), ''))
         multipack_val    = safe(drow.get(col_map.get('multipack_set',''), ''))
@@ -2963,6 +2990,13 @@ def process_ap():
             return jsonify({'error': 'Could not read any data from listing file'}), 400
 
         col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
+        # ── Fallback: force-detect neck_type if missing ──
+     if 'neck_type' not in col_map:
+    for col in all_dump.columns:
+        c = str(col).strip().lower()
+        if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
+            col_map['neck_type'] = str(col)
+            break
 
         existing_articles, existing_skus = set(), set()
         if base_file:

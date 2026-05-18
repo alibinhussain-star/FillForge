@@ -152,11 +152,10 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 def get_ap_config_from_disk():
-    """Load config from disk. ALLOW user-saved pv_config to persist."""
     cfg = _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
-    # REMOVED: cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
-    # User's saved pv_config will now be used if it exists.
-    # Falls back to AP_DEFAULT_CONFIG only if nothing saved.
+    # NEVER let a saved (possibly empty/wrong) pv_config overwrite the hardcoded defaults
+    # The frontend saves pv_config with wrong keys; always use the code defaults
+    cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
     return cfg
 
 config = get_config()
@@ -1244,7 +1243,7 @@ AP_DUMP_COL_HINTS = {
     'new_brand':         ['New Brand'],
     # ── T-Shirt / Shirt specific ──
     'neck_type':         ['*Neck','Neck','Neck Type','*Neck Type'],
-    'sleeve_length':     ['Sleeve Length','*Sleeve Length'],
+    'sleeve_length':     ['*Sleeve Length','Sleeve Length','Sleeve'],
     'multipack_set':     ['*Multipack Set','Multipack Set'],
     'occasion':          ['Occasion'],
     'hemline':           ['Hemline'],
@@ -1390,21 +1389,19 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
 
     elif sc == 'Shirts':
         pv_short = _ap_pv_name_for_title(product_type)
-        parts = [p for p in [brand, gender, fabric, collar, fit, sleeve_length, pattern, pv_short] if p]
+        parts = [p for p in [brand, gender, fabric, collar, fit, sleeve_length, pattern, pv_short] if p and p != '#']
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
 
     elif sc == 'T-Shirt':
-    pv_short = _ap_pv_name_for_title(product_type)
-    # Filter out '#' placeholder
-    parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] 
-             if p and p != '#']
-    base = ' '.join(parts)
-    return f"{base}, {color}" if color else base
+        pv_short = _ap_pv_name_for_title(product_type)
+        parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p and p != '#']
+        base = ' '.join(parts)
+        return f"{base}, {color}" if color else base
 
     elif sc == 'Sarees':
         pv_short = _ap_pv_name_for_title(product_type)
-        parts = [p for p in [brand, gender, fabric, length, pattern, pv_short] if p]
+        parts = [p for p in [brand, gender, fabric, length, pattern, pv_short] if p and p != '#']
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
 
@@ -1474,32 +1471,27 @@ def _ap_get_pv_config(category_key, ap_cfg):
 
 def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
-    Config-driven PV detection. NO hardcoded disambiguation logic.
-    
-    Matches row's Industry Sub-Type + Gender against user-configured pv_config.
-    Returns the FIRST matching PV from config (user controls order).
-    
+    Auto-detect PV config from the row's *Industry Product Sub-type column.
+    Falls back to category_key match, then first available PV if not found.
     Returns (pv_cfg_dict, super_category, detected_key)
     """
-    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG.get('pv_config', {})
-    if not pv_cfg_map:
-        return {}, 'Jeans', ''
-    
+    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
+    # ── Helper: clean raw values ──
     def _clean(val):
         if val is None or (isinstance(val, float) and pd.isna(val)):
             return ''
         s = str(val).strip()
         return '' if s.lower() in ('nan', 'none', '') else s
 
-    # ── Read Industry Sub-Type from row ──
     sub_type_raw = ''
     sub_type_col = col_map.get('ind_sub_type')
     if sub_type_col:
         try:
             sub_type_raw = _clean(drow.get(sub_type_col, ''))
         except:
-            pass
-    
+            sub_type_raw = ''
+
+    # Fallback hint columns
     if not sub_type_raw:
         for hint_col in ['product_name', 'ind_product_type', 'type']:
             c = col_map.get(hint_col)
@@ -1512,111 +1504,53 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
                 except:
                     pass
 
-    # ── Read Gender from row ──
-    gender_raw = ''
-    gender_col = col_map.get('gender')
-    if gender_col:
-        try:
-            gender_raw = _clean(drow.get(gender_col, ''))
-        except:
-            pass
-    
-    def _norm_gender(g):
-        g = g.lower().strip()
-        if g in ("men's", "male", "men", "mens"): return "men"
-        if g in ("women's", "female", "women", "womens", "woman"): return "women"
-        if g in ("boy's", "boys", "boy"): return "boy"
-        if g in ("girl's", "girls", "girl"): return "girl"
-        if g in ("baby's", "baby", "babies"): return "baby"
-        return g
-    
-    target_gender = _norm_gender(gender_raw)
+    # ── 1) Match by sub_type_raw against PV config keys ──
+    if sub_type_raw:
+        sub_type_lower = sub_type_raw.lower()
+        for k, v in pv_cfg_map.items():
+            k_lower = k.lower()
+            if k_lower == sub_type_lower or sub_type_lower in k_lower or k_lower in sub_type_lower:
+                return v, v.get('super_category', 'Jeans'), k
 
-    # ── Match against config: sub_type + gender ──
-    # Config order matters — FIRST match wins
-    for k, v in pv_cfg_map.items():
-        cfg_sub_type = _clean(v.get('industry_sub_type', '')).lower()
-        cfg_gender_cat = _clean(v.get('industry_sub_category', '')).lower()
-        
-        # Match sub-type
-        row_sub = sub_type_raw.lower()
-        sub_type_match = (cfg_sub_type == row_sub or 
-                          row_sub in cfg_sub_type or 
-                          cfg_sub_type in row_sub)
-        
-        if not sub_type_match:
-            continue
-        
-        # Match gender
-        if target_gender and cfg_gender_cat:
-            gender_match = False
-            if target_gender == "men" and cfg_gender_cat in ("menswear", "men"):
-                gender_match = True
-            elif target_gender == "women" and cfg_gender_cat in ("womenswear", "women"):
-                gender_match = True
-            elif target_gender == "boy" and cfg_gender_cat in ("boyswear", "boy"):
-                gender_match = True
-            elif target_gender == "girl" and cfg_gender_cat in ("girlswear", "girl"):
-                gender_match = True
-            elif target_gender == "baby" and cfg_gender_cat in ("babywear", "baby"):
-                gender_match = True
-            
-            if not gender_match:
-                continue
-        
-        # MATCH FOUND — return immediately
-        return v, v.get('super_category', 'Jeans'), k
-
-    # ── Fallback: match by category_key ──
-    if category_key:
+    # ── 2) Match category_key against PV config keys OR super_category ──
+    if category_key and pv_cfg_map:
         cat_lower = category_key.lower().strip()
         for k, v in pv_cfg_map.items():
             k_lower = k.lower()
             super_cat = v.get('super_category', '').lower()
-            
+
+            # Match against the config KEY itself (e.g. "T-Shirts" matches "men's casual t-shirts")
             if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
                 return v, v.get('super_category', 'Jeans'), k
-            
+
+            # Match against super_category with normalization
             if super_cat:
+                # Normalize: remove trailing 's', spaces, hyphens for fuzzy match
                 def _norm(s):
                     return s.lower().replace('-', '').replace(' ', '').rstrip('s')
                 if _norm(super_cat) == _norm(cat_lower):
                     return v, v.get('super_category', 'Jeans'), k
 
-    # ── Ultimate fallback: first entry in config ──
-    first_k = next(iter(pv_cfg_map))
-    first_v = pv_cfg_map[first_k]
-    return first_v, first_v.get('super_category', 'Jeans'), first_k
+    # ── 3) Only fall back to first PV if no category_key was provided ──
+    if not category_key and pv_cfg_map:
+        first_k = next(iter(pv_cfg_map))
+        first_v = pv_cfg_map[first_k]
+        return first_v, first_v.get('super_category', 'Jeans'), first_k
 
+    # Return empty if truly nothing found
     return {}, 'Jeans', ''
 
 
 def _ap_derive_product_type(pv_name):
-    """Derive PRODUCT_TYPE from PV name. More specific terms checked FIRST."""
+    """Derive PRODUCT_TYPE from PV name (e.g. 'Men's Jeans' → 'Jeans')."""
     if not pv_name:
         return ''
     pv_lower = str(pv_name).lower()
-
-    product_types = [
-        'polo t-shirts',      # BEFORE 'shirts'
-        'casual t-shirts',
-        't-shirts',
-        'casual shirts',
-        'formal shirts',
-        'shirts',
-        'track pants',
-        'cargo',
-        'jeans',
-        'camisole',
-        'slips',
-        'sarees',
-        'blouses',
-    ]
-
-    for pt in product_types:
+    for pt in ['jeans','track pants','shirts','camisole','slips','cargo',
+               'casual shirts','formal shirts','polo t-shirts','casual t-shirts',
+               't-shirts','sarees','blouses']:
         if pt in pv_lower:
             return pt.title()
-
     return _ap_pv_name_for_title(pv_name) or pv_name
 
 
@@ -1927,25 +1861,25 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         product_type_val = _ap_derive_product_type(pv_name)
 
         # Category-specific fields
-        neck_type_val    = safe(drow.get(col_map.get('neck_type',''), '')) or '#'
-        sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), '')) or '#'
-        collar_val       = safe(drow.get(col_map.get('collar',''), '')) or '#'
-        multipack_val    = safe(drow.get(col_map.get('multipack_set',''), '')) or '#'
-        occasion_val     = safe(drow.get(col_map.get('occasion',''), '')) or '#'
-        hemline_val      = safe(drow.get(col_map.get('hemline',''), '')) or '#'
-        shape_val        = safe(drow.get(col_map.get('shape',''), '')) or '#'
-        set_includes_val = safe(drow.get(col_map.get('set_includes',''), '')) or '#'
-        bottom_type_val  = safe(drow.get(col_map.get('bottom_type',''), '')) or '#'
-        work_type_val    = safe(drow.get(col_map.get('work_type',''), '')) or '#'
-        stitch_type_val  = safe(drow.get(col_map.get('stitch_type',''), '')) or '#'
-        border_val       = safe(drow.get(col_map.get('border',''), '')) or '#'
-        blouse_fabric_val= safe(drow.get(col_map.get('blouse_fabric',''), '')) or '#'
-        blouse_incl_val  = safe(drow.get(col_map.get('blouse_included',''), '')) or '#'
-        blouse_neck_val  = safe(drow.get(col_map.get('blouse_neck',''), '')) or '#'
-        blouse_sleeve_val= safe(drow.get(col_map.get('blouse_sleeve',''), '')) or '#'
-        blouse_type_val  = safe(drow.get(col_map.get('blouse_type',''), '')) or '#'
-        saree_type_val   = safe(drow.get(col_map.get('saree_type',''), '')) or '#'
-        fabric_type_val  = safe(drow.get(col_map.get('fabric_type',''), '')) or '#'
+        neck_type_val    = safe(drow.get(col_map.get('neck_type',''), ''))
+        sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), ''))
+        collar_val       = safe(drow.get(col_map.get('collar',''), ''))
+        multipack_val    = safe(drow.get(col_map.get('multipack_set',''), ''))
+        occasion_val     = safe(drow.get(col_map.get('occasion',''), ''))
+        hemline_val      = safe(drow.get(col_map.get('hemline',''), ''))
+        shape_val        = safe(drow.get(col_map.get('shape',''), ''))
+        set_includes_val = safe(drow.get(col_map.get('set_includes',''), ''))
+        bottom_type_val  = safe(drow.get(col_map.get('bottom_type',''), ''))
+        work_type_val    = safe(drow.get(col_map.get('work_type',''), ''))
+        stitch_type_val  = safe(drow.get(col_map.get('stitch_type',''), ''))
+        border_val       = safe(drow.get(col_map.get('border',''), ''))
+        blouse_fabric_val= safe(drow.get(col_map.get('blouse_fabric',''), ''))
+        blouse_incl_val  = safe(drow.get(col_map.get('blouse_included',''), ''))
+        blouse_neck_val  = safe(drow.get(col_map.get('blouse_neck',''), ''))
+        blouse_sleeve_val= safe(drow.get(col_map.get('blouse_sleeve',''), ''))
+        blouse_type_val  = safe(drow.get(col_map.get('blouse_type',''), ''))
+        saree_type_val   = safe(drow.get(col_map.get('saree_type',''), ''))
+        fabric_type_val  = safe(drow.get(col_map.get('fabric_type',''), ''))
 
         img_url  = safe(drow.get(col_map.get('image',''), ''))
         img2_url = safe(drow.get(col_map.get('image2',''), ''))

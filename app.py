@@ -2985,7 +2985,8 @@ def process_ap():
         for sname in xl.sheet_names:
             try: frames.append(xl.parse(sname))
             except: pass
-        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+                 all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
         if all_dump.empty:
             return jsonify({'error': 'Could not read any data from listing file'}), 400
 

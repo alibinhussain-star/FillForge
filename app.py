@@ -152,10 +152,11 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 def get_ap_config_from_disk():
+    """Load config from disk. ALLOW user-saved pv_config to persist."""
     cfg = _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
-    # NEVER let a saved (possibly empty/wrong) pv_config overwrite the hardcoded defaults
-    # The frontend saves pv_config with wrong keys; always use the code defaults
-    cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
+    # REMOVED: cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
+    # User's saved pv_config will now be used if it exists.
+    # Falls back to AP_DEFAULT_CONFIG only if nothing saved.
     return cfg
 
 config = get_config()
@@ -1471,12 +1472,16 @@ def _ap_get_pv_config(category_key, ap_cfg):
 
 def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
-    Auto-detect PV config from row data. Uses gender + sub-type + row clues
-    (Neck, Sleeve, Pattern) to disambiguate when multiple PVs share the same
-    industry_sub_type (e.g., Casual T-Shirts vs Polo T-Shirts both = "T-Shirts").
+    Config-driven PV detection. NO hardcoded disambiguation logic.
+    
+    Matches row's Industry Sub-Type + Gender against user-configured pv_config.
+    Returns the FIRST matching PV from config (user controls order).
+    
     Returns (pv_cfg_dict, super_category, detected_key)
     """
-    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
+    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG.get('pv_config', {})
+    if not pv_cfg_map:
+        return {}, 'Jeans', ''
     
     def _clean(val):
         if val is None or (isinstance(val, float) and pd.isna(val)):
@@ -1484,6 +1489,36 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
         s = str(val).strip()
         return '' if s.lower() in ('nan', 'none', '') else s
 
+    # ── Read Industry Sub-Type from row ──
+    sub_type_raw = ''
+    sub_type_col = col_map.get('ind_sub_type')
+    if sub_type_col:
+        try:
+            sub_type_raw = _clean(drow.get(sub_type_col, ''))
+        except:
+            pass
+    
+    if not sub_type_raw:
+        for hint_col in ['product_name', 'ind_product_type', 'type']:
+            c = col_map.get(hint_col)
+            if c:
+                try:
+                    val = _clean(drow.get(c, ''))
+                    if val:
+                        sub_type_raw = val
+                        break
+                except:
+                    pass
+
+    # ── Read Gender from row ──
+    gender_raw = ''
+    gender_col = col_map.get('gender')
+    if gender_col:
+        try:
+            gender_raw = _clean(drow.get(gender_col, ''))
+        except:
+            pass
+    
     def _norm_gender(g):
         g = g.lower().strip()
         if g in ("men's", "male", "men", "mens"): return "men"
@@ -1492,149 +1527,64 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
         if g in ("girl's", "girls", "girl"): return "girl"
         if g in ("baby's", "baby", "babies"): return "baby"
         return g
-
-    def _pv_gender(pv_sub_category):
-        sc = pv_sub_category.lower().strip()
-        if sc.startswith("menswear") or sc == "men": return "men"
-        if sc.startswith("womenswear") or sc == "women": return "women"
-        if sc.startswith("boyswear") or sc == "boy": return "boy"
-        if sc.startswith("girlswear") or sc == "girl": return "girl"
-        if sc.startswith("babywear") or sc == "baby": return "baby"
-        return ""
-
-    def _type_matches(sub_type, pv_key, pv_sub_type):
-        """Strict type matching: 'shirts' must NOT match 't-shirts'"""
-        st = sub_type.lower()
-        pk = pv_key.lower()
-        pst = pv_sub_type.lower()
-        if pst == st or pk == st: return True
-        if st in pk:
-            # Prevent "shirts" from matching "t-shirts"
-            if st == "shirts" and "t-shirts" in pk:
-                return False
-            return True
-        if pk in st: return True
-        return False
-
-    # ── Read sub_type from row ──
-    sub_type_raw = ''
-    sub_type_col = col_map.get('ind_sub_type')
-    if sub_type_col:
-        try: sub_type_raw = _clean(drow.get(sub_type_col, ''))
-        except: pass
-    if not sub_type_raw:
-        for hint_col in ['product_name', 'ind_product_type', 'type']:
-            c = col_map.get(hint_col)
-            if c:
-                try:
-                    val = _clean(drow.get(c, ''))
-                    if val: sub_type_raw = val; break
-                except: pass
-
-    # ── Read gender from row ──
-    gender_raw = ''
-    gender_col = col_map.get('gender')
-    if gender_col:
-        try: gender_raw = _clean(drow.get(gender_col, ''))
-        except: pass
+    
     target_gender = _norm_gender(gender_raw)
 
-    # ── Collect disambiguation clues ──
-    clues = {}
-    for clue_key, col_key in [('neck', 'neck_type'), ('sleeve', 'sleeve_length'), ('pattern', 'pattern')]:
-        c = col_map.get(col_key)
-        if c:
-            try: clues[clue_key] = _clean(drow.get(c, '')).lower()
-            except: pass
-
-    # ── Step 1: Filter candidates by gender + sub_type ──
-    candidates = []
+    # ── Match against config: sub_type + gender ──
+    # Config order matters — FIRST match wins
     for k, v in pv_cfg_map.items():
-        pv_gender = _pv_gender(v.get('industry_sub_category', ''))
-        pv_sub_type = v.get('industry_sub_type', '').lower().strip()
-        if pv_gender == target_gender and _type_matches(sub_type_raw, k, pv_sub_type):
-            candidates.append((k, v))
-
-    if len(candidates) == 1:
-        k, v = candidates[0]
+        cfg_sub_type = _clean(v.get('industry_sub_type', '')).lower()
+        cfg_gender_cat = _clean(v.get('industry_sub_category', '')).lower()
+        
+        # Match sub-type
+        row_sub = sub_type_raw.lower()
+        sub_type_match = (cfg_sub_type == row_sub or 
+                          row_sub in cfg_sub_type or 
+                          cfg_sub_type in row_sub)
+        
+        if not sub_type_match:
+            continue
+        
+        # Match gender
+        if target_gender and cfg_gender_cat:
+            gender_match = False
+            if target_gender == "men" and cfg_gender_cat in ("menswear", "men"):
+                gender_match = True
+            elif target_gender == "women" and cfg_gender_cat in ("womenswear", "women"):
+                gender_match = True
+            elif target_gender == "boy" and cfg_gender_cat in ("boyswear", "boy"):
+                gender_match = True
+            elif target_gender == "girl" and cfg_gender_cat in ("girlswear", "girl"):
+                gender_match = True
+            elif target_gender == "baby" and cfg_gender_cat in ("babywear", "baby"):
+                gender_match = True
+            
+            if not gender_match:
+                continue
+        
+        # MATCH FOUND — return immediately
         return v, v.get('super_category', 'Jeans'), k
 
-    # ── Step 2: Disambiguate with clues ──
-    if len(candidates) > 1:
-        best_match = None
-        best_score = -999
-        for k, v in candidates:
-            score = 0
-            kl = k.lower()
-            neck = clues.get('neck', '')
-            sleeve = clues.get('sleeve', '')
-            pattern = clues.get('pattern', '')
-
-            # Neck type scoring
-            if neck:
-                if 'polo' in neck and 'polo' in kl: score += 20
-                elif 'polo' in neck and 'polo' not in kl: score -= 20
-                if 'round' in neck:
-                    if 'casual' in kl and 't-shirt' in kl: score += 10
-                    if 'polo' in kl: score -= 10
-                if 'v-' in neck or 'vneck' in neck:
-                    if 'casual' in kl: score += 8
-                    if 'polo' in kl: score -= 8
-                if 'button' in neck or ('collar' in neck and 'polo' not in neck):
-                    if 'shirt' in kl and 't-shirt' not in kl: score += 15
-                    if 't-shirt' in kl: score -= 10
-            else:
-                # No neck clue: prefer base variant (non-polo, non-formal)
-                if 'polo' not in kl and 'formal' not in kl: score += 3
-
-            # Sleeve scoring
-            if sleeve:
-                if 'full' in sleeve:
-                    if 'formal' in kl: score += 10
-                    if 'casual' in kl and 'shirt' in kl and 't-shirt' not in kl: score += 5
-                if 'half' in sleeve or 'short' in sleeve:
-                    if 't-shirt' in kl: score += 5
-                    if 'formal' in kl: score -= 5
-
-            # Pattern scoring
-            if pattern:
-                if 'embroidery' in pattern and 'polo' in kl: score += 5
-                if 'checked' in pattern and 'casual' in kl and 'shirt' in kl: score += 5
-                if 'solid' in pattern:
-                    if 'formal' in kl: score += 8
-                    if 'casual' in kl and 't-shirt' in kl and 'polo' not in kl: score -= 3
-
-            score += len(k) * 0.01  # Tie-breaker
-            if score > best_score:
-                best_score = score
-                best_match = (k, v)
-
-        if best_match:
-            k, v = best_match
-            return v, v.get('super_category', 'Jeans'), k
-
-    if candidates:
-        k, v = candidates[0]
-        return v, v.get('super_category', 'Jeans'), k
-
-    # ── Step 3: Fallback to category_key ──
-    if category_key and pv_cfg_map:
+    # ── Fallback: match by category_key ──
+    if category_key:
         cat_lower = category_key.lower().strip()
         for k, v in pv_cfg_map.items():
-            kl = k.lower()
+            k_lower = k.lower()
             super_cat = v.get('super_category', '').lower()
-            if kl == cat_lower or cat_lower in kl or kl in cat_lower:
+            
+            if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
                 return v, v.get('super_category', 'Jeans'), k
+            
             if super_cat:
-                def _norm(s): return s.lower().replace('-', '').replace(' ', '').rstrip('s')
+                def _norm(s):
+                    return s.lower().replace('-', '').replace(' ', '').rstrip('s')
                 if _norm(super_cat) == _norm(cat_lower):
                     return v, v.get('super_category', 'Jeans'), k
 
-    # ── Step 4: Ultimate fallback ──
-    if not category_key and pv_cfg_map:
-        first_k = next(iter(pv_cfg_map))
-        first_v = pv_cfg_map[first_k]
-        return first_v, first_v.get('super_category', 'Jeans'), first_k
+    # ── Ultimate fallback: first entry in config ──
+    first_k = next(iter(pv_cfg_map))
+    first_v = pv_cfg_map[first_k]
+    return first_v, first_v.get('super_category', 'Jeans'), first_k
 
     return {}, 'Jeans', ''
 
@@ -1645,18 +1595,13 @@ def _ap_derive_product_type(pv_name):
         return ''
     pv_lower = str(pv_name).lower()
 
-    # Order CRITICAL: specific variants BEFORE generic terms
-    # e.g., 'polo t-shirts' MUST be checked BEFORE 'shirts'
     product_types = [
-        # T-Shirt variants (check BEFORE 'shirts')
-        'polo t-shirts',
+        'polo t-shirts',      # BEFORE 'shirts'
         'casual t-shirts',
         't-shirts',
-        # Shirt variants
         'casual shirts',
         'formal shirts',
         'shirts',
-        # Other apparel
         'track pants',
         'cargo',
         'jeans',

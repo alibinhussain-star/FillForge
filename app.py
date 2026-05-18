@@ -1243,7 +1243,7 @@ AP_DUMP_COL_HINTS = {
     'brand':             ['*Brand Name','Brand Name','Brand'],
     'new_brand':         ['New Brand'],
     # ── T-Shirt / Shirt specific ──
-    'neck_type':         ['Neck','Neck Type','*Neck Type'],
+    'neck_type':         ['*Neck','Neck','Neck Type','*Neck Type'],
     'sleeve_length':     ['Sleeve Length','*Sleeve Length'],
     'multipack_set':     ['*Multipack Set','Multipack Set'],
     'occasion':          ['Occasion'],
@@ -1395,10 +1395,12 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
         return f"{base}, {color}" if color else base
 
     elif sc == 'T-Shirt':
-        pv_short = _ap_pv_name_for_title(product_type)
-        parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
+    pv_short = _ap_pv_name_for_title(product_type)
+    # Filter out '#' placeholder
+    parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] 
+             if p and p != '#']
+    base = ' '.join(parts)
+    return f"{base}, {color}" if color else base
 
     elif sc == 'Sarees':
         pv_short = _ap_pv_name_for_title(product_type)

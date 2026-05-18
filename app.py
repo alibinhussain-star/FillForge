@@ -2989,14 +2989,15 @@ def process_ap():
         if all_dump.empty:
             return jsonify({'error': 'Could not read any data from listing file'}), 400
 
-        col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
-        # ── Fallback: force-detect neck_type if missing ──
-     if 'neck_type' not in col_map:
-    for col in all_dump.columns:
-        c = str(col).strip().lower()
-        if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
-            col_map['neck_type'] = str(col)
-            break
+                col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
+
+        # — Fallback: force-detect neck_type if missing —
+        if 'neck_type' not in col_map:
+            for col in all_dump.columns:
+                c = str(col).strip().lower()
+                if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
+                    col_map['neck_type'] = str(col)
+                    break
 
         existing_articles, existing_skus = set(), set()
         if base_file:

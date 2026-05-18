@@ -152,7 +152,11 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 def get_ap_config_from_disk():
-    return _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
+    cfg = _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
+    # NEVER let a saved (possibly empty/wrong) pv_config overwrite the hardcoded defaults
+    # The frontend saves pv_config with wrong keys; always use the code defaults
+    cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
+    return cfg
 
 config = get_config()
 
@@ -903,7 +907,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'PACK_OF *':                                   1,
             'IS_COMBO *':                                  'yes',
             'AVAILABLE_SIZES *':                           '1',
-            'SET_DETAILS *':                               '1pc',
+            'SET_DETAILS *':                                ram_rom,
             'SET_DESCRIPTION *':                           '1pc of Smartphones',
             'PRODUCT_COLOR *':                             color,
             'ARTICLE_NUMBER *':                            article,
@@ -1007,20 +1011,20 @@ from openpyxl import Workbook
 
 # ── Default Config ──────────────────────────────────────────
 AP_DEFAULT_CONFIG = {
-    "brands":             {},
-    "biz_cat_id":         "BCAT-139439",
-    "biz_cat_name":       "Apparel & Fashion",
-    "catalog_status":     "ACTIVE",
-    "status_remark":      "Ready to Launch",
-    "tax_master_status":  "active",
-    "gst_cgst":           50,
-    "gst_sgst":           50,
-    "gst_igst":           0,
-    "country_of_origin":  "India",
-    "product_condition":  "Fresh",
-    "manufacturing_year": "2026",
-    "discovery_cat":      "DISCAT-135530",
-    # Per-category PV config — keyed by *Industry Product Sub-type value (case-insensitive)
+    "brands":              {},
+    "biz_cat_id":          "BCAT-139439",
+    "biz_cat_name":        "Apparel & Fashion",
+    "relationship":        "Parent",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2026",
+    "discovery_cat":       "DISCAT-135542",
     "pv_config": {
         # ── JEANS ───────────────────────────────────────────
         "jeans": {
@@ -1030,7 +1034,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "women's jeans": {
             "pv_id":   "PV-1914272940",
@@ -1039,7 +1043,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "boy's jeans": {
             "pv_id":   "PV-1914272259",
@@ -1048,7 +1052,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         # ── SHIRTS ──────────────────────────────────────────
         "men's casual shirts": {
@@ -1058,7 +1062,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "men's formal shirts": {
             "pv_id":   "PV-1914273102",
@@ -1067,7 +1071,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's casual shirts": {
             "pv_id":   "PV-1914272626",
@@ -1076,7 +1080,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's formal shirts": {
             "pv_id":   "PV-1914272626",
@@ -1085,7 +1089,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "women's shirts": {
             "pv_id":   "PV-1914273102",
@@ -1094,7 +1098,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         # ── T-SHIRTS ────────────────────────────────────────
         "men's casual t-shirts": {
@@ -1104,7 +1108,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "men's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1113,7 +1117,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1122,7 +1126,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1131,7 +1135,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1140,7 +1144,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1149,7 +1153,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "girl's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1158,7 +1162,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Girlswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "baby casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1167,7 +1171,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Babywear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         # ── SAREES ──────────────────────────────────────────
         "sarees & blouses": {
@@ -1177,11 +1181,10 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Ethnicwear",
             "industry_sub_type":     "Sarees & Blouses",
-            "super_category":        "Sarees",
+            "super_category":        "Sarees",  # ← ADD THIS
         },
     },
 }
-
 # ── Listing-file column hints for Apparel (L4-style input files) ──
 # These are COMMON across all super-categories. Per-category extras are handled dynamically.
 AP_DUMP_COL_HINTS = {
@@ -1457,7 +1460,7 @@ def _ap_make_internal_title(super_category, brand, product_code, gender, fabric,
 
 def _ap_get_pv_config(category_key, ap_cfg):
     """Get PV config dict for a given category keyword (case-insensitive)."""
-    pv_cfg = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
+    pv_cfg = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
     for k, v in pv_cfg.items():
         if k.lower() == category_key.lower():
             return v
@@ -1466,40 +1469,75 @@ def _ap_get_pv_config(category_key, ap_cfg):
             return v
     return {}
 
-
-def _ap_detect_pv_from_row(drow, col_map, ap_cfg):
+def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
     """
     Auto-detect PV config from the row's *Industry Product Sub-type column.
-    Falls back to first available PV if not found.
+    Falls back to category_key match, then first available PV if not found.
     Returns (pv_cfg_dict, super_category, detected_key)
     """
-    pv_cfg_map = ap_cfg.get('pv_config', AP_DEFAULT_CONFIG['pv_config'])
+    pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
+    # ── Helper: clean raw values ──
+    def _clean(val):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return ''
+        s = str(val).strip()
+        return '' if s.lower() in ('nan', 'none', '') else s
 
     sub_type_raw = ''
     sub_type_col = col_map.get('ind_sub_type')
-    if sub_type_col and sub_type_col in drow:
-        sub_type_raw = str(drow.get(sub_type_col, '')).strip()
+    if sub_type_col:
+        try:
+            sub_type_raw = _clean(drow.get(sub_type_col, ''))
+        except:
+            sub_type_raw = ''
 
+    # Fallback hint columns
     if not sub_type_raw:
         for hint_col in ['product_name', 'ind_product_type', 'type']:
             c = col_map.get(hint_col)
-            if c and c in drow:
-                val = str(drow.get(c, '')).strip()
-                if val:
-                    sub_type_raw = val
-                    break
+            if c:
+                try:
+                    val = _clean(drow.get(c, ''))
+                    if val:
+                        sub_type_raw = val
+                        break
+                except:
+                    pass
 
+    # ── 1) Match by sub_type_raw against PV config keys ──
     if sub_type_raw:
         sub_type_lower = sub_type_raw.lower()
         for k, v in pv_cfg_map.items():
-            if k.lower() == sub_type_lower or sub_type_lower in k.lower() or k.lower() in sub_type_lower:
+            k_lower = k.lower()
+            if k_lower == sub_type_lower or sub_type_lower in k_lower or k_lower in sub_type_lower:
                 return v, v.get('super_category', 'Jeans'), k
 
-    if pv_cfg_map:
+    # ── 2) Match category_key against PV config keys OR super_category ──
+    if category_key and pv_cfg_map:
+        cat_lower = category_key.lower().strip()
+        for k, v in pv_cfg_map.items():
+            k_lower = k.lower()
+            super_cat = v.get('super_category', '').lower()
+
+            # Match against the config KEY itself (e.g. "T-Shirts" matches "men's casual t-shirts")
+            if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
+                return v, v.get('super_category', 'Jeans'), k
+
+            # Match against super_category with normalization
+            if super_cat:
+                # Normalize: remove trailing 's', spaces, hyphens for fuzzy match
+                def _norm(s):
+                    return s.lower().replace('-', '').replace(' ', '').rstrip('s')
+                if _norm(super_cat) == _norm(cat_lower):
+                    return v, v.get('super_category', 'Jeans'), k
+
+    # ── 3) Only fall back to first PV if no category_key was provided ──
+    if not category_key and pv_cfg_map:
         first_k = next(iter(pv_cfg_map))
         first_v = pv_cfg_map[first_k]
         return first_v, first_v.get('super_category', 'Jeans'), first_k
 
+    # Return empty if truly nothing found
     return {}, 'Jeans', ''
 
 
@@ -1647,6 +1685,19 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
     wb_pav_dict and wb_l4_dict are keyed by super_category.
     """
     _ap_cfg     = get_ap_config_from_disk()
+    # Ensure all required keys exist with safe defaults
+    _ap_cfg.setdefault('gst_cgst', 50)
+    _ap_cfg.setdefault('gst_sgst', 50)
+    _ap_cfg.setdefault('gst_igst', 0)
+    _ap_cfg.setdefault('catalog_status', 'ACTIVE')
+    _ap_cfg.setdefault('status_remark', 'Ready to Launch')
+    _ap_cfg.setdefault('tax_master_status', 'active')
+    _ap_cfg.setdefault('biz_cat_id', 'BCAT-139439')
+    _ap_cfg.setdefault('biz_cat_name', 'Apparel & Fashion')
+    _ap_cfg.setdefault('country_of_origin', 'India')
+    _ap_cfg.setdefault('product_condition', 'Fresh')
+    _ap_cfg.setdefault('manufacturing_year', '2026')
+    _ap_cfg.setdefault('discovery_cat', 'DISCAT-135542')
     brands_dict = normalize_brands(_ap_cfg.get('brands', {}))
     fallback_brand, fallback_id = ('', '')
     if brands_dict:
@@ -1743,7 +1794,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     for _, drow in work_df.iterrows():
         # ── Auto-detect PV and super-category from row ────────
-        pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg)
+        pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg, category_key)
 
         if not pv_cfg:
             skipped.append({'sku': '', 'article': '', 'reason': f'No PV config found for sub-type: {detected_key}'})
@@ -2494,6 +2545,26 @@ FILE_STORE = {}
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
 
+
+# ── Global error handlers — always return JSON, never HTML ────
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({'error': 'Bad request', 'details': str(e)}), 400
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Not found', 'details': str(e)}), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    import traceback
+    return jsonify({'error': 'Internal server error', 'details': str(e), 'trace': traceback.format_exc()}), 500
+
+@app.errorhandler(Exception)
+def unhandled_exception(e):
+    import traceback
+    return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
 @app.route('/')
 def index():
     try:
@@ -2644,6 +2715,141 @@ def detect_ap_categories():
     except Exception as e:
         return jsonify({'categories': AP_CATEGORIES, 'error': str(e)})
 
+
+@app.route('/process', methods=['POST'])
+def process():
+    """Footwear catalog processor. Generates a filled PV Template .xlsx."""
+    try:
+        subtypes_raw = request.form.get('subtypes', '')
+        try:    subtypes = json.loads(subtypes_raw)
+        except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
+
+        inline_cfg_raw = request.form.get('config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                disk_cfg = get_config()
+                disk_cfg.update(inline_cfg)
+                _save_config(CONFIG_PATH, disk_cfg)
+            except Exception as e:
+                print(f'inline config parse error: {e}')
+
+        base_file = request.files.get('base_data')
+        dump_file = request.files.get('dump')
+
+        if not subtypes:
+            return jsonify({'error': 'Please select at least one SubType'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Dump / listing file is required'}), 400
+        for st in subtypes:
+            if st not in SUBTYPE_MAP:
+                return jsonify({'error': f'SubType "{st}" not found in template'}), 400
+
+        dump_bytes = dump_file.read()
+        xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames     = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from dump file'}), 400
+
+        col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')
+
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf  = bxl.parse(sname)
+                    bcol = build_col_map(bdf, BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except: pass
+
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for subtype in subtypes:
+                if vert_col and vert_col in all_dump.columns:
+                    mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                wb, headers = get_template_wb_for_subtype(subtype)
+                ws = wb.active
+                filled, skipped = fill_template(
+                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
+                wb.save(xls_buf)
+                zout.writestr(fname, xls_buf.getvalue())
+                results.append({'subtype': subtype, 'filled': filled,
+                                 'skipped': len(skipped), 'filename': fname})
+
+                if not preview_cols:
+                    pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
+                             'PRODUCT_COLOR *','AVAILABLE_SIZES *','SET_DETAILS *',
+                             'SET_COUNT *','FOOTWEAR_TYPE *','hsnCode *']
+                    preview_cols = [c for c in pcols if c in headers]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for c in preview_cols:
+                        if c in headers:
+                            rdata[c] = ws.cell(r, headers.index(c)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_subtype': subtype})
+
+        zip_buf.seek(0)
+        if len(subtypes) == 1:
+            safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
+            out_name = f'filled_{safe_st}.xlsx'
+            out_ext  = '.xlsx'
+            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
+                out_bytes = zin.read(results[0]['filename'])
+        else:
+            out_name  = 'filled_footwear_templates.zip'
+            out_ext   = '.zip'
+            out_bytes = zip_buf.getvalue()
+
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
+
+        write_log('anonymous', 'fw_catalog_generated',
+                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
+
+        return jsonify({
+            'status': 'ok', 'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped), 'results': results,
+            'skipped_details': all_skipped[:50], 'preview': preview_rows,
+            'preview_cols': preview_cols, 'download_token': file_token,
+            'filename': out_name, 'is_zip': len(subtypes) > 1,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
     """
@@ -2714,15 +2920,47 @@ def process_ap():
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for category in categories:
-                # Filter rows by ind_sub_type
+                                                                # Filter rows by ind_sub_type OR by super_category match
                 sub_type_col = col_map.get('ind_sub_type')
                 if sub_type_col and sub_type_col in all_dump.columns:
-                    mask = all_dump[sub_type_col].astype(str).str.lower().str.strip() == category.lower()
+                    col_lower = all_dump[sub_type_col].astype(str).str.lower().str.strip()
+                    cat_lower = category.lower()
+                    
+                    # Exact match
+                    mask = col_lower == cat_lower
                     filtered = all_dump[mask].copy()
+                    
+                    # Partial match on category string
                     if filtered.empty:
-                        mask2 = all_dump[sub_type_col].astype(str).str.lower().str.contains(
-                            re.escape(category.lower()), na=False)
+                        mask2 = col_lower.str.contains(re.escape(cat_lower), na=False)
                         filtered = all_dump[mask2].copy()
+                    
+                    # Match any PV key belonging to this super_category
+                    if filtered.empty:
+                        # Load config here since _ap_cfg is not in this scope
+                        ap_cfg_local = get_ap_config_from_disk()
+                        sc_keys = [k for k, v in ap_cfg_local.get('pv_config', {}).items()
+                                   if v.get('super_category', '').lower().replace('-', '').rstrip('s') == cat_lower.replace('-', '').rstrip('s')]
+                        if sc_keys:
+                            pattern = '|'.join(re.escape(k.lower()) for k in sc_keys)
+                            mask3 = col_lower.str.contains(pattern, na=False, regex=True)
+                            filtered = all_dump[mask3].copy()
+                    
+                    # Last resort: broad keyword match
+                    if filtered.empty:
+                        broad_keywords = {
+                            't-shirts': ['t-shirt', 'tshirt', 'tee'],
+                            'shirts': ['shirt'],
+                            'jeans': ['jeans'],
+                            'sarees': ['saree'],
+                        }
+                        keywords = broad_keywords.get(cat_lower, [cat_lower])
+                        for kw in keywords:
+                            mask_broad = col_lower.str.contains(kw, na=False)
+                            if mask_broad.any():
+                                filtered = all_dump[mask_broad].copy()
+                                break
+                    
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:
@@ -2947,6 +3185,27 @@ def process_ce():
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+
+
+@app.route('/download_template/<path:category>')
+def download_template(category):
+    """Serve the master template file for a given vertical."""
+    category_lower = category.lower().strip()
+    if 'electronic' in category_lower or category_lower == 'ce':
+        path  = CE_TEMPLATE_PATH
+        fname = 'Consumer_Electronics_Template.xlsx'
+    elif 'apparel' in category_lower or category_lower in ('ap', 'fashion'):
+        path  = os.path.join(os.path.dirname(__file__), 'Apparel Mapping & Logic Template.xlsx')
+        fname = 'Apparels_Fashion_Template.xlsx'
+    else:
+        path  = TEMPLATE_PATH
+        fname = 'Footwear_Template.xlsx'
+
+    if not os.path.exists(path):
+        return jsonify({'error': f'Template file not found: {fname}'}), 404
+
+    return send_file(path, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/download/<token>')
 def download(token):

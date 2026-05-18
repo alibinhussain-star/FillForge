@@ -1946,14 +1946,14 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         # Category-specific fields
         neck_type_val = safe(drow.get(col_map.get('neck_type',''), ''))
 
-# ── Safety fallback: search row directly if col_map missed it ──
-if not neck_type_val:
-    for col in rows_df.columns:
-        c = str(col).strip().lower()
-        if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
-            neck_type_val = safe(drow.get(col, ''))
-            if neck_type_val:
-                break
+        # ── Safety fallback: search row directly if col_map missed it ──
+        if not neck_type_val:
+            for col in rows_df.columns:
+                c = str(col).strip().lower()
+                if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
+                    neck_type_val = safe(drow.get(col, ''))
+                    if neck_type_val:
+                        break
         sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), ''))
         collar_val       = safe(drow.get(col_map.get('collar',''), ''))
         multipack_val    = safe(drow.get(col_map.get('multipack_set',''), ''))
@@ -2985,12 +2985,12 @@ def process_ap():
         for sname in xl.sheet_names:
             try: frames.append(xl.parse(sname))
             except: pass
-                 all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
         if all_dump.empty:
             return jsonify({'error': 'Could not read any data from listing file'}), 400
 
-                col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
+        col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
 
         # — Fallback: force-detect neck_type if missing —
         if 'neck_type' not in col_map:

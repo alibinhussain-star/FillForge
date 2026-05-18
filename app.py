@@ -152,7 +152,11 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 def get_ap_config_from_disk():
+    """Load config from disk. ALLOW user-saved pv_config to persist."""
     cfg = _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
+    # REMOVED: cfg['pv_config'] = AP_DEFAULT_CONFIG['pv_config']
+    # User's saved pv_config will now be used if it exists.
+    # Falls back to AP_DEFAULT_CONFIG only if nothing saved.
     return cfg
 
 config = get_config()
@@ -183,13 +187,7 @@ def detect_col(df, candidates):
         l = str(c).strip().lower()
         if l in lower_map:
             return lower_map[l]
-    # 4. Strip asterisk then lowercase exact match  ← NEW
-    stripped_lower_map = {str(col).strip().lstrip('*').strip().lower(): col for col in cols}
-    for c in candidates:
-        l = str(c).strip().lstrip('*').strip().lower()
-        if l in stripped_lower_map:
-            return stripped_lower_map[l]
-    # 5. Substring fallback
+    # 4. Substring fallback
     for col in cols:
         col_l = str(col).strip().lower()
         for cand in candidates:
@@ -243,6 +241,7 @@ def extract_article(sku):
 def expand_size_range(size_str, size_type='UK'):
     s = str(size_str).strip()
     if ',' in s: return [x.strip() for x in s.split(',') if x.strip()]
+    # Handle dash-separated sizes like "28-30-32-34-36"
     if '-' in s:
         parts = [x.strip() for x in s.split('-') if x.strip() and re.match(r'^\d+$', x.strip())]
         if len(parts) > 1:
@@ -1054,7 +1053,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "women's jeans": {
             "pv_id":   "PV-1914272940",
@@ -1063,7 +1062,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         "boy's jeans": {
             "pv_id":   "PV-1914272259",
@@ -1072,7 +1071,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Jeans",
-            "super_category":        "Jeans",
+            "super_category":        "Jeans",  # ← ADD THIS
         },
         # ── SHIRTS ──────────────────────────────────────────
         "men's casual shirts": {
@@ -1082,7 +1081,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "men's formal shirts": {
             "pv_id":   "PV-1914273102",
@@ -1091,7 +1090,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's casual shirts": {
             "pv_id":   "PV-1914272626",
@@ -1100,7 +1099,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "boy's formal shirts": {
             "pv_id":   "PV-1914272626",
@@ -1109,7 +1108,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         "women's shirts": {
             "pv_id":   "PV-1914273102",
@@ -1118,7 +1117,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Westernwear",
             "industry_sub_type":     "Shirts",
-            "super_category":        "Shirts",
+            "super_category":        "Shirts",  # ← ADD THIS
         },
         # ── T-SHIRTS ────────────────────────────────────────
         "men's casual t-shirts": {
@@ -1128,7 +1127,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "men's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1137,7 +1136,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Menswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1146,7 +1145,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "women's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1155,7 +1154,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1164,7 +1163,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "boy's polo t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1173,7 +1172,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Boyswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "girl's t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1182,7 +1181,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Girlswear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         "baby casual t-shirts": {
             "pv_id":   "PV-1914273100",
@@ -1191,7 +1190,7 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Babywear",
             "industry_product_type": "Casual & Sports",
             "industry_sub_type":     "T-Shirts",
-            "super_category":        "T-Shirt",
+            "super_category":        "T-Shirt",  # ← ADD THIS
         },
         # ── SAREES ──────────────────────────────────────────
         "sarees & blouses": {
@@ -1201,14 +1200,12 @@ AP_DEFAULT_CONFIG = {
             "industry_sub_category": "Womenswear",
             "industry_product_type": "Ethnicwear",
             "industry_sub_type":     "Sarees & Blouses",
-            "super_category":        "Sarees",
+            "super_category":        "Sarees",  # ← ADD THIS
         },
     },
 }
-
-# ── Listing-file column hints for Apparel ──────────────────────
-# FIX: Put '*Neck' and 'Neck' FIRST in neck_type hints so asterisk-prefixed
-#      headers like '*Neck' are matched before broader patterns.
+# ── Listing-file column hints for Apparel (L4-style input files) ──
+# These are COMMON across all super-categories. Per-category extras are handled dynamically.
 AP_DUMP_COL_HINTS = {
     'type':              ['*Type','Type'],
     'ind_category':      ['*Industry Category','Industry Category'],
@@ -1263,9 +1260,8 @@ AP_DUMP_COL_HINTS = {
     'image6':            ['Other Image URL5','Other Image URL 5'],
     'brand':             ['*Brand Name','Brand Name','Brand'],
     'new_brand':         ['New Brand'],
-    # ── FIX: '*Neck' and 'Neck' placed FIRST so they match before
-    #         any substring fallback picks up 'Neck Type' columns ──
-    'neck_type':         ['*Neck', 'Neck', '*Neck Type', 'Neck Type'],
+    # ── T-Shirt / Shirt specific ──
+    'neck_type':         ['*Neck','Neck','Neck Type','*Neck Type'],
     'sleeve_length':     ['*Sleeve Length','Sleeve Length','Sleeve'],
     'multipack_set':     ['*Multipack Set','Multipack Set'],
     'occasion':          ['Occasion'],
@@ -1302,6 +1298,7 @@ AP_CATEGORIES = ['Jeans', 'Shirts', 'T-Shirt', 'Sarees']
 # ═══════════════════════════════════════════════════════════════
 
 def _ap_normalize_gender(raw):
+    """Convert MALE / Man / Men etc → Men's; FEMALE / Woman / Women → Women's; etc."""
     if not raw: return raw
     r = str(raw).strip().upper()
     if r in ('MALE','MAN','MEN','MEN\'S','MENS'): return "Men's"
@@ -1313,15 +1310,25 @@ def _ap_normalize_gender(raw):
 
 
 def _ap_parse_set_count(qty_raw):
+    """
+    Handles qty formats:
+      '5', '5pcs', '5 pcs', '5pc' → 5
+      '1, 1, 1, 1, 1'             → 5 (sum)
+      'Set of 5'                  → 5
+    Returns (int count, '1, 1, ...' L4 quantity string)
+    """
     s = str(qty_raw).strip()
+    # Already 'Set of N'
     m = re.match(r'Set\s+of\s+(\d+)', s, re.IGNORECASE)
     if m:
         n = int(m.group(1))
         return n, ', '.join(['1'] * n)
+    # comma-separated list like '1, 1, 1, 1, 1'
     parts = [x.strip() for x in s.split(',') if x.strip()]
     if len(parts) > 1 and all(re.match(r'^\d+$', p) for p in parts):
         total = sum(int(p) for p in parts)
         return total, ', '.join(parts)
+    # plain number possibly with suffix
     m2 = re.match(r'^(\d+)', s)
     if m2:
         n = int(m2.group(1))
@@ -1330,6 +1337,13 @@ def _ap_parse_set_count(qty_raw):
 
 
 def _ap_parse_sizes(size_raw, super_category='Jeans'):
+    """
+    Parse *Size column. Handles:
+      '28, 30, 32, 34, 36'  → numeric sizes (Jeans)
+      'S, M, L, XL, 2XL'    → alpha sizes (Shirts, T-Shirts)
+      'Free Size'           → free size (Sarees)
+    Returns list of size strings.
+    """
     s = str(size_raw).strip()
     if not s or s.lower() in ('nan', 'none', ''):
         return []
@@ -1345,6 +1359,10 @@ def _ap_parse_sizes(size_raw, super_category='Jeans'):
 
 
 def _ap_build_set_fields(sizes_list, set_count):
+    """
+    Build set_details, set_description, set_composition for apparel.
+    Each size gets qty = set_count // len(sizes), remainder distributed.
+    """
     if not sizes_list:
         return '', '', ''
     base_qty = set_count // len(sizes_list) if sizes_list else 1
@@ -1358,6 +1376,10 @@ def _ap_build_set_fields(sizes_list, set_count):
 
 
 def _ap_pv_name_for_title(pv_name):
+    """Remove gender prefix from PV name for title usage.
+    e.g. 'Men's Casual Shirts' → 'Casual Shirts'
+         'Men's Polo T-Shirts' → 'Polo T-Shirts'
+    """
     if not pv_name:
         return pv_name
     s = str(pv_name).strip()
@@ -1369,6 +1391,14 @@ def _ap_pv_name_for_title(pv_name):
 
 def _ap_make_title(super_category, brand, gender, fabric, length, pattern, product_type, color,
                      neck_type='', sleeve_length='', collar='', fit=''):
+    """
+    Form title based on super-category rules.
+
+    JEANS:     Brand Gender Fabric Length Pattern ProductType, Color
+    SHIRTS:    Brand Gender Fabric Collar Fit SleeveLength Pattern PVName(no gender), Color
+    T-SHIRT:   Brand Gender Fabric Neck SleeveLength Pattern PVName(no gender), Color
+    SAREES:    Brand Gender Fabric Size Pattern PVName(no gender), Color
+    """
     sc = (super_category or 'Jeans').strip()
 
     if sc == 'Jeans':
@@ -1384,7 +1414,6 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
 
     elif sc == 'T-Shirt':
         pv_short = _ap_pv_name_for_title(product_type)
-        # neck_type included between fabric and sleeve_length
         parts = [p for p in [brand, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p and p != '#']
         base = ' '.join(parts)
         return f"{base}, {color}" if color else base
@@ -1404,6 +1433,14 @@ def _ap_make_title(super_category, brand, gender, fabric, length, pattern, produ
 def _ap_make_internal_title(super_category, brand, product_code, gender, fabric, length, pattern,
                             product_type, color, set_name, set_details,
                             neck_type='', sleeve_length='', collar='', fit=''):
+    """
+    Form internal title based on super-category rules.
+
+    JEANS:     Brand ProductCode Gender Fabric Length Pattern ProductType, Color, SetName (SetDetails)
+    SHIRTS:    Brand ProductCode Gender Fabric Collar Fit SleeveLength Pattern PVName, Color, SetName (SetDetails)
+    T-SHIRT:   Brand ProductCode Gender Fabric Neck SleeveLength Pattern PVName, Color, SetName (SetDetails)
+    SAREES:    Brand ProductCode Gender Fabric Size Pattern PVName, Color, SetName (SetDetails)
+    """
     sc = (super_category or 'Jeans').strip()
 
     if sc == 'Jeans':
@@ -1421,7 +1458,6 @@ def _ap_make_internal_title(super_category, brand, product_code, gender, fabric,
 
     elif sc == 'T-Shirt':
         pv_short = _ap_pv_name_for_title(product_type)
-        # neck_type included between fabric and sleeve_length
         parts = [p for p in [brand, product_code, gender, fabric, neck_type, sleeve_length, pattern, pv_short] if p]
         base = ' '.join(parts)
         suffix = f"{color}, {set_name} ({set_details})" if color else f"{set_name} ({set_details})"
@@ -1442,6 +1478,7 @@ def _ap_make_internal_title(super_category, brand, product_code, gender, fabric,
 
 
 def _ap_get_pv_config(category_key, ap_cfg):
+    """Get PV config dict for a given category keyword (case-insensitive)."""
     pv_cfg = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG['pv_config']
     for k, v in pv_cfg.items():
         if k.lower() == category_key.lower():
@@ -1452,16 +1489,25 @@ def _ap_get_pv_config(category_key, ap_cfg):
     return {}
 
 def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
+    """
+    Config-driven PV detection. NO hardcoded disambiguation logic.
+    
+    Matches row's Industry Sub-Type + Gender against user-configured pv_config.
+    Returns the FIRST matching PV from config (user controls order).
+    
+    Returns (pv_cfg_dict, super_category, detected_key)
+    """
     pv_cfg_map = ap_cfg.get('pv_config') or AP_DEFAULT_CONFIG.get('pv_config', {})
     if not pv_cfg_map:
         return {}, 'Jeans', ''
-
+    
     def _clean(val):
         if val is None or (isinstance(val, float) and pd.isna(val)):
             return ''
         s = str(val).strip()
         return '' if s.lower() in ('nan', 'none', '') else s
 
+    # ── Read Industry Sub-Type from row ──
     sub_type_raw = ''
     sub_type_col = col_map.get('ind_sub_type')
     if sub_type_col:
@@ -1469,7 +1515,7 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
             sub_type_raw = _clean(drow.get(sub_type_col, ''))
         except:
             pass
-
+    
     if not sub_type_raw:
         for hint_col in ['product_name', 'ind_product_type', 'type']:
             c = col_map.get(hint_col)
@@ -1482,6 +1528,7 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
                 except:
                     pass
 
+    # ── Read Gender from row ──
     gender_raw = ''
     gender_col = col_map.get('gender')
     if gender_col:
@@ -1489,7 +1536,7 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
             gender_raw = _clean(drow.get(gender_col, ''))
         except:
             pass
-
+    
     def _norm_gender(g):
         g = g.lower().strip()
         if g in ("men's", "male", "men", "mens"): return "men"
@@ -1498,21 +1545,25 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
         if g in ("girl's", "girls", "girl"): return "girl"
         if g in ("baby's", "baby", "babies"): return "baby"
         return g
-
+    
     target_gender = _norm_gender(gender_raw)
 
+    # ── Match against config: sub_type + gender ──
+    # Config order matters — FIRST match wins
     for k, v in pv_cfg_map.items():
         cfg_sub_type = _clean(v.get('industry_sub_type', '')).lower()
         cfg_gender_cat = _clean(v.get('industry_sub_category', '')).lower()
-
+        
+        # Match sub-type
         row_sub = sub_type_raw.lower()
-        sub_type_match = (cfg_sub_type == row_sub or
-                          row_sub in cfg_sub_type or
+        sub_type_match = (cfg_sub_type == row_sub or 
+                          row_sub in cfg_sub_type or 
                           cfg_sub_type in row_sub)
-
+        
         if not sub_type_match:
             continue
-
+        
+        # Match gender
         if target_gender and cfg_gender_cat:
             gender_match = False
             if target_gender == "men" and cfg_gender_cat in ("menswear", "men"):
@@ -1525,39 +1576,46 @@ def _ap_detect_pv_from_row(drow, col_map, ap_cfg, category_key=None):
                 gender_match = True
             elif target_gender == "baby" and cfg_gender_cat in ("babywear", "baby"):
                 gender_match = True
-
+            
             if not gender_match:
                 continue
-
+        
+        # MATCH FOUND — return immediately
         return v, v.get('super_category', 'Jeans'), k
 
+    # ── Fallback: match by category_key ──
     if category_key:
         cat_lower = category_key.lower().strip()
         for k, v in pv_cfg_map.items():
             k_lower = k.lower()
             super_cat = v.get('super_category', '').lower()
-
+            
             if k_lower == cat_lower or cat_lower in k_lower or k_lower in cat_lower:
                 return v, v.get('super_category', 'Jeans'), k
-
+            
             if super_cat:
                 def _norm(s):
                     return s.lower().replace('-', '').replace(' ', '').rstrip('s')
                 if _norm(super_cat) == _norm(cat_lower):
                     return v, v.get('super_category', 'Jeans'), k
 
+    # ── Ultimate fallback: first entry in config ──
     first_k = next(iter(pv_cfg_map))
     first_v = pv_cfg_map[first_k]
     return first_v, first_v.get('super_category', 'Jeans'), first_k
 
+    # Return empty if truly nothing found
+    return {}, 'Jeans', ''
+
 
 def _ap_derive_product_type(pv_name):
+    """Derive PRODUCT_TYPE from PV name. More specific terms checked FIRST."""
     if not pv_name:
         return ''
     pv_lower = str(pv_name).lower()
 
     product_types = [
-        'polo t-shirts',
+        'polo t-shirts',      # BEFORE 'shirts'
         'casual t-shirts',
         't-shirts',
         'casual shirts',
@@ -1584,6 +1642,7 @@ def _ap_derive_product_type(pv_name):
 # ═══════════════════════════════════════════════════════════════
 
 def _ap_get_pav_headers(super_category):
+    """Return PAV headers for a given super-category."""
     sc = (super_category or 'Jeans').strip()
 
     base = [
@@ -1628,6 +1687,7 @@ def _ap_get_pav_headers(super_category):
 # ═══════════════════════════════════════════════════════════════
 
 def _ap_get_l4_headers(super_category):
+    """Return L4 headers for a given super-category."""
     sc = (super_category or 'Jeans').strip()
 
     base = [
@@ -1697,39 +1757,18 @@ def _ap_get_l4_headers(super_category):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN APPAREL GENERATOR
+# MAIN GENERATOR
 # ═══════════════════════════════════════════════════════════════
-
-def _resolve_neck_type(drow, col_map, df_columns):
-    """
-    Robustly resolve the neck type value from a row.
-    First tries col_map['neck_type'], then scans all columns for
-    a bare 'Neck' or '*Neck' header (excluding blouse-related columns).
-    """
-    # 1. Try col_map first
-    neck_col = col_map.get('neck_type', '')
-    if neck_col:
-        val = safe(drow.get(neck_col, ''))
-        if val:
-            return val
-
-    # 2. Scan all df columns for a neck column that was missed
-    for col in df_columns:
-        col_stripped = str(col).strip().lstrip('*').strip().lower()
-        if col_stripped == 'neck' and 'blouse' not in col_stripped:
-            val = safe(drow.get(col, ''))
-            if val:
-                return val
-
-    return ''
-
 
 def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_skus):
     """
-    Generate all apparel output workbooks for one category.
-    Returns: (wb_jpin, wb_tax, wb_scm, wb_pav_dict, wb_l4_dict, filled_count, skipped_list)
+    Generate all 4 apparel output workbooks for one category.
+    Auto-detects PV from row's *Industry Product Sub-type.
+    Returns: (wb_jpin, wb_tax, wb_pav_dict, wb_l4_dict, filled_count, skipped_list)
+    wb_pav_dict and wb_l4_dict are keyed by super_category.
     """
-    _ap_cfg = get_ap_config_from_disk()
+    _ap_cfg     = get_ap_config_from_disk()
+    # Ensure all required keys exist with safe defaults
     _ap_cfg.setdefault('gst_cgst', 50)
     _ap_cfg.setdefault('gst_sgst', 50)
     _ap_cfg.setdefault('gst_igst', 0)
@@ -1747,16 +1786,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
 
-    # ── Ensure col_map has neck_type by scanning df columns ──────
-    # FIX: resolve neck_type in col_map once before iterating rows
-    if not col_map.get('neck_type'):
-        for col in rows_df.columns:
-            col_stripped = str(col).strip().lstrip('*').strip().lower()
-            if col_stripped == 'neck' and 'blouse' not in str(col).lower():
-                col_map['neck_type'] = str(col)
-                break
-
-    # ── JPIN headers ──────────────────────────────────────────────
+    # ── JPIN headers (same for all categories) ────────────────
     JPIN_HEADERS = [
         'JPIN','Title','Internal_Title','BrandID','BrandName','PVID','PVName',
         'Business Category Id','Business Category Name',
@@ -1772,7 +1802,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'CreatedTime','LastUpdatedTime','LastUpdatedBy','Ingestion Row Status','Exception',
     ]
 
-    # ── TaxMaster headers ─────────────────────────────────────────
+    # ── TaxMaster headers (same for all categories) ───────────
     TAX_HEADERS = [
         'TaxMasterID','Jpin','Title','ProductVerticalId','ProductVerticalName',
         'hsnCode','sinTax','cess','vatPercentage','gstPercentage',
@@ -1780,7 +1810,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
     ]
 
-    # ── SCM headers ───────────────────────────────────────────────
+    # ── SCM (Supply Chain Management) headers ─────────────────
     SCM_HEADERS = [
         'JPIN','Title','Net_Weight','Net_Weight_Measuring_Unit','DeadWeight',
         'VolumetricWeight','ShippingCalculationType',
@@ -1802,6 +1832,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         'CreatedTime','LastUpdatedTime','LastUpdatedBy',
     ]
 
+
     def _make_wb(headers, sheet_name):
         wb = Workbook()
         ws = wb.active
@@ -1814,6 +1845,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
     wb_tax,  ws_tax  = _make_wb(TAX_HEADERS,  'TaxMaster')
     wb_scm,  ws_scm  = _make_wb(SCM_HEADERS,  'SCM')
 
+    # PAV and L4 workbooks per super-category
     wb_pav_map = {}
     wb_l4_map  = {}
     row_idx_pav = {}
@@ -1833,6 +1865,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     skipped, filled = [], 0
 
+    # Filter to only "Parent" rows if Relationship column exists
     rel_col = col_map.get('relationship')
     if rel_col and rel_col in rows_df.columns:
         parent_mask = rows_df[rel_col].astype(str).str.strip().str.lower().isin(['parent','set'])
@@ -1843,6 +1876,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         work_df = rows_df.copy()
 
     for _, drow in work_df.iterrows():
+        # ── Auto-detect PV and super-category from row ────────
         pv_cfg, super_category, detected_key = _ap_detect_pv_from_row(drow, col_map, _ap_cfg, category_key)
 
         if not pv_cfg:
@@ -1851,11 +1885,12 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
         pv_id   = pv_cfg.get('pv_id', '')
         pv_name = pv_cfg.get('pv_name', category_key)
-        ind_cat       = pv_cfg.get('industry_category', 'Apparels & Fashion')
-        ind_sub_cat   = pv_cfg.get('industry_sub_category', '')
+        ind_cat      = pv_cfg.get('industry_category', 'Apparels & Fashion')
+        ind_sub_cat  = pv_cfg.get('industry_sub_category', '')
         ind_prod_type = pv_cfg.get('industry_product_type', '')
         ind_sub_type  = pv_cfg.get('industry_sub_type', category_key)
 
+        # Lazy-init PAV and L4 workbooks per super-category
         if super_category not in wb_pav_map:
             pav_headers = _ap_get_pav_headers(super_category)
             wb_pav_map[super_category], _ = _make_wb(pav_headers, 'ProductAttributeValue')
@@ -1875,14 +1910,15 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
             brand    = fallback_brand
             brand_id = fallback_id
 
-        seller_sku   = safe(drow.get(col_map.get('seller_sku',''), ''))
-        product_code = safe(drow.get(col_map.get('product_code',''), ''))
-        article      = product_code if product_code else seller_sku
+        seller_sku  = safe(drow.get(col_map.get('seller_sku',''), ''))
+        product_code= safe(drow.get(col_map.get('product_code',''), ''))
+        article     = product_code if product_code else seller_sku
 
         if article.upper() in existing_articles or seller_sku.upper() in existing_skus:
             skipped.append({'sku': seller_sku, 'article': article, 'reason': 'Already exists in base data'})
             continue
 
+        # ── Extract fields ────────────────────────────────────
         qty_raw     = safe(drow.get(col_map.get('quantity',''), ''))
         set_count, l4_qty_str = _ap_parse_set_count(qty_raw)
         if set_count == 0:
@@ -1907,9 +1943,17 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         color       = title_case_color(safe(drow.get(col_map.get('color',''), '')))
         product_type_val = _ap_derive_product_type(pv_name)
 
-        # ── FIX: Use robust neck resolver instead of simple col_map lookup ──
-        neck_type_val = _resolve_neck_type(drow, col_map, work_df.columns)
+        # Category-specific fields
+        neck_type_val = safe(drow.get(col_map.get('neck_type',''), ''))
 
+        # ── Safety fallback: search row directly if col_map missed it ──
+        if not neck_type_val:
+            for col in rows_df.columns:
+                c = str(col).strip().lower()
+                if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
+                    neck_type_val = safe(drow.get(col, ''))
+                    if neck_type_val:
+                        break
         sleeve_len_val   = safe(drow.get(col_map.get('sleeve_length',''), ''))
         collar_val       = safe(drow.get(col_map.get('collar',''), ''))
         multipack_val    = safe(drow.get(col_map.get('multipack_set',''), ''))
@@ -1967,7 +2011,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         try:    weight = float(weight_raw) if str(weight_raw).strip() not in ('','nan') else ''
         except: weight = ''
 
-        # Build titles using resolved neck_type_val
+        # ── Derived title fields (per super-category) ───────────
         title = _ap_make_title(
             super_category, brand, gender, fabric, length, pattern_val, product_type_val, color,
             neck_type=neck_type_val, sleeve_length=sleeve_len_val, collar=collar_val, fit=fit
@@ -1985,7 +2029,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         pav_row_idx = row_idx_pav[super_category]
         l4_row_idx  = row_idx_l4[super_category]
 
-        # ── JPIN row ──────────────────────────────────────────────
+        # ── JPIN row (same for all) ───────────────────────────
         jpin_row = {
             'JPIN':                                    '',
             'Title':                                   title,
@@ -2036,7 +2080,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_jpin, tcol_jpin, jpin_row, row_idx)
 
-        # ── TaxMaster row ─────────────────────────────────────────
+        # ── TaxMaster row (same for all) ──────────────────────
         tax_row = {
             'TaxMasterID':          '',
             'Jpin':                 '',
@@ -2059,7 +2103,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_tax, tcol_tax, tax_row, row_idx)
 
-        # ── SCM row ───────────────────────────────────────────────
+        # ── SCM row (Supply Chain Management) ─────────────────
         scm_row = {
             'JPIN':                          '',
             'Title':                         title,
@@ -2115,7 +2159,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
         }
         _write(ws_scm, tcol_scm, scm_row, row_idx)
 
-        # ── ProductAttributeValue row ─────────────────────────────
+        # ── ProductAttributeValue row (per super-category) ────
         if super_category == 'Jeans':
             pav_row = {
                 'Jpin':                          '',
@@ -2229,7 +2273,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
                 'HEMLINE':                       '',
                 'LENGTH':                        length if length else '#',
                 'MANUFACTURER':                  '',
-                'NECK_TYPE':                     neck_type_val,   # resolved neck
+                'NECK_TYPE':                     neck_type_val,
                 'NUMBER_OF_POCKETS':             '',
                 'OCCASION':                      '',
                 'PATTERN':                       pattern_val,
@@ -2305,7 +2349,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
             }
         _write(ws_pav, tcol_pav, pav_row, pav_row_idx)
 
-        # ── L4 row ────────────────────────────────────────────────
+        # ── L4 row (per super-category) ───────────────────────
         if super_category == 'Jeans':
             l4_row = {
                 '*Type':                         'SET',
@@ -2347,6 +2391,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
                 'Stretch':                       stretch,
                 'Waist Rise':                    waist_rise,
                 'Waist Band':                    waist_band,
+                'Manufacturing Year':            '',
                 'Closure':                       closure,
                 'Packaging Type':                packing,
                 'Length':                        length,
@@ -2403,6 +2448,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
                 'Stretch':                       stretch,
                 'Waist Rise':                    waist_rise,
                 'Waist Band':                    waist_band,
+                'Manufacturing Year':            '',
                 'Closure':                       closure,
                 'Packaging Type':                packing,
                 'Length':                        length,
@@ -2457,7 +2503,8 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
                 'Fabric Composition':            fabric_comp,
                 'Fit':                           fit,
                 'Occasion':                      occasion_val,
-                'Neck':                          neck_type_val,   # resolved neck
+                'Manufacturing Year':            '',
+                'Neck':                          neck_type_val,
                 'Sleeve Length':                 sleeve_len_val,
                 'Closure':                       closure,
                 'Packaging Type':                packing,
@@ -2516,10 +2563,11 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
                 'Work Type':                     work_type_val,
                 'Stitch Type':                   stitch_type_val,
                 'Border':                        border_val,
+                'Manufacturing Year':            '',
                 'Neck':                          neck_type_val,
                 'Sleeve Length':                 sleeve_len_val,
                 'Closure':                       closure,
-                'Product Type':                  product_type_val,
+                'Product Type':                    product_type_val,
                 'Packaging Type':                packing,
                 'Length':                        length,
                 '*Select color':                 color,
@@ -2581,7 +2629,6 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 
     return wb_jpin, wb_tax, wb_scm, wb_pav_map, wb_l4_map, filled, skipped
 
-
 # ═══════════════════════════════════════════════════════════════
 # IN-MEMORY FILE STORAGE
 FILE_STORE = {}
@@ -2590,6 +2637,8 @@ FILE_STORE = {}
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
 
+
+# ── Global error handlers — always return JSON, never HTML ────
 @app.errorhandler(400)
 def bad_request(e):
     return jsonify({'error': 'Bad request', 'details': str(e)}), 400
@@ -2734,6 +2783,7 @@ def detect_ce_verticals():
 
 @app.route('/detect_ap_categories', methods=['POST'])
 def detect_ap_categories():
+    """Auto-detect apparel categories from an uploaded listing file."""
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
@@ -2760,6 +2810,7 @@ def detect_ap_categories():
 
 @app.route('/process', methods=['POST'])
 def process():
+    """Footwear catalog processor. Generates a filled PV Template .xlsx."""
     try:
         subtypes_raw = request.form.get('subtypes', '')
         try:    subtypes = json.loads(subtypes_raw)
@@ -2893,6 +2944,14 @@ def process():
 
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
+    """
+    Apparel & Fashion processor. Produces a ZIP containing 5 files per category:
+      - ap_JPIN_<category>.xlsx
+      - ap_TaxMaster_<category>.xlsx
+      - ap_SCM_<category>.xlsx
+      - ap_ProductAttributeValue_<category>_<super>.xlsx  (per super-category)
+      - ap_L4_<category>_<super>.xlsx                     (per super-category)
+    """
     try:
         categories_raw = request.form.get('categories', '')
         try:    categories = json.loads(categories_raw)
@@ -2933,13 +2992,11 @@ def process_ap():
 
         col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
 
-        # ── FIX: Robust neck_type detection at the route level ──
-        # detect_col with the updated hints + stripped-asterisk logic in detect_col
-        # should already handle '*Neck'. This is a belt-and-suspenders fallback.
-        if not col_map.get('neck_type'):
+        # — Fallback: force-detect neck_type if missing —
+        if 'neck_type' not in col_map:
             for col in all_dump.columns:
-                col_stripped = str(col).strip().lstrip('*').strip().lower()
-                if col_stripped == 'neck' and 'blouse' not in str(col).lower():
+                c = str(col).strip().lower()
+                if c in ('*neck', 'neck') or (c.endswith('neck') and 'blouse' not in c):
                     col_map['neck_type'] = str(col)
                     break
 
@@ -2964,19 +3021,24 @@ def process_ap():
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for category in categories:
+                                                                # Filter rows by ind_sub_type OR by super_category match
                 sub_type_col = col_map.get('ind_sub_type')
                 if sub_type_col and sub_type_col in all_dump.columns:
                     col_lower = all_dump[sub_type_col].astype(str).str.lower().str.strip()
                     cat_lower = category.lower()
-
+                    
+                    # Exact match
                     mask = col_lower == cat_lower
                     filtered = all_dump[mask].copy()
-
+                    
+                    # Partial match on category string
                     if filtered.empty:
                         mask2 = col_lower.str.contains(re.escape(cat_lower), na=False)
                         filtered = all_dump[mask2].copy()
-
+                    
+                    # Match any PV key belonging to this super_category
                     if filtered.empty:
+                        # Load config here since _ap_cfg is not in this scope
                         ap_cfg_local = get_ap_config_from_disk()
                         sc_keys = [k for k, v in ap_cfg_local.get('pv_config', {}).items()
                                    if v.get('super_category', '').lower().replace('-', '').rstrip('s') == cat_lower.replace('-', '').rstrip('s')]
@@ -2984,7 +3046,8 @@ def process_ap():
                             pattern = '|'.join(re.escape(k.lower()) for k in sc_keys)
                             mask3 = col_lower.str.contains(pattern, na=False, regex=True)
                             filtered = all_dump[mask3].copy()
-
+                    
+                    # Last resort: broad keyword match
                     if filtered.empty:
                         broad_keywords = {
                             't-shirts': ['t-shirt', 'tshirt', 'tee'],
@@ -2998,12 +3061,13 @@ def process_ap():
                             if mask_broad.any():
                                 filtered = all_dump[mask_broad].copy()
                                 break
-
+                    
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:
                     filtered = all_dump.copy()
 
+                # ── NOW UNPACKS 7 VALUES (was 6) ─────────────────
                 wb_jpin, wb_tax, wb_scm, wb_pav_map, wb_l4_map, filled, skipped = fill_ap_files(
                     filtered, col_map, category, existing_articles, existing_skus
                 )
@@ -3013,6 +3077,7 @@ def process_ap():
                 safe_cat = re.sub(r"[^\w\s-]", "", category).replace(" ", "_")
                 files_written = []
 
+                # Single workbooks (one per category)
                 for wb_obj, label in [
                     (wb_jpin, 'JPIN'),
                     (wb_tax,  'TaxMaster'),
@@ -3024,6 +3089,7 @@ def process_ap():
                     zout.writestr(fname, xls_buf.getvalue())
                     files_written.append(fname)
 
+                # PAV workbooks (one per super-category)
                 for super_cat, wb_obj in wb_pav_map.items():
                     safe_super = re.sub(r"[^\w\s-]", "", super_cat).replace(" ", "_")
                     fname   = f'ap_ProductAttributeValue_{safe_cat}_{safe_super}.xlsx'
@@ -3032,6 +3098,7 @@ def process_ap():
                     zout.writestr(fname, xls_buf.getvalue())
                     files_written.append(fname)
 
+                # L4 workbooks (one per super-category)
                 for super_cat, wb_obj in wb_l4_map.items():
                     safe_super = re.sub(r"[^\w\s-]", "", super_cat).replace(" ", "_")
                     fname   = f'ap_L4_{safe_cat}_{safe_super}.xlsx'
@@ -3047,6 +3114,7 @@ def process_ap():
                     'files':    files_written,
                 })
 
+                # Build preview from JPIN sheet
                 ws_jpin = wb_jpin.active
                 jpin_headers = [ws_jpin.cell(1, c).value for c in range(1, ws_jpin.max_column + 1)]
                 for r in range(2, min(filled + 2, 52)):
@@ -3219,8 +3287,10 @@ def process_ce():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
+
 @app.route('/download_template/<path:category>')
 def download_template(category):
+    """Serve the master template file for a given vertical."""
     category_lower = category.lower().strip()
     if 'electronic' in category_lower or category_lower == 'ce':
         path  = CE_TEMPLATE_PATH

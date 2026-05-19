@@ -3454,6 +3454,810 @@ def debug_config():
         'ce_config':             ce_cfg,
         'ap_config':             ap_cfg,
     })
+# ═══════════════════════════════════════════════════════════════
+# TOYS & SPORTS MODULE — CYCLES (Gear / Non Gear / Battery Operated)
+# ═══════════════════════════════════════════════════════════════
+
+TS_CONFIG_PATH = '/tmp/fillforge_ts_config.json'
+
+TS_DEFAULT_CONFIG = {
+    "brands":              {"Avitree": "BR-1190299999"},
+    "biz_cat_id":          "BCAT-139427",
+    "biz_cat_name":        "Toys & Sports",
+    "relationship":        "Parent",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2025",
+    "discovery_cat":       "DISCAT-135529",
+    "pv_config": {
+        "gear": {
+            "pv_id":   "PV-1914272830",
+            "pv_name": "Gear",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Gear",
+        },
+        "non gear": {
+            "pv_id":   "PV-1914272829",
+            "pv_name": "Non Gear",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Non Gear",
+        },
+        "battery operated": {
+            "pv_id":   "PV-1914272831",
+            "pv_name": "Battery Operated",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Battery Operated",
+        },
+    },
+}
+
+TS_CATEGORIES = ['Gear', 'Non Gear', 'Battery Operated']
+
+TS_DUMP_COL_HINTS = {
+    'pv':                ['Product Verticle','Product Vertical','PV'],
+    'variant_id':        ['Variant ID'],
+    'seller_name':       ['Seller Name'],
+    'product_name':      ['Product Name'],
+    'product_desc':      ['Product Description'],
+    'brand':             ['BrandName','Brand Name','Brand'],
+    'sub_brand':         ['Sub brand name','Sub Brand Name','Sub Brand'],
+    'color':             ['Product Primary Colour','Product Primary Color','Product Color'],
+    'set_or_unit':       ['Set or Unit'],
+    'set_count':         ['Number Of Pcs in Set','Number oF Pcs in Set'],
+    'sku':               ['Seller SKU ID'],
+    'product_code':      ['Product Code'],
+    'gender':            ['Gender'],
+    'material':          ['Material'],
+    'license':           ['License'],
+    'certification':     ['CERTIFICATION'],
+    'warranty':          ['WARRANTY'],
+    'assembly':          ['ASSEMBLY_REQUIRED'],
+    'brake_type':        ['BRAKE_TYPE'],
+    'tyre_size':         ['CYCLE_TYRE_SIZE'],
+    'tyre_size_uom':     ['CYCLE_TYRE_SIZE UOM'],
+    'frame_size':        ['FRAME_SIZE'],
+    'frame_size_uom':    ['FRAME_SIZE_UOM'],
+    'num_gears':         ['NUMBER_OF_GEARS'],
+    'recommended_age':   ['RECOMMENDED_AGE'],
+    'rim_material':      ['RIM_MATERIAL'],
+    'tire_type':         ['TIRE_TYPE'],
+    'cycle_type':        ['CYCLE TYPE','CYCLE_TYPE'],
+    'wheel_size':        ['WHEEL_SIZE'],
+    'weight_capacity':   ['Weight Capacity'],
+    'wheel_size_uom':    ['WHEEL_SIZE_UOM'],
+    'ibc':               ['IBC'],
+    'skd_ckd':           ['SKD CKD','SKD_CKD'],
+    'branded_tyre':      ['Branded Tyre Or Not'],
+    'tyre_specs':        ['Tyre Specs'],
+    'basket':            ['Basket'],
+    'suspension_type':   ['Suspension Type (Front, Rear or Dual)','Suspension Type'],
+    'fork_type':         ['Fork Type (Rigid Fork or For Suspension)','Fork Type'],
+    'rear_suspension':   ['Rear Suspension (No Suspension, Shocker)','Rear Suspension'],
+    'frame_type':        ['Frame Type (Folding, Rigid)','Frame Type'],
+    'mode_of_operation': ['Mode Of operation (Manual, Battery)','Mode Of Operation'],
+    'battery_wattage':   ['Battery Wattage Power'],
+    'brake_lever_mat':   ['Brake Lever Material'],
+    'num_spokes':        ['Number Of Spokes'],
+    'chain_guard':       ['Chain Guard'],
+    'seat_type':         ['Seat Type'],
+    'water_bottle':      ['Water Bottle Holder'],
+    'image':             ['ImageURL1'],
+    'image2':            ['ImageURL2'],
+    'image3':            ['ImageURL3'],
+    'image4':            ['ImageURL4'],
+    'image5':            ['ImageURL5'],
+    'image6':            ['ImageURL6'],
+    'per_pc_sp':         ['Per Pc SP'],
+    'per_pc_mrp':        ['Per Pc MRP'],
+    'set_sp':            ['Set SP'],
+    'set_mrp':           ['Set MRP'],
+    'moq':               ['MOQ'],
+    'country':           ['Country Of Origin'],
+    'weight':            ['Weight of Product in KG'],
+    'product_color2':    ['Product Color'],
+    'dims':              ['Product Dimension (LXBXH)'],
+    'unit_measure':      ['*Unit Of Measure'],
+    'unit_measure2':     ['*Unit Of Measure.1'],
+    'mfg_year':          ['*Manufacturing Year'],
+    'hsn':               ['*HSN Code'],
+    'gst':               ['*GST'],
+}
+
+TS_BASE_COL_HINTS = {
+    'article': ['Product Code','Article Number'],
+    'sku':     ['Seller SKU ID','Child SKU'],
+}
+
+
+def get_ts_config_from_disk():
+    cfg = _load_config(TS_CONFIG_PATH, TS_DEFAULT_CONFIG)
+    cfg['pv_config'] = TS_DEFAULT_CONFIG['pv_config']
+    return cfg
+
+
+def _ts_get_pv_config(pv_name, ts_cfg):
+    pv_cfg_map = ts_cfg.get('pv_config') or TS_DEFAULT_CONFIG['pv_config']
+    key = pv_name.lower().strip()
+    if key in pv_cfg_map:
+        return pv_cfg_map[key]
+    for k, v in pv_cfg_map.items():
+        if k.lower() == key or key in k.lower() or k.lower() in key:
+            return v
+    return next(iter(pv_cfg_map.values()))
+
+
+def _ts_yes_no(val, yes_text, no_text):
+    s = safe(val).strip().lower()
+    if s in ('yes', 'y', 'true', '1'): return yes_text
+    return no_text
+
+
+def _ts_extract_tyre_size_short(tyre_size):
+    """26x2.40 -> 26 ; 700C / 700X35C -> 700C"""
+    s = safe(tyre_size).strip()
+    if not s: return ''
+    if '700' in s.upper():
+        return '700C'
+    m = re.match(r'^(\d+)', s)
+    return m.group(1) if m else s
+
+
+def _ts_make_title(brand, sub_brand, tyre_size, pv, skd_ckd, cycle_type, ibc,
+                   branded_tyre, tyre_specs, brake_type, color):
+    """
+    Title format: BrandName + Sub Brand + CYCLE_TYRE_SIZE + Product Verticle + SKD CKD
+                  + CYCLE TYPE + IBC (with/without IBC) + Branded/Non Branded
+                  + Tyre Specs + With + BRAKE_TYPE, + Product Primary Colour
+    """
+    ibc_text = _ts_yes_no(ibc, 'With IBC', 'Without IBC')
+    branded_text = _ts_yes_no(branded_tyre, 'Branded', 'Non Branded')
+    parts = [p for p in [brand, sub_brand, tyre_size, pv, skd_ckd, cycle_type,
+                          ibc_text, branded_text, tyre_specs] if p]
+    base = ' '.join(parts)
+    with_brake = f"With {brake_type}" if brake_type else ''
+    if with_brake:
+        base = f"{base} {with_brake}"
+    return f"{base}, {color}" if color else base
+
+
+def _ts_make_internal_title(brand, article, tyre_size, pv, skd_ckd, cycle_type, ibc,
+                             branded_tyre, tyre_specs, brake_type, color, set_count):
+    ibc_text = _ts_yes_no(ibc, 'With IBC', 'Without IBC')
+    branded_text = _ts_yes_no(branded_tyre, 'Branded', 'Non Branded')
+    parts = [p for p in [brand, article, tyre_size, pv, skd_ckd, cycle_type,
+                          ibc_text, branded_text, tyre_specs] if p]
+    base = ' '.join(parts)
+    with_brake = f"With {brake_type}" if brake_type else ''
+    if with_brake:
+        base = f"{base} {with_brake}"
+    suffix = f"{color}, (Set of {set_count})" if color else f"(Set of {set_count})"
+    return f"{base}, {suffix}"
+
+
+def _ts_make_article_model(sub_brand, branded_tyre, tyre_specs, ibc):
+    branded_text = _ts_yes_no(branded_tyre, 'Branded', 'Non-Branded')
+    ibc_text = _ts_yes_no(ibc, 'With IBC', 'Without IBC')
+    parts = [p for p in [sub_brand, branded_text, tyre_specs, ibc_text] if p]
+    return '_'.join(parts)
+
+
+def fill_ts_files(rows_df, col_map, pv_category, existing_articles, existing_skus):
+    """
+    Generate 5 output workbooks for one Toys & Sports PV (Gear / Non Gear / Battery Operated).
+    Returns: (wb_jpin, wb_tax, wb_pav, wb_scm, wb_l4, filled, skipped)
+    """
+    _ts_cfg = get_ts_config_from_disk()
+    brands_dict = normalize_brands(_ts_cfg.get('brands', {}))
+    fallback_brand, fallback_id = ('', '')
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+
+    pv_cfg = _ts_get_pv_config(pv_category, _ts_cfg)
+    pv_id   = pv_cfg.get('pv_id', '')
+    pv_name = pv_cfg.get('pv_name', pv_category)
+    ind_cat       = pv_cfg.get('industry_category', 'Toys and Sports')
+    ind_sub_cat   = pv_cfg.get('industry_sub_category', 'Cycle')
+    ind_prod_type = pv_cfg.get('industry_product_type', pv_category)
+
+    # ── JPIN headers ─────────────────────────────────────────────
+    JPIN_HEADERS = [
+        'JPIN','Title','Internal_Title','BrandID','BrandName','PVID','PVName',
+        'Business Category Id','Business Category Name',
+        'Product Identifier','Set Name','Set Count','Pack Name','Pack of','is Combo',
+        'Available Sizes','Set Details','Set Description','Set Composition',
+        'Product Color','Article Number','Model Name','Product Condition',
+        'ImageURL1','ImageURL2','ImageURL3','ImageURL4','ImageURL5','ImageURL6',
+        'VideoURL1','VideoURL2','SizeChartURL',
+        'CatalogStatus','StatusRemark','CustomerDiscoveryCategories',
+        'Singular Unit Of Measurement','Plural Unit Of Measurement',
+        'Singular Unit Of Measurement Abbreviation','Plural Unit Of Measurement Abbreviation',
+        'Seller SKU ID','Product Description',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy','Ingestion Row Status','Exception',
+    ]
+
+    # ── TaxMaster headers ────────────────────────────────────────
+    TAX_HEADERS = [
+        'TaxMasterID','Jpin','Title','ProductVerticalId','ProductVerticalName',
+        'hsnCode','sinTax','cess','vatPercentage','gstPercentage',
+        'cgstComponentShare','sgstComponentShare','IgstComponentShare',
+        'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
+    ]
+
+    # ── PAV headers ──────────────────────────────────────────────
+    PAV_HEADERS = [
+        'Jpin','Title','PvId','PvName','BrandId','BrandName',
+        'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+        'SUB_BRAND','USER_TYPE','DESCRIPTION','MATERIAL','CERTIFICATION',
+        'COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY','KEY_FEATURES','MANUFACTURING_YEAR',
+        'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+        'PRODUCT_WEIGHT_IN_KG','PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+        'WARRANTY','ASSEMBLY_REQUIRED','BOTTLE_HOLDER_INCLUDED','BRAKE_TYPE',
+        'BUILT-IN_MUSIC_AND_LIGHTS','CARRIER_OR_BASKET','CHAIN_GUARD',
+        'CYCLE_TYRE_SIZE','FRAME_SIZE','FRAME_SIZE_UOM','GEAR_TYPE',
+        'HANDLE_TYPE','HORN_OR_BELL','KICKSTAND','LIGHT_INCLUDED','MANUFACTURER',
+        'MUDGUARD','NUMBER_OF_GEARS','NUMBER_OF_WHEELS','PEDAL_TYPE','PORTABILITY',
+        'RECOMMENDED_AGE','REFLECTORS','RIM_MATERIAL','SADDLE_TYPE','SAFETY_FEATURES',
+        'SUPPORTED_WHEELS','SUSPENSION','TIRE_TYPE','TYPE','WHEEL_MATERIAL',
+        'WHEEL_SIZE','WHEEL_SIZE_UOM','TYRE_BRANDED_OR_NOT','CKD_SKD','TYRE_SPECS',
+        'FORK_TYPE','IBC','REAR_SUSPENSION','SUSPENSION_TYPE','MODE_OF_OPERATION',
+        'BRAKE_LEVER_MATERIAL','NUMBER_OF_SPOKES','WATER_BOTTLE_HOLDER',
+        'FRAME_TYPE','BASKET',
+    ]
+
+    # ── SCM headers ──────────────────────────────────────────────
+    SCM_HEADERS = [
+        'JPIN','Title','Net_Weight','Net_Weight_Measuring_Unit','DeadWeight',
+        'VolumetricWeight','ShippingCalculationType',
+        'L1-caseSize','L2-caseSize','L3-caseSize','L4-caseSize',
+        'L1-packagingType','L2-packagingType','L3-packagingType','L4-packagingType',
+        'L0-UnitShippingContainerType','L1-UnitShippingContainerType',
+        'L2-UnitShippingContainerType','L3-UnitShippingContainerType',
+        'L4-UnitShippingContainerType',
+        'Fragile','Brittle',
+        'length_l0','width_l0','height_l0',
+        'length_l1','width_l1','height_l1',
+        'length_l2','width_l2','height_l2',
+        'length_l3','width_l3','height_l3',
+        'length_l4','width_l4','height_l4',
+        'volumetricweight_l1','volumetricweight_l2','volumetricweight_l3','volumetricweight_l4',
+        'APMC Notified Commodity',
+        'L1-deadWeight','L2-deadWeight','L3-deadWeight','L4-deadWeight',
+        'Net_Quantity','Net_Quantity_Measuring_Unit',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy',
+    ]
+
+    # ── L4 headers ───────────────────────────────────────────────
+    L4_HEADERS = [
+        '*Type','*Industry Category','*Industry Sub Category','*Product type',
+        'Product Sub-type','*Seller SKU','Product ID','*Product Name','*Product Description',
+        '*Brand','Model Name','*Material Type','Tyre Size','Colour','*Select Age Group',
+        'Variation Theme Id','*HSN Code','*GST','Tags','Manufacturer','Warranty',
+        '*Gender','*Manufacturing Year','*Country/Region of Origin','Return Policy',
+        '*Certification','*License','*Relationship','*Parent Product Id','*Child SKU',
+        'Assembly Required','EAN Number','*Minimum Order Quantity','*MRP','*Selling Price',
+        'Product Weight (In KG)','*Unit Of Measure','Geared','Rim Material','Frame Material',
+        'Support Wheels','Operation Mode','Estimated Dispatch Time',
+        'Product Dimension (LXBXH)','Product Dimension UOM','Packaging weight(KG)',
+        '*Main Image URL','Other Image URL1','Other Image URL2','Other Image URL3',
+        'Other Image URL4','Other Image URL5','Other Image URL6','Solv Commission','JPIN',
+    ]
+
+    def _make_wb(headers, sheet_name):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+        for ci, h in enumerate(headers, 1):
+            ws.cell(1, ci).value = h
+        return wb, ws
+
+    wb_jpin, ws_jpin = _make_wb(JPIN_HEADERS, 'JPIN Template')
+    wb_tax,  ws_tax  = _make_wb(TAX_HEADERS, 'TaxMaster')
+    wb_pav,  ws_pav  = _make_wb(PAV_HEADERS, 'ProductAttributeValue')
+    wb_scm,  ws_scm  = _make_wb(SCM_HEADERS, 'SCM')
+    wb_l4,   ws_l4   = _make_wb(L4_HEADERS,  'L4')
+
+    def _col(headers):
+        return {h: i+1 for i, h in enumerate(headers) if h}
+
+    tcol_jpin = _col(JPIN_HEADERS)
+    tcol_tax  = _col(TAX_HEADERS)
+    tcol_pav  = _col(PAV_HEADERS)
+    tcol_scm  = _col(SCM_HEADERS)
+    tcol_l4   = _col(L4_HEADERS)
+
+    def _write(ws, tcol, data, row_idx):
+        for col_name, val in data.items():
+            if col_name in tcol and val is not None and str(val) not in ('None',):
+                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+
+    skipped, filled = [], 0
+
+    for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+        if not brand and fallback_brand:
+            brand = fallback_brand
+            brand_id = fallback_id
+
+        sku_raw      = safe(drow.get(col_map.get('sku',''), ''))
+        product_code = safe(drow.get(col_map.get('product_code',''), ''))
+        sub_brand    = safe(drow.get(col_map.get('sub_brand',''), ''))
+        branded_tyre = safe(drow.get(col_map.get('branded_tyre',''), ''))
+        tyre_specs   = safe(drow.get(col_map.get('tyre_specs',''), ''))
+        ibc          = safe(drow.get(col_map.get('ibc',''), ''))
+
+        article = _ts_make_article_model(sub_brand, branded_tyre, tyre_specs, ibc)
+        if not article:
+            article = product_code or sku_raw
+
+        if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
+            skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
+            continue
+
+        # Read all fields
+        product_desc  = safe(drow.get(col_map.get('product_desc',''), ''))
+        color_raw     = safe(drow.get(col_map.get('color',''), ''))
+        color         = title_case_color(color_raw)
+        set_or_unit   = safe(drow.get(col_map.get('set_or_unit',''), 'Unit'))
+        sc_raw        = safe(drow.get(col_map.get('set_count',''), '1'))
+        sc_nums       = re.findall(r'\d+', sc_raw)
+        set_count     = int(sc_nums[0]) if sc_nums else 1
+        gender_raw    = safe(drow.get(col_map.get('gender',''), ''))
+        material      = safe(drow.get(col_map.get('material',''), ''))
+        license_raw   = safe(drow.get(col_map.get('license',''), 'No'))
+        certification = safe(drow.get(col_map.get('certification',''), ''))
+        warranty      = safe(drow.get(col_map.get('warranty',''), 'No'))
+        assembly      = safe(drow.get(col_map.get('assembly',''), 'No'))
+        brake_type    = safe(drow.get(col_map.get('brake_type',''), ''))
+        tyre_size_raw = safe(drow.get(col_map.get('tyre_size',''), ''))
+        tyre_size_short = _ts_extract_tyre_size_short(tyre_size_raw)
+        tyre_size_uom = safe(drow.get(col_map.get('tyre_size_uom',''), ''))
+        frame_size    = safe(drow.get(col_map.get('frame_size',''), ''))
+        frame_size_uom= safe(drow.get(col_map.get('frame_size_uom',''), 'Inch'))
+        num_gears     = safe(drow.get(col_map.get('num_gears',''), ''))
+        rec_age       = safe(drow.get(col_map.get('recommended_age',''), ''))
+        rim_material  = safe(drow.get(col_map.get('rim_material',''), ''))
+        tire_type     = safe(drow.get(col_map.get('tire_type',''), ''))
+        cycle_type    = safe(drow.get(col_map.get('cycle_type',''), ''))
+        wheel_size    = safe(drow.get(col_map.get('wheel_size',''), ''))
+        wheel_size_uom= safe(drow.get(col_map.get('wheel_size_uom',''), 'inch'))
+        skd_ckd       = safe(drow.get(col_map.get('skd_ckd',''), ''))
+        basket        = safe(drow.get(col_map.get('basket',''), ''))
+        suspension    = safe(drow.get(col_map.get('suspension_type',''), ''))
+        fork_type     = safe(drow.get(col_map.get('fork_type',''), ''))
+        rear_susp     = safe(drow.get(col_map.get('rear_suspension',''), ''))
+        frame_type    = safe(drow.get(col_map.get('frame_type',''), ''))
+        mode_op       = safe(drow.get(col_map.get('mode_of_operation',''), ''))
+        brake_lever   = safe(drow.get(col_map.get('brake_lever_mat',''), ''))
+        num_spokes    = safe(drow.get(col_map.get('num_spokes',''), ''))
+        chain_guard   = safe(drow.get(col_map.get('chain_guard',''), ''))
+        water_bottle  = safe(drow.get(col_map.get('water_bottle',''), ''))
+
+        img_url  = safe(drow.get(col_map.get('image',''), ''))
+        img2_url = safe(drow.get(col_map.get('image2',''), ''))
+        img3_url = safe(drow.get(col_map.get('image3',''), ''))
+        img4_url = safe(drow.get(col_map.get('image4',''), ''))
+        img5_url = safe(drow.get(col_map.get('image5',''), ''))
+        img6_url = safe(drow.get(col_map.get('image6',''), ''))
+
+        mrp_raw    = drow.get(col_map.get('set_mrp',''), '')
+        sp_raw     = drow.get(col_map.get('set_sp',''), '')
+        moq_raw    = drow.get(col_map.get('moq',''), 1)
+        hsn_raw    = drow.get(col_map.get('hsn',''), '')
+        gst_raw    = drow.get(col_map.get('gst',''), 0.05)
+        weight_raw = safe(drow.get(col_map.get('weight',''), ''))
+        dim_raw    = safe(drow.get(col_map.get('dims',''), ''))
+        dim_uom    = safe(drow.get(col_map.get('unit_measure',''), 'INCH'))
+        country    = safe(drow.get(col_map.get('country',''), '')) or _ts_cfg['country_of_origin']
+        mfg_year   = safe(drow.get(col_map.get('mfg_year',''), '')) or _ts_cfg['manufacturing_year']
+
+        try:    hsn = int(float(hsn_raw)) if str(hsn_raw).strip() not in ('','nan') else ''
+        except: hsn = ''
+        try:
+            gst_f = float(gst_raw)
+            gst = int(gst_f * 100) if gst_f < 1 else int(gst_f)
+        except: gst = 5
+        try:    mrp = float(mrp_raw) if str(mrp_raw).strip() not in ('','nan') else ''
+        except: mrp = ''
+        try:    sp  = float(sp_raw)  if str(sp_raw).strip()  not in ('','nan') else ''
+        except: sp  = ''
+        try:    moq = int(float(moq_raw))
+        except: moq = 1
+
+        # Weight: strip "kg" etc
+        weight_clean = ''
+        if weight_raw:
+            m = re.search(r'([0-9.]+)', weight_raw)
+            if m: weight_clean = float(m.group(1))
+
+        L, B, H = parse_lbh(dim_raw)
+
+        # Titles
+        title = _ts_make_title(
+            brand, sub_brand, tyre_size_short, pv_name, skd_ckd, cycle_type,
+            ibc, branded_tyre, tyre_specs, brake_type, color
+        )
+        internal_title = _ts_make_internal_title(
+            brand, article, tyre_size_short, pv_name, skd_ckd, cycle_type,
+            ibc, branded_tyre, tyre_specs, brake_type, color, set_count
+        )
+
+        # Set fields
+        set_name_str = f'Set of {set_count}' if set_count > 1 else 'Set of 1'
+        set_details  = f'{color}/{set_count}' if color else f'Assorted/{set_count}'
+        set_desc     = f'{set_count}pc of {color}' if color else f'{set_count}pc of Assorted'
+        set_comp     = f'{color} :- {set_count}' if color else f'Assorted :- {set_count}'
+
+        # Derived
+        cert_text    = _ts_yes_no(certification, 'BIS', 'Non BIS')
+        license_text = _ts_yes_no(license_raw, 'Licensed', 'Non Licensed')
+        ibc_text     = _ts_yes_no(ibc, 'With IBC', 'Without IBC')
+        branded_text = _ts_yes_no(branded_tyre, 'Branded', 'Non Branded')
+        gear_type    = 'Geared' if 'gear' in pv_name.lower() and 'non' not in pv_name.lower() else ''
+        num_gears_pav = num_gears if gear_type == 'Geared' else ''
+
+        filled += 1
+        row_idx = filled + 1
+
+        # ── JPIN ──
+        jpin_row = {
+            'JPIN':                                    '',
+            'Title':                                   title,
+            'Internal_Title':                          internal_title,
+            'BrandID':                                 brand_id,
+            'BrandName':                               brand,
+            'PVID':                                    pv_id,
+            'PVName':                                  pv_name,
+            'Business Category Id':                    _ts_cfg['biz_cat_id'],
+            'Business Category Name':                  _ts_cfg['biz_cat_name'],
+            'Product Identifier':                      'Set',
+            'Set Name':                                set_name_str,
+            'Set Count':                               set_count,
+            'Pack Name':                               'Pack of 1',
+            'Pack of':                                 1,
+            'is Combo':                                'yes',
+            'Available Sizes':                         tyre_size_short,
+            'Set Details':                             set_details,
+            'Set Description':                         set_desc,
+            'Set Composition':                         set_comp,
+            'Product Color':                           color,
+            'Article Number':                          article,
+            'Model Name':                              article,
+            'Product Condition':                       _ts_cfg['product_condition'],
+            'ImageURL1':                               img_url,
+            'ImageURL2':                               img2_url,
+            'ImageURL3':                               img3_url,
+            'ImageURL4':                               img4_url,
+            'ImageURL5':                               img5_url,
+            'ImageURL6':                               img6_url,
+            'CatalogStatus':                           _ts_cfg['catalog_status'],
+            'StatusRemark':                            _ts_cfg['status_remark'],
+            'CustomerDiscoveryCategories':             _ts_cfg['discovery_cat'],
+            'Singular Unit Of Measurement':            'Piece',
+            'Plural Unit Of Measurement':              'Pieces',
+            'Singular Unit Of Measurement Abbreviation': 'Pc',
+            'Plural Unit Of Measurement Abbreviation': 'Pcs',
+            'Seller SKU ID':                           sku_raw,
+            'Product Description':                     product_desc,
+        }
+        _write(ws_jpin, tcol_jpin, jpin_row, row_idx)
+
+        # ── TaxMaster ──
+        tax_row = {
+            'Title':                title,
+            'ProductVerticalId':    pv_id,
+            'ProductVerticalName':  pv_name,
+            'hsnCode':              hsn,
+            'gstPercentage':        gst,
+            'cgstComponentShare':   _ts_cfg['gst_cgst'],
+            'sgstComponentShare':   _ts_cfg['gst_sgst'],
+            'IgstComponentShare':   _ts_cfg['gst_igst'],
+            'status':               _ts_cfg['tax_master_status'],
+        }
+        _write(ws_tax, tcol_tax, tax_row, row_idx)
+
+        # ── PAV ──
+        pav_row = {
+            'Title':                  title,
+            'PvId':                   pv_id,
+            'PvName':                 pv_name,
+            'BrandId':                brand_id,
+            'BrandName':              brand,
+            'ImageURL1':              img_url,
+            'ImageURL2':              img2_url,
+            'CatalogStatus':          _ts_cfg['catalog_status'],
+            'StatusRemark':           _ts_cfg['status_remark'],
+            'USER_TYPE':              gender_raw,
+            'MATERIAL':               material,
+            'CERTIFICATION':          cert_text,
+            'COUNTRY_OF_ORIGIN':      country,
+            'PRODUCT_BREADTH':        0,
+            'PRODUCT_DIMENSION_UOM':  '#',
+            'PRODUCT_HEIGHT':         0,
+            'PRODUCT_LENGTH':         0,
+            'PRODUCT_WEIGHT_IN_KG':   0,
+            'WARRANTY':               warranty,
+            'ASSEMBLY_REQUIRED':      assembly,
+            'BRAKE_TYPE':             brake_type,
+            'CYCLE_TYRE_SIZE':        tyre_size_short,
+            'FRAME_SIZE':             tyre_size_short,
+            'FRAME_SIZE_UOM':         frame_size_uom,
+            'GEAR_TYPE':              gear_type,
+            'NUMBER_OF_GEARS':        num_gears_pav,
+            'RECOMMENDED_AGE':        rec_age,
+            'RIM_MATERIAL':           rim_material,
+            'TIRE_TYPE':              tyre_specs,
+            'TYPE':                   cycle_type,
+            'WHEEL_SIZE':             frame_size_uom,
+            'WHEEL_SIZE_UOM':         frame_size,
+            'TYRE_BRANDED_OR_NOT':    branded_text if branded_text == 'Branded' else 'Non Branded',
+            'CKD_SKD':                skd_ckd,
+            'TYRE_SPECS':             tyre_size_raw,
+            'IBC':                    ibc_text,
+        }
+        _write(ws_pav, tcol_pav, pav_row, row_idx)
+
+        # ── SCM ──
+        scm_row = {
+            'Title':                         title,
+            'Net_Weight':                    0,
+            'Net_Weight_Measuring_Unit':     'g',
+            'DeadWeight':                    0.25,
+            'VolumetricWeight':              0,
+            'ShippingCalculationType':       'Dead Weight',
+            'L1-caseSize':                   1,
+            'L2-caseSize':                   0,
+            'L3-caseSize':                   0,
+            'L4-caseSize':                   0,
+            'L1-packagingType':              'Bag',
+            'L0-UnitShippingContainerType':  'Crate - Medium',
+            'L1-UnitShippingContainerType':  'Bag',
+            'L2-UnitShippingContainerType':  'Bag',
+            'Fragile':                       'No',
+            'Brittle':                       'No',
+            'length_l0':                     0,
+            'width_l0':                      0,
+            'height_l0':                     0,
+            'length_l1':                     24.5,
+            'width_l1':                      24.5,
+            'height_l1':                     33.5,
+            'volumetricweight_l1':           4.021675,
+            'APMC Notified Commodity':       'No',
+            'L1-deadWeight':                 0,
+            'Net_Quantity':                  1,
+            'Net_Quantity_Measuring_Unit':   'Pc',
+        }
+        _write(ws_scm, tcol_scm, scm_row, row_idx)
+
+        # ── L4 ──
+        l4_row = {
+            '*Type':                         'Unit',
+            '*Industry Category':            ind_cat,
+            '*Industry Sub Category':        ind_sub_cat,
+            '*Product type':                 ind_prod_type,
+            '*Seller SKU':                   sku_raw,
+            '*Product Name':                 internal_title,
+            '*Product Description':          product_desc,
+            '*Brand':                        brand,
+            '*Material Type':                material,
+            'Colour':                        color,
+            '*Select Age Group':             rec_age,
+            'Variation Theme Id':            'Unit',
+            '*HSN Code':                     hsn,
+            '*GST':                          gst,
+            '*Gender':                       gender_raw,
+            '*Manufacturing Year':           mfg_year,
+            '*Country/Region of Origin':     country,
+            '*Certification':                cert_text,
+            '*License':                      license_text,
+            '*Relationship':                 'Parent',
+            '*Parent Product Id':            sku_raw,
+            '*Child SKU':                    sku_raw,
+            '*Minimum Order Quantity':       moq,
+            '*MRP':                          mrp,
+            '*Selling Price':                sp,
+            'Product Weight (In KG)':        weight_clean,
+            '*Unit Of Measure':              'Pcs',
+            'Product Dimension (LXBXH)':     dim_raw,
+            'Product Dimension UOM':         dim_uom,
+            '*Main Image URL':               img_url,
+        }
+        _write(ws_l4, tcol_l4, l4_row, row_idx)
+
+    return wb_jpin, wb_tax, wb_pav, wb_scm, wb_l4, filled, skipped
+
+
+# ── Toys & Sports routes ────────────────────────────────────────
+@app.route('/ts_categories')
+def get_ts_categories():
+    return jsonify({'categories': TS_CATEGORIES})
+
+
+@app.route('/ts_config', methods=['GET'])
+def ts_config_get_route():
+    return jsonify(get_ts_config_from_disk())
+
+
+@app.route('/ts_config', methods=['POST'])
+def update_ts_config():
+    cfg  = get_ts_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(TS_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ts_config_updated', f"brands={cfg.get('brands')}")
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/detect_ts_categories', methods=['POST'])
+def detect_ts_categories():
+    try:
+        dump_file = request.files.get('dump')
+        if not dump_file:
+            return jsonify({'categories': []})
+        xl     = pd.ExcelFile(io.BytesIO(dump_file.read()))
+        frames = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        col_map  = build_col_map(all_dump, TS_DUMP_COL_HINTS)
+        pv_col   = col_map.get('pv')
+        if pv_col and pv_col in all_dump.columns:
+            found = [str(v).strip() for v in all_dump[pv_col].dropna().unique()
+                     if str(v).strip() not in ('nan','None','')]
+            matched = []
+            for v in found:
+                for cat in TS_CATEGORIES:
+                    if cat.lower() == v.lower() or cat.lower() in v.lower() or v.lower() in cat.lower():
+                        if cat not in matched:
+                            matched.append(cat)
+                        break
+            return jsonify({'categories': matched if matched else found, 'all_found': found})
+        return jsonify({'categories': [], 'all_found': []})
+    except Exception as e:
+        return jsonify({'categories': [], 'error': str(e)})
+
+
+@app.route('/process_ts', methods=['POST'])
+def process_ts():
+    """Toys & Sports processor. Produces 5 files per PV (Gear / Non Gear / Battery Operated)."""
+    try:
+        categories_raw = request.form.get('categories', '')
+        try:    categories = json.loads(categories_raw)
+        except: categories = [s.strip() for s in categories_raw.split(',') if s.strip()]
+
+        base_file = request.files.get('base_data')
+        dump_file = request.files.get('dump')
+
+        if not categories:
+            return jsonify({'error': 'Please select at least one Product Vertical'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Listing file is required'}), 400
+
+        dump_bytes = dump_file.read()
+        xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames     = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from listing file'}), 400
+
+        col_map = build_col_map(all_dump, TS_DUMP_COL_HINTS)
+        pv_col  = col_map.get('pv')
+
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf  = bxl.parse(sname)
+                    bcol = build_col_map(bdf, TS_BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except: pass
+
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows = []
+        preview_cols = ['Title','Seller SKU ID','Article Number','Product Color',
+                        'Available Sizes','Set Details','Set Count']
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for category in categories:
+                if pv_col and pv_col in all_dump.columns:
+                    mask = all_dump[pv_col].astype(str).str.strip().str.lower() == category.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2 = all_dump[pv_col].astype(str).str.lower().str.contains(
+                            re.escape(category.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                wb_jpin, wb_tax, wb_pav, wb_scm, wb_l4, filled, skipped = fill_ts_files(
+                    filtered, col_map, category, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                safe_cat = re.sub(r"[^\w\s-]", "", category).replace(" ", "_")
+                files_written = []
+                for wb_obj, label in [
+                    (wb_jpin, 'JPIN'),
+                    (wb_tax,  'TaxMaster'),
+                    (wb_pav,  'ProductAttributeValue'),
+                    (wb_scm,  'SupplyChainAttribute'),
+                    (wb_l4,   'L4'),
+                ]:
+                    fname   = f'ts_{label}_{safe_cat}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
+
+                results.append({
+                    'category': category,
+                    'filled':   filled,
+                    'skipped':  len(skipped),
+                    'files':    files_written,
+                })
+
+                ws_jpin = wb_jpin.active
+                jpin_headers = [ws_jpin.cell(1, c).value for c in range(1, ws_jpin.max_column + 1)]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for pc in preview_cols:
+                        if pc in jpin_headers:
+                            rdata[pc] = ws_jpin.cell(r, jpin_headers.index(pc)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_category': category})
+
+        out_name  = 'ts_filled_templates.zip'
+        out_ext   = '.zip'
+        zip_buf.seek(0)
+        out_bytes = zip_buf.getvalue()
+
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
+
+        write_log('anonymous', 'ts_catalog_generated',
+                  f'categories={categories} filled={grand_filled} skipped={len(all_skipped)}')
+
+        return jsonify({
+            'status':         'ok',
+            'grand_filled':   grand_filled,
+            'grand_skipped':  len(all_skipped),
+            'results':        results,
+            'skipped_details':all_skipped[:50],
+            'preview':        preview_rows,
+            'preview_cols':   preview_cols,
+            'download_token': file_token,
+            'filename':       out_name,
+            'is_zip':         True,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
 
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

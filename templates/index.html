@@ -260,6 +260,7 @@ svg{display:block}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -463,13 +464,30 @@ svg{display:block}
     <div class="fv-title">Download Templates</div>
     <div class="fv-sub">Get the blank master templates for each category.</div>
     <div class="tpl-grid">
-      <div class="tpl-card">
+      <div class="tpl-card" id="fw-tpl-card">
         <div class="tpl-card-head">
           <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17h20"/><path d="M5 14V8a3 3 0 0 1 3-3h4l2 3 4 1c2 .5 4 2 4 5v0c0 2-1 3-3 3H8c-1.5 0-3-1-3-3z"/></svg></div>
           <div class="tpl-card-name">Footwear Master Template</div>
         </div>
-        <div class="tpl-card-desc">Multi-sheet master template for all 40 Footwear product verticals with embedded validation.</div>
-        <button class="tpl-dl-btn" onclick="downloadTpl('Footwear')">Download .xlsx</button>
+        <div class="tpl-card-desc">Download the full master template or a blank template for a specific SubType.</div>
+        
+        <!-- SubType dropdown for Footwear -->
+        <div style="margin-bottom:12px">
+          <div class="dropdown-wrap" id="tpl-dd-wrap" style="position:relative">
+            <button class="dropdown-btn" id="tpl-dd-btn" onclick="toggleTplDropdown()" style="font-size:12px;padding:7px 10px;min-height:36px">
+              <span id="tpl-dd-label" class="dd-placeholder">— Select SubType (optional) —</span>
+              <span class="dropdown-arrow">▾</span>
+            </button>
+            <div class="dropdown-menu" id="tpl-dd-menu" style="max-height:320px">
+              <div class="dd-search-wrap">
+                <input class="dd-search" id="tpl-dd-search" placeholder="Search SubTypes..." oninput="filterTplDropdown(this.value)">
+              </div>
+              <div class="dd-items" id="tpl-dd-items"></div>
+            </div>
+          </div>
+        </div>
+        
+        <button class="tpl-dl-btn" id="fw-dl-btn" onclick="downloadFootwearTpl()">Download .xlsx</button>
       </div>
       <div class="tpl-card">
         <div class="tpl-card-head">
@@ -834,6 +852,7 @@ function switchView(name){
   document.getElementById('view-logs').classList.toggle('active', name==='logs');
   document.getElementById('view-help').classList.toggle('active', name==='help');
   if(name==='logs') loadLogs();
+  if(name==='templates') loadTplSubtypes();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1136,9 +1155,90 @@ function downloadFile(){ if(!downloadToken) return; window.location.href='/downl
 /* ═══════════════════════════════════════════════════════════════
    TEMPLATES DOWNLOAD
    ═══════════════════════════════════════════════════════════════ */
+let tplSelectedSubtype = null;
+let tplAllSubtypes = [];
+
+async function loadTplSubtypes(){
+  try {
+    const res = await fetch('/subtypes');
+    const data = await res.json();
+    tplAllSubtypes = data.subtypes || [];
+    renderTplDropdownItems(tplAllSubtypes);
+  } catch(e) {
+    console.error('Failed to load template subtypes:', e);
+    tplAllSubtypes = [];
+  }
+}
+
+function renderTplDropdownItems(list){
+  const container = document.getElementById('tpl-dd-items');
+  if(!container) return;
+  container.innerHTML = '';
+  const groups = {};
+  list.forEach(st => {
+    let grp = 'Other';
+    if (st.includes("'s")) {
+      grp = st.split("'s")[0] + "'s";
+    }
+    (groups[grp] = groups[grp] || []).push(st);
+  });
+  for(const [grp, items] of Object.entries(groups)){
+    const lbl = document.createElement('div');
+    lbl.className = 'dd-group-label';
+    lbl.textContent = grp;
+    container.appendChild(lbl);
+    items.forEach(st => {
+      const div = document.createElement('div');
+      div.className = 'dd-item' + (tplSelectedSubtype === st ? ' selected' : '');
+      div.innerHTML = '<div class="dd-checkbox">' + (tplSelectedSubtype === st ? '✓' : '') + '</div>' +
+        '<div class="dd-item-label">' + st + '</div>';
+      div.onclick = () => selectTplSubtype(st);
+      container.appendChild(div);
+    });
+  }
+}
+
+function filterTplDropdown(q){
+  renderTplDropdownItems(q ? tplAllSubtypes.filter(s => s.toLowerCase().includes(q.toLowerCase())) : tplAllSubtypes);
+}
+
+function toggleTplDropdown(){
+  const btn = document.getElementById('tpl-dd-btn');
+  const menu = document.getElementById('tpl-dd-menu');
+  if(!btn || !menu) return;
+  btn.classList.toggle('open');
+  menu.classList.toggle('open');
+  if(menu.classList.contains('open')){
+    const search = document.getElementById('tpl-dd-search');
+    if(search) { search.focus(); search.value = ''; }
+    renderTplDropdownItems(tplAllSubtypes);
+  }
+}
+
+function selectTplSubtype(st){
+  tplSelectedSubtype = st;
+  const lbl = document.getElementById('tpl-dd-label');
+  const btn = document.getElementById('fw-dl-btn');
+  if(lbl) {
+    lbl.textContent = st;
+    lbl.className = '';
+  }
+  if(btn) btn.textContent = 'Download Blank Template';
+  toggleTplDropdown();
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('tpl-dd-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    const btn = document.getElementById('tpl-dd-btn');
+    const menu = document.getElementById('tpl-dd-menu');
+    if(btn) btn.classList.remove('open');
+    if(menu) menu.classList.remove('open');
+  }
+});
+
 async function downloadTpl(vertical){
   try{
-    // Map display names to backend category keys
     const categoryMap = {
       'Footwear': 'Footwear',
       'Consumer Electronics': 'Consumer Electronics',
@@ -1147,21 +1247,50 @@ async function downloadTpl(vertical){
     };
     const category = categoryMap[vertical] || vertical;
     const r = await fetch('/download_template/' + encodeURIComponent(category));
-    if(!r.ok){ 
-      const d=await r.json().catch(()=>({})); 
-      showToast(d.error||'Failed to download template','error'); 
-      return; 
+    if(!r.ok){
+      const d=await r.json().catch(()=>({}));
+      showToast(d.error||'Failed to download template','error');
+      return;
     }
     const blob = await r.blob();
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); 
+    a.href = URL.createObjectURL(blob);
     a.download = category.replace(/\s+/g,'_') + '_Template.xlsx';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(a.href);
     showToast('Template downloaded successfully','success');
-  }catch(e){ 
+  }catch(e){
     console.error('Template download error:', e);
-    showToast('Network error - template download failed','error'); 
+    showToast('Network error - template download failed','error');
+  }
+}
+
+async function downloadFootwearTpl(){
+  try{
+    const category = 'Footwear';
+    let url = '/download_template/' + encodeURIComponent(category);
+    let filename = 'Footwear_Template.xlsx';
+    if(tplSelectedSubtype){
+      url += '?subtype=' + encodeURIComponent(tplSelectedSubtype);
+      const safeName = tplSelectedSubtype.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+      filename = 'Footwear_Template_' + safeName + '.xlsx';
+    }
+    const r = await fetch(url);
+    if(!r.ok){
+      const d=await r.json().catch(()=>({}));
+      showToast(d.error||'Failed to download template','error');
+      return;
+    }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    showToast('Template downloaded successfully','success');
+  }catch(e){
+    console.error('Template download error:', e);
+    showToast('Network error - template download failed','error');
   }
 }
 
@@ -1362,6 +1491,7 @@ document.getElementById('ap-cfg-modal').addEventListener('click', e => { if(e.ta
    INIT
    ═══════════════════════════════════════════════════════════════ */
 loadSubtypes();
+loadTplSubtypes();
 </script>
 </body>
 </html>

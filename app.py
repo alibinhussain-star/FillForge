@@ -56,7 +56,7 @@ def _build_header_row_map():
                         entry = {}
                         for ci, col in enumerate(hdrs):
                             if col in ('Category *','SubCategory *','CategoryType *',
-                                       'SubType','PVID *','discoveryCategoryIds'):
+                                       'SubType','PVID *','discoveryCategoryIds','ProductCode *'):
                                 v = str(ws.cell(r2, ci + 1).value or '').strip()
                                 if v and v not in ('nan','NaN','None'):
                                     entry[col] = v
@@ -280,6 +280,7 @@ def derive_gender(subtype):
     if "men" in st:   return "Men's"
     if "girl" in st:  return "Girl's"
     if "boy" in st:   return "Boy's"
+    if "infant" in st: return "Infant's"
     return ""
 
 def make_title(brand, gender, upper, closure, fw_type, color):
@@ -402,7 +403,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
     gender  = derive_gender(subtype)
     st_data = SUBTYPE_MAP.get(subtype, {})
-    skipped, filled = [], 0
+    skipped, filled = [], []
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
@@ -418,8 +419,8 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
             continue
 
-        filled  += 1
-        row_idx  = filled + 1
+        filled_count  = len(filled) + 1
+        row_idx  = filled_count + 1
 
         size_type   = safe(drow.get(col_map.get('size_type',''), 'UK')) or 'UK'
         sizes_raw   = safe(drow.get(col_map.get('sizes',''), ''))
@@ -477,6 +478,9 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         except: weight = ''
         L, B, H = parse_lbh(dim_raw)
 
+        # ProductCode * = Same as Article Number
+        product_code = article
+
         row_data = {
             'Category *':                                  st_data.get('Category *', 'Footwear'),
             'SubCategory *':                               st_data.get('SubCategory *', ''),
@@ -485,6 +489,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             'PVID *':                                      st_data.get('PVID *', ''),
             'BusinessCategoryId *':                        _cfg['biz_cat_id'],
             'BusinessCategoryName *':                      _cfg['biz_cat_name'],
+            'ProductCode *':                               product_code,
             'Relationship *':                              _cfg['relationship'],
             'ParentProductId *':                           sku_raw,
             'ChildSKU *':                                  sku_raw,
@@ -548,8 +553,9 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
             if col_name in tcol and val is not None and str(val) not in ('None',''):
                 ws.cell(row=row_idx, column=tcol[col_name]).value = val
 
-    return filled, skipped
+        filled.append({'sku': sku_raw, 'article': article})
 
+    return len(filled), skipped
 
 # ═══════════════════════════════════════════════════════════════
 # CONSUMER ELECTRONICS MODULE
@@ -1000,6 +1006,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
                 ws.cell(row=row_idx, column=tcol[col_name]).value = val
 
     return filled, skipped
+
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -2660,6 +2667,7 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 # IN-MEMORY FILE STORAGE
 FILE_STORE = {}
 
+
 # ═══════════════════════════════════════════════════════════════
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
@@ -3306,10 +3314,70 @@ def process_ce():
 
 
 
+
+# ── Subtype-specific template generator ─────────────────────────
+def _generate_blank_template(subtype):
+    """Generate a blank Excel template containing only the header row for a specific subtype."""
+    from openpyxl import Workbook
+
+    if subtype not in SUBTYPE_HEADER_ROW:
+        return None, f'SubType "{subtype}" not found in template'
+
+    wb_src = load_workbook(TEMPLATE_PATH)
+    ws_src = wb_src['PV Template']
+    hdr_row = SUBTYPE_HEADER_ROW.get(subtype, 1)
+
+    # Extract headers
+    headers = []
+    for c in range(1, ws_src.max_column + 1):
+        val = ws_src.cell(hdr_row, c).value
+        if val is not None:
+            headers.append(str(val).strip())
+
+    # Create new workbook with single sheet
+    wb_new = Workbook()
+    ws_new = wb_new.active
+    ws_new.title = 'PV Template'
+
+    # Write header row
+    for ci, h in enumerate(headers, 1):
+        ws_new.cell(1, ci).value = h
+
+    # Auto-adjust column widths
+    for ci, h in enumerate(headers, 1):
+        ws_new.column_dimensions[ws_new.cell(1, ci).column_letter].width = max(len(h) + 2, 15)
+
+    buf = io.BytesIO()
+    wb_new.save(buf)
+    buf.seek(0)
+    return buf, None
+
 @app.route('/download_template/<path:category>')
 def download_template(category):
-    """Serve the master template file for a given vertical."""
+    """Serve template file for a given vertical.
+
+    Query params:
+      - subtype: specific SubType to download (optional). If provided, returns blank template
+                 with only that subtype's headers.
+    """
     category_lower = category.lower().strip()
+    subtype = request.args.get('subtype', '').strip()
+
+    # If subtype is specified, generate blank template for that subtype
+    if subtype:
+        if category_lower not in ('footwear', 'fw', ''):
+            return jsonify({'error': 'SubType-specific download only supported for Footwear'}), 400
+
+        buf, err = _generate_blank_template(subtype)
+        if err:
+            return jsonify({'error': err}), 404
+
+        safe_name = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+        fname = f'Footwear_Template_{safe_name}.xlsx'
+        return send_file(buf, as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    # Otherwise, serve the full master template file
     if 'electronic' in category_lower or category_lower == 'ce':
         path  = CE_TEMPLATE_PATH
         fname = 'Consumer_Electronics_Template.xlsx'

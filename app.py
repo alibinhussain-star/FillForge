@@ -2766,6 +2766,22 @@ def update_ap_config():
     write_log('anonymous', 'ap_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
+@app.route('/ts_config', methods=['GET'])
+def ts_config_get_route():
+    return jsonify(get_ts_config_from_disk())
+
+@app.route('/ts_config', methods=['POST'])
+def update_ts_config():
+    cfg  = get_ts_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(TS_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ts_config_updated', f"brands={cfg.get('brands')}")
+    return jsonify({'status': 'ok'})
+
+
 @app.route('/logs')
 def get_logs():
     return jsonify({'logs': read_logs(500)})
@@ -3453,6 +3469,10 @@ def debug_config():
         'footwear_config':       cfg,
         'ce_config':             ce_cfg,
         'ap_config':             ap_cfg,
+        'ts_config_path':        TS_CONFIG_PATH,
+        'ts_config_file_exists': os.path.exists(TS_CONFIG_PATH),
+        'ts_brands':             get_ts_config_from_disk().get('brands', {}),
+        'ts_config':             get_ts_config_from_disk(),
     })
 # ═══════════════════════════════════════════════════════════════
 # TOYS & SPORTS MODULE — CYCLES (Gear / Non Gear / Battery Operated)

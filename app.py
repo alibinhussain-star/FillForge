@@ -3444,10 +3444,14 @@ def get_ts_config_from_disk():
 def _ts_get_pv_config(pv_name, ts_cfg):
     pv_cfg_map = ts_cfg.get('pv_config') or TS_DEFAULT_CONFIG['pv_config']
     key = pv_name.lower().strip()
+    # Exact match first
     if key in pv_cfg_map:
         return pv_cfg_map[key]
-    for k, v in pv_cfg_map.items():
-        if k.lower() == key or key in k.lower() or k.lower() in key:
+    # Then check for exact equality or containment (longer keys first to avoid partial matches)
+    for k in sorted(pv_cfg_map.keys(), key=len, reverse=True):
+        v = pv_cfg_map[k]
+        kl = k.lower()
+        if kl == key or key == kl or key in kl or kl in key:
             return v
     return next(iter(pv_cfg_map.values()))
 
@@ -4123,8 +4127,11 @@ def detect_ts_categories():
                      if str(v).strip() not in ('nan','None','')]
             matched = []
             for v in found:
-                for cat in TS_CATEGORIES:
-                    if cat.lower() == v.lower() or cat.lower() in v.lower() or v.lower() in cat.lower():
+                v_lower = v.lower()
+                # Sort categories by length descending so "Non Gear" is checked before "Gear"
+                for cat in sorted(TS_CATEGORIES, key=len, reverse=True):
+                    cat_lower = cat.lower()
+                    if cat_lower == v_lower or cat_lower in v_lower or v_lower in cat_lower:
                         if cat not in matched:
                             matched.append(cat)
                         break
@@ -4185,11 +4192,14 @@ def process_ts():
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
             for category in categories:
                 if pv_col and pv_col in all_dump.columns:
-                    mask = all_dump[pv_col].astype(str).str.strip().str.lower() == category.lower()
+                    col_vals = all_dump[pv_col].astype(str).str.strip().str.lower()
+                    # Exact match first
+                    mask = col_vals == category.lower()
                     filtered = all_dump[mask].copy()
                     if filtered.empty:
-                        mask2 = all_dump[pv_col].astype(str).str.lower().str.contains(
-                            re.escape(category.lower()), na=False)
+                        # Word-boundary contains to prevent "Non Gear" matching "Gear"
+                        pattern = r'\b' + re.escape(category.lower()) + r'\b'
+                        mask2 = col_vals.str.contains(pattern, na=False, regex=True)
                         filtered = all_dump[mask2].copy()
                     if filtered.empty:
                         filtered = all_dump.copy()

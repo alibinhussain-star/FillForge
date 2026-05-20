@@ -4127,11 +4127,10 @@ def detect_ts_categories():
                      if str(v).strip() not in ('nan','None','')]
             matched = []
             for v in found:
-                v_lower = v.lower()
-                # Sort categories by length descending so "Non Gear" is checked before "Gear"
-                for cat in sorted(TS_CATEGORIES, key=len, reverse=True):
-                    cat_lower = cat.lower()
-                    if cat_lower == v_lower or cat_lower in v_lower or v_lower in cat_lower:
+                v_lower = v.lower().strip()
+                # EXACT match only - prevents "Gear" from matching inside "Non Gear"
+                for cat in TS_CATEGORIES:
+                    if cat.lower() == v_lower:
                         if cat not in matched:
                             matched.append(cat)
                         break
@@ -4193,14 +4192,9 @@ def process_ts():
             for category in categories:
                 if pv_col and pv_col in all_dump.columns:
                     col_vals = all_dump[pv_col].astype(str).str.strip().str.lower()
-                    # Exact match first
+                    # EXACT match only - prevents "Non Gear" from matching "Gear"
                     mask = col_vals == category.lower()
                     filtered = all_dump[mask].copy()
-                    if filtered.empty:
-                        # Word-boundary contains to prevent "Non Gear" matching "Gear"
-                        pattern = r'\b' + re.escape(category.lower()) + r'\b'
-                        mask2 = col_vals.str.contains(pattern, na=False, regex=True)
-                        filtered = all_dump[mask2].copy()
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:

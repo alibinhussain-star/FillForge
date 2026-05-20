@@ -4264,22 +4264,5 @@ def process_ts():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
-# ── TS Config Routes (must be after get_ts_config_from_disk is defined) ──
-@app.route('/ts_config', methods=['GET'])
-def ts_config_get_route():
-    return jsonify(get_ts_config_from_disk())
-
-@app.route('/ts_config', methods=['POST'])
-def update_ts_config():
-    cfg  = get_ts_config_from_disk()
-    data = request.json
-    if 'brands' in data:
-        data['brands'] = normalize_brands(data['brands'])
-    cfg.update(data)
-    _save_config(TS_CONFIG_PATH, cfg)
-    write_log('anonymous', 'ts_config_updated', f"brands={cfg.get('brands')}")
-    return jsonify({'status': 'ok'})
-
-
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

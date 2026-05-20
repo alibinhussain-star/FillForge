@@ -269,6 +269,7 @@ svg{display:block}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -907,8 +908,70 @@ let downloadToken = null, downloadFilename = null, isZip = false;
 /* ═══════════════════════════════════════════════════════════════
    CATEGORY SWITCHING
    ═══════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════
+   NEW HELPER FUNCTIONS (File Deselect & Brand Auto-Save)
+   ═══════════════════════════════════════════════════════════════ */
+
+function clearFileInput(inputElement) {
+  try { inputElement.value = ''; } catch(ex) { }
+  if (inputElement.value) {
+    const parent = inputElement.parentNode;
+    const newInput = inputElement.cloneNode(true);
+    parent.replaceChild(newInput, inputElement);
+    return newInput;
+  }
+  return inputElement;
+}
+
+function removeFile(key) {
+  files[key] = null;
+  const zoneId = key === 'base_data' ? 'zone-base' : 'zone-dump';
+  const nameId = 'name-' + key;
+  const zone = document.getElementById(zoneId);
+  const fileInput = zone.querySelector('input[type="file"]');
+
+  clearFileInput(fileInput);
+
+  document.getElementById(nameId).textContent = 'Click to browse or drag file here';
+  zone.classList.remove('has-file');
+
+  const removeBtn = zone.querySelector('.file-remove-btn');
+  if (removeBtn) removeBtn.style.display = 'none';
+
+  if (key === 'dump') {
+    document.getElementById('auto-bar').style.display = 'none';
+    autoDetected = [];
+    selectedSubtypes.clear();
+    renderSelectedTags();
+  }
+
+  checkReady();
+}
+
+async function quickSaveBrands(prefix) {
+  const dict = prefix === 'ce-cfg' ? ceCfgBrands : (prefix === 'ap-cfg' ? apCfgBrands : (prefix === 'ts-cfg' ? tsCfgBrands : cfgBrands));
+  const endpoint = prefix === 'ce-cfg' ? '/ce_config' : (prefix === 'ap-cfg' ? '/ap_config' : (prefix === 'ts-cfg' ? '/ts_config' : '/config'));
+
+  try {
+    const res = await fetch(endpoint);
+    const currentCfg = await res.json();
+    currentCfg.brands = dict;
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(currentCfg)
+    });
+  } catch(e) {
+    console.error('Failed to auto-save brands:', e);
+    showToast('Failed to save brand removal', 'error');
+    throw e;
+  }
+}
+
 function switchCategory(cat) {
   currentCategory = cat;
+
   // Update toggle buttons
   document.querySelectorAll('.vert-tog').forEach(t => {
     t.classList.toggle('active', t.dataset.vert === cat);
@@ -947,26 +1010,34 @@ function switchCategory(cat) {
     ddPlaceholderEl.textContent = 'SubType(s)';
   }
 
-  // Reset state
+  // === CRITICAL FIX: Reset all state ===
   selectedSubtypes.clear();
   autoDetected = [];
-  files.dump = null;
-  files.base_data = null;
-  document.getElementById('name-dump').textContent = 'Click to browse or drag file here';
-  document.getElementById('name-base_data').textContent = 'Click to browse or drag file here';
-  document.getElementById('zone-dump').classList.remove('has-file');
-  document.getElementById('zone-base').classList.remove('has-file');
-  document.getElementById('auto-bar').style.display = 'none';
+
+  // Reset dropdown UI
   document.getElementById('dd-label').textContent = '— choose ' + (cat === 'AP' || cat === 'TS' ? 'Category(s)' : 'SubType(s)') + ' —';
   document.getElementById('dd-label').className = 'dd-placeholder';
   document.getElementById('selected-tags').innerHTML = '';
   document.getElementById('err-box').style.display = 'none';
 
-  // Reset results
+  // CRITICAL FIX: Hide previous results and reset right panel
   document.getElementById('status-bar').style.display = 'none';
   document.getElementById('empty-state').style.display = 'flex';
   document.getElementById('table-area').style.display = 'none';
   document.getElementById('skip-section').style.display = 'none';
+  document.getElementById('dl-bar').style.display = 'none';
+  document.getElementById('right-sub').textContent = 'Upload files and generate to see preview';
+
+  // Clear result data
+  document.getElementById('result-breakdown').innerHTML = '';
+  document.getElementById('t-head').innerHTML = '';
+  document.getElementById('t-body').innerHTML = '';
+  document.getElementById('skip-body').innerHTML = '';
+
+  // Reset download state
+  downloadToken = null;
+  downloadFilename = null;
+  isZip = false;
 
   // Load appropriate subtypes/categories
   loadSubtypes();
@@ -1133,22 +1204,59 @@ async function detectVerticals(){
   }catch(e){}
 }
 
-function onFile(input,key){
-  const file=input.files[0]; if(!file) return;
-  files[key]=file; document.getElementById('name-'+key).textContent=file.name;
-  input.closest('.upload-zone').classList.add('has-file');
-  checkReady(); if(key==='dump') detectVerticals();
+function onFile(input, key) {
+  const file = input.files[0];
+  if (!file) return;
+  files[key] = file;
+  document.getElementById('name-' + key).textContent = file.name;
+  const zone = input.closest('.upload-zone');
+  zone.classList.add('has-file');
+
+  // Add or show remove button
+  let removeBtn = zone.querySelector('.file-remove-btn');
+  if (!removeBtn) {
+    removeBtn = document.createElement('span');
+    removeBtn.className = 'file-remove-btn';
+    removeBtn.innerHTML = '✕';
+    removeBtn.style.cssText = 'margin-left:auto;padding:4px 8px;cursor:pointer;color:var(--danger);font-weight:600;border-radius:4px;font-size:13px;transition:background .15s;z-index:10;';
+    removeBtn.onmouseenter = function() { this.style.background = 'var(--danger-bg)'; };
+    removeBtn.onmouseleave = function() { this.style.background = 'transparent'; };
+    removeBtn.onclick = function(e) { e.preventDefault(); e.stopPropagation(); removeFile(key); };
+    zone.appendChild(removeBtn);
+  }
+  removeBtn.style.display = 'inline-flex';
+
+  checkReady();
+  if (key === 'dump') detectVerticals();
 }
 function onDrag(e,id){e.preventDefault();document.getElementById(id).classList.add('dragover')}
 function offDrag(id){document.getElementById(id).classList.remove('dragover')}
-function onDrop(e,key){
+function onDrop(e, key) {
   e.preventDefault();
-  const id=key==='base_data'?'zone-base':'zone-dump'; offDrag(id);
-  const file=e.dataTransfer.files[0]; if(!file) return;
-  files[key]=file;
-  document.getElementById('name-'+key).textContent=file.name;
-  document.getElementById(id).classList.add('has-file');
-  checkReady(); if(key==='dump') detectVerticals();
+  const id = key === 'base_data' ? 'zone-base' : 'zone-dump'; offDrag(id);
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  files[key] = file;
+  document.getElementById('name-' + key).textContent = file.name;
+  const zone = document.getElementById(id);
+  zone.classList.add('has-file');
+
+  // Add or show remove button for drag-drop
+  let removeBtn = zone.querySelector('.file-remove-btn');
+  if (!removeBtn) {
+    removeBtn = document.createElement('span');
+    removeBtn.className = 'file-remove-btn';
+    removeBtn.innerHTML = '✕';
+    removeBtn.style.cssText = 'margin-left:auto;padding:4px 8px;cursor:pointer;color:var(--danger);font-weight:600;border-radius:4px;font-size:13px;transition:background .15s;z-index:10;';
+    removeBtn.onmouseenter = function() { this.style.background = 'var(--danger-bg)'; };
+    removeBtn.onmouseleave = function() { this.style.background = 'transparent'; };
+    removeBtn.onclick = function(ev) { ev.preventDefault(); ev.stopPropagation(); removeFile(key); };
+    zone.appendChild(removeBtn);
+  }
+  removeBtn.style.display = 'inline-flex';
+
+  checkReady();
+  if (key === 'dump') detectVerticals();
 }
 function checkReady(){ document.getElementById('btn-run').disabled = !(selectedSubtypes.size>0 && files.dump); }
 
@@ -1501,11 +1609,15 @@ function addBrand(prefix){
   renderBrandTags(prefix, dict, containerId);
   nameIn.value = ''; idIn.value = '';
 }
-function removeBrand(prefix, name){
-  const dict = prefix==='ce-cfg' ? ceCfgBrands : (prefix==='ap-cfg' ? apCfgBrands : (prefix==='ts-cfg' ? tsCfgBrands : cfgBrands));
+async function removeBrand(prefix, name) {
+  const dict = prefix === 'ce-cfg' ? ceCfgBrands : (prefix === 'ap-cfg' ? apCfgBrands : (prefix === 'ts-cfg' ? tsCfgBrands : cfgBrands));
   delete dict[name];
-  const containerId = prefix==='ce-cfg'?'ce-cfg-brands-list':(prefix==='ap-cfg'?'ap-cfg-brands-list':(prefix==='ts-cfg'?'ts-cfg-brands-list':'cfg-brands-list'));
+  const containerId = prefix === 'ce-cfg' ? 'ce-cfg-brands-list' : (prefix === 'ap-cfg' ? 'ap-cfg-brands-list' : (prefix === 'ts-cfg' ? 'ts-cfg-brands-list' : 'cfg-brands-list'));
   renderBrandTags(prefix, dict, containerId);
+
+  // Auto-save to backend immediately
+  await quickSaveBrands(prefix);
+  showToast('Brand removed & saved ✓', 'success');
 }
 async function openConfig(){
   const res=await fetch('/config'); const d=await res.json();

@@ -2766,22 +2766,6 @@ def update_ap_config():
     write_log('anonymous', 'ap_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
-@app.route('/ts_config', methods=['GET'])
-def ts_config_get_route():
-    return jsonify(get_ts_config_from_disk())
-
-@app.route('/ts_config', methods=['POST'])
-def update_ts_config():
-    cfg  = get_ts_config_from_disk()
-    data = request.json
-    if 'brands' in data:
-        data['brands'] = normalize_brands(data['brands'])
-    cfg.update(data)
-    _save_config(TS_CONFIG_PATH, cfg)
-    write_log('anonymous', 'ts_config_updated', f"brands={cfg.get('brands')}")
-    return jsonify({'status': 'ok'})
-
-
 @app.route('/logs')
 def get_logs():
     return jsonify({'logs': read_logs(500)})
@@ -3451,153 +3435,6 @@ def test_brand():
         'conclusion': 'Brand will appear in title' if fallback_brand else 'NO BRAND — brands dict is empty!',
     })
 
-@app.route('/debug_config')
-def debug_config():
-    cfg    = get_config()
-    ce_cfg = get_ce_config_from_disk()
-    ap_cfg = get_ap_config_from_disk()
-    return jsonify({
-        'config_path':           CONFIG_PATH,
-        'ce_config_path':        CE_CONFIG_PATH,
-        'ap_config_path':        AP_CONFIG_PATH,
-        'config_file_exists':    os.path.exists(CONFIG_PATH),
-        'ce_config_file_exists': os.path.exists(CE_CONFIG_PATH),
-        'ap_config_file_exists': os.path.exists(AP_CONFIG_PATH),
-        'footwear_brands':       cfg.get('brands', {}),
-        'ce_brands':             ce_cfg.get('brands', {}),
-        'ap_brands':             ap_cfg.get('brands', {}),
-        'footwear_config':       cfg,
-        'ce_config':             ce_cfg,
-        'ap_config':             ap_cfg,
-        'ts_config_path':        TS_CONFIG_PATH,
-        'ts_config_file_exists': os.path.exists(TS_CONFIG_PATH),
-        'ts_brands':             get_ts_config_from_disk().get('brands', {}),
-        'ts_config':             get_ts_config_from_disk(),
-    })
-# ═══════════════════════════════════════════════════════════════
-# TOYS & SPORTS MODULE — CYCLES (Gear / Non Gear / Battery Operated)
-# ═══════════════════════════════════════════════════════════════
-
-TS_CONFIG_PATH = '/tmp/fillforge_ts_config.json'
-
-TS_DEFAULT_CONFIG = {
-    "brands":              {"Avitree": "BR-1190299999"},
-    "biz_cat_id":          "BCAT-139427",
-    "biz_cat_name":        "Toys & Sports",
-    "relationship":        "Parent",
-    "catalog_status":      "ACTIVE",
-    "status_remark":       "Ready to Launch",
-    "tax_master_status":   "active",
-    "gst_cgst":            50,
-    "gst_sgst":            50,
-    "gst_igst":            0,
-    "country_of_origin":   "India",
-    "product_condition":   "Fresh",
-    "manufacturing_year":  "2025",
-    "discovery_cat":       "DISCAT-135529",
-    "pv_config": {
-        "gear": {
-            "pv_id":   "PV-1914272830",
-            "pv_name": "Gear",
-            "industry_category":     "Toys and Sports",
-            "industry_sub_category": "Cycle",
-            "industry_product_type": "Gear",
-        },
-        "non gear": {
-            "pv_id":   "PV-1914272829",
-            "pv_name": "Non Gear",
-            "industry_category":     "Toys and Sports",
-            "industry_sub_category": "Cycle",
-            "industry_product_type": "Non Gear",
-        },
-        "battery operated": {
-            "pv_id":   "PV-1914272831",
-            "pv_name": "Battery Operated",
-            "industry_category":     "Toys and Sports",
-            "industry_sub_category": "Cycle",
-            "industry_product_type": "Battery Operated",
-        },
-    },
-}
-
-TS_CATEGORIES = ['Gear', 'Non Gear', 'Battery Operated']
-
-TS_DUMP_COL_HINTS = {
-    'pv':                ['Product Verticle','Product Vertical','PV'],
-    'variant_id':        ['Variant ID'],
-    'seller_name':       ['Seller Name'],
-    'product_name':      ['Product Name'],
-    'product_desc':      ['Product Description'],
-    'brand':             ['BrandName','Brand Name','Brand'],
-    'sub_brand':         ['Sub brand name','Sub Brand Name','Sub Brand'],
-    'color':             ['Product Primary Colour','Product Primary Color','Product Color'],
-    'set_or_unit':       ['Set or Unit'],
-    'set_count':         ['Number Of Pcs in Set','Number oF Pcs in Set'],
-    'sku':               ['Seller SKU ID'],
-    'product_code':      ['Product Code'],
-    'gender':            ['Gender'],
-    'material':          ['Material'],
-    'license':           ['License'],
-    'certification':     ['CERTIFICATION'],
-    'warranty':          ['WARRANTY'],
-    'assembly':          ['ASSEMBLY_REQUIRED'],
-    'brake_type':        ['BRAKE_TYPE'],
-    'tyre_size':         ['CYCLE_TYRE_SIZE'],
-    'tyre_size_uom':     ['CYCLE_TYRE_SIZE UOM'],
-    'frame_size':        ['FRAME_SIZE'],
-    'frame_size_uom':    ['FRAME_SIZE_UOM'],
-    'num_gears':         ['NUMBER_OF_GEARS'],
-    'recommended_age':   ['RECOMMENDED_AGE'],
-    'rim_material':      ['RIM_MATERIAL'],
-    'tire_type':         ['TIRE_TYPE'],
-    'cycle_type':        ['CYCLE TYPE','CYCLE_TYPE'],
-    'wheel_size':        ['WHEEL_SIZE'],
-    'weight_capacity':   ['Weight Capacity'],
-    'wheel_size_uom':    ['WHEEL_SIZE_UOM'],
-    'ibc':               ['IBC'],
-    'skd_ckd':           ['SKD CKD','SKD_CKD'],
-    'branded_tyre':      ['Branded Tyre Or Not'],
-    'tyre_specs':        ['Tyre Specs'],
-    'basket':            ['Basket'],
-    'suspension_type':   ['Suspension Type (Front, Rear or Dual)','Suspension Type'],
-    'fork_type':         ['Fork Type (Rigid Fork or For Suspension)','Fork Type'],
-    'rear_suspension':   ['Rear Suspension (No Suspension, Shocker)','Rear Suspension'],
-    'frame_type':        ['Frame Type (Folding, Rigid)','Frame Type'],
-    'mode_of_operation': ['Mode Of operation (Manual, Battery)','Mode Of Operation'],
-    'battery_wattage':   ['Battery Wattage Power'],
-    'brake_lever_mat':   ['Brake Lever Material'],
-    'num_spokes':        ['Number Of Spokes'],
-    'chain_guard':       ['Chain Guard'],
-    'seat_type':         ['Seat Type'],
-    'water_bottle':      ['Water Bottle Holder'],
-    'image':             ['ImageURL1'],
-    'image2':            ['ImageURL2'],
-    'image3':            ['ImageURL3'],
-    'image4':            ['ImageURL4'],
-    'image5':            ['ImageURL5'],
-    'image6':            ['ImageURL6'],
-    'per_pc_sp':         ['Per Pc SP'],
-    'per_pc_mrp':        ['Per Pc MRP'],
-    'set_sp':            ['Set SP'],
-    'set_mrp':           ['Set MRP'],
-    'moq':               ['MOQ'],
-    'country':           ['Country Of Origin'],
-    'weight':            ['Weight of Product in KG'],
-    'product_color2':    ['Product Color'],
-    'dims':              ['Product Dimension (LXBXH)'],
-    'unit_measure':      ['*Unit Of Measure'],
-    'unit_measure2':     ['*Unit Of Measure.1'],
-    'mfg_year':          ['*Manufacturing Year'],
-    'hsn':               ['*HSN Code'],
-    'gst':               ['*GST'],
-}
-
-TS_BASE_COL_HINTS = {
-    'article': ['Product Code','Article Number'],
-    'sku':     ['Seller SKU ID','Child SKU'],
-}
-
-
 def get_ts_config_from_disk():
     cfg = _load_config(TS_CONFIG_PATH, TS_DEFAULT_CONFIG)
     cfg['pv_config'] = TS_DEFAULT_CONFIG['pv_config']
@@ -4095,6 +3932,155 @@ def fill_ts_files(rows_df, col_map, pv_category, existing_articles, existing_sku
     return wb_jpin, wb_tax, wb_pav, wb_scm, wb_l4, filled, skipped
 
 
+
+@app.route('/debug_config')
+def debug_config():
+    cfg    = get_config()
+    ce_cfg = get_ce_config_from_disk()
+    ap_cfg = get_ap_config_from_disk()
+    return jsonify({
+        'config_path':           CONFIG_PATH,
+        'ce_config_path':        CE_CONFIG_PATH,
+        'ap_config_path':        AP_CONFIG_PATH,
+        'config_file_exists':    os.path.exists(CONFIG_PATH),
+        'ce_config_file_exists': os.path.exists(CE_CONFIG_PATH),
+        'ap_config_file_exists': os.path.exists(AP_CONFIG_PATH),
+        'footwear_brands':       cfg.get('brands', {}),
+        'ce_brands':             ce_cfg.get('brands', {}),
+        'ap_brands':             ap_cfg.get('brands', {}),
+        'footwear_config':       cfg,
+        'ce_config':             ce_cfg,
+        'ap_config':             ap_cfg,
+        'ts_config_path':        TS_CONFIG_PATH,
+        'ts_config_file_exists': os.path.exists(TS_CONFIG_PATH),
+        'ts_brands':             get_ts_config_from_disk().get('brands', {}),
+        'ts_config':             get_ts_config_from_disk(),
+    })
+# ═══════════════════════════════════════════════════════════════
+# TOYS & SPORTS MODULE — CYCLES (Gear / Non Gear / Battery Operated)
+# ═══════════════════════════════════════════════════════════════
+
+TS_CONFIG_PATH = '/tmp/fillforge_ts_config.json'
+
+TS_DEFAULT_CONFIG = {
+    "brands":              {"Avitree": "BR-1190299999"},
+    "biz_cat_id":          "BCAT-139427",
+    "biz_cat_name":        "Toys & Sports",
+    "relationship":        "Parent",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2025",
+    "discovery_cat":       "DISCAT-135529",
+    "pv_config": {
+        "gear": {
+            "pv_id":   "PV-1914272830",
+            "pv_name": "Gear",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Gear",
+        },
+        "non gear": {
+            "pv_id":   "PV-1914272829",
+            "pv_name": "Non Gear",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Non Gear",
+        },
+        "battery operated": {
+            "pv_id":   "PV-1914272831",
+            "pv_name": "Battery Operated",
+            "industry_category":     "Toys and Sports",
+            "industry_sub_category": "Cycle",
+            "industry_product_type": "Battery Operated",
+        },
+    },
+}
+
+TS_CATEGORIES = ['Gear', 'Non Gear', 'Battery Operated']
+
+TS_DUMP_COL_HINTS = {
+    'pv':                ['Product Verticle','Product Vertical','PV'],
+    'variant_id':        ['Variant ID'],
+    'seller_name':       ['Seller Name'],
+    'product_name':      ['Product Name'],
+    'product_desc':      ['Product Description'],
+    'brand':             ['BrandName','Brand Name','Brand'],
+    'sub_brand':         ['Sub brand name','Sub Brand Name','Sub Brand'],
+    'color':             ['Product Primary Colour','Product Primary Color','Product Color'],
+    'set_or_unit':       ['Set or Unit'],
+    'set_count':         ['Number Of Pcs in Set','Number oF Pcs in Set'],
+    'sku':               ['Seller SKU ID'],
+    'product_code':      ['Product Code'],
+    'gender':            ['Gender'],
+    'material':          ['Material'],
+    'license':           ['License'],
+    'certification':     ['CERTIFICATION'],
+    'warranty':          ['WARRANTY'],
+    'assembly':          ['ASSEMBLY_REQUIRED'],
+    'brake_type':        ['BRAKE_TYPE'],
+    'tyre_size':         ['CYCLE_TYRE_SIZE'],
+    'tyre_size_uom':     ['CYCLE_TYRE_SIZE UOM'],
+    'frame_size':        ['FRAME_SIZE'],
+    'frame_size_uom':    ['FRAME_SIZE_UOM'],
+    'num_gears':         ['NUMBER_OF_GEARS'],
+    'recommended_age':   ['RECOMMENDED_AGE'],
+    'rim_material':      ['RIM_MATERIAL'],
+    'tire_type':         ['TIRE_TYPE'],
+    'cycle_type':        ['CYCLE TYPE','CYCLE_TYPE'],
+    'wheel_size':        ['WHEEL_SIZE'],
+    'weight_capacity':   ['Weight Capacity'],
+    'wheel_size_uom':    ['WHEEL_SIZE_UOM'],
+    'ibc':               ['IBC'],
+    'skd_ckd':           ['SKD CKD','SKD_CKD'],
+    'branded_tyre':      ['Branded Tyre Or Not'],
+    'tyre_specs':        ['Tyre Specs'],
+    'basket':            ['Basket'],
+    'suspension_type':   ['Suspension Type (Front, Rear or Dual)','Suspension Type'],
+    'fork_type':         ['Fork Type (Rigid Fork or For Suspension)','Fork Type'],
+    'rear_suspension':   ['Rear Suspension (No Suspension, Shocker)','Rear Suspension'],
+    'frame_type':        ['Frame Type (Folding, Rigid)','Frame Type'],
+    'mode_of_operation': ['Mode Of operation (Manual, Battery)','Mode Of Operation'],
+    'battery_wattage':   ['Battery Wattage Power'],
+    'brake_lever_mat':   ['Brake Lever Material'],
+    'num_spokes':        ['Number Of Spokes'],
+    'chain_guard':       ['Chain Guard'],
+    'seat_type':         ['Seat Type'],
+    'water_bottle':      ['Water Bottle Holder'],
+    'image':             ['ImageURL1'],
+    'image2':            ['ImageURL2'],
+    'image3':            ['ImageURL3'],
+    'image4':            ['ImageURL4'],
+    'image5':            ['ImageURL5'],
+    'image6':            ['ImageURL6'],
+    'per_pc_sp':         ['Per Pc SP'],
+    'per_pc_mrp':        ['Per Pc MRP'],
+    'set_sp':            ['Set SP'],
+    'set_mrp':           ['Set MRP'],
+    'moq':               ['MOQ'],
+    'country':           ['Country Of Origin'],
+    'weight':            ['Weight of Product in KG'],
+    'product_color2':    ['Product Color'],
+    'dims':              ['Product Dimension (LXBXH)'],
+    'unit_measure':      ['*Unit Of Measure'],
+    'unit_measure2':     ['*Unit Of Measure.1'],
+    'mfg_year':          ['*Manufacturing Year'],
+    'hsn':               ['*HSN Code'],
+    'gst':               ['*GST'],
+}
+
+TS_BASE_COL_HINTS = {
+    'article': ['Product Code','Article Number'],
+    'sku':     ['Seller SKU ID','Child SKU'],
+}
+
+
+
 # ── Toys & Sports routes ────────────────────────────────────────
 @app.route('/ts_categories')
 def get_ts_categories():
@@ -4277,6 +4263,22 @@ def process_ts():
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+
+# ── TS Config Routes (must be after get_ts_config_from_disk is defined) ──
+@app.route('/ts_config', methods=['GET'])
+def ts_config_get_route():
+    return jsonify(get_ts_config_from_disk())
+
+@app.route('/ts_config', methods=['POST'])
+def update_ts_config():
+    cfg  = get_ts_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(TS_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ts_config_updated', f"brands={cfg.get('brands')}")
+    return jsonify({'status': 'ok'})
 
 
 if __name__ == '__main__':

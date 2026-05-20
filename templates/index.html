@@ -293,21 +293,6 @@ svg{display:block}
   </div>
 </div>
 
-<script>
-function closeWelcomePopup(){
-  document.getElementById('welcome-popup').classList.remove('open');
-  localStorage.setItem('fillforge_welcome_seen_v06', 'true');
-}
-// Show welcome popup on first visit (v0.6)
-document.addEventListener('DOMContentLoaded', function(){
-  if(!localStorage.getItem('fillforge_welcome_seen_v06')){
-    setTimeout(function(){
-      document.getElementById('welcome-popup').classList.add('open');
-    }, 800);
-  }
-});
-</script>
-
 
 <aside class="sidebar">
   <div class="sb-brand">
@@ -897,6 +882,20 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <div class="toast" id="toast"></div>
 <script>
+/* ── Welcome Popup ─────────────────────────────────────────── */
+function closeWelcomePopup(){
+  document.getElementById('welcome-popup').classList.remove('open');
+  localStorage.setItem('fillforge_welcome_seen_v06', 'true');
+}
+// Show welcome popup on first visit (v0.6)
+document.addEventListener('DOMContentLoaded', function(){
+  if(!localStorage.getItem('fillforge_welcome_seen_v06')){
+    setTimeout(function(){
+      document.getElementById('welcome-popup').classList.add('open');
+    }, 800);
+  }
+});
+
 /* ═══════════════════════════════════════════════════════════════
    GLOBAL STATE
    ═══════════════════════════════════════════════════════════════ */
@@ -1496,16 +1495,16 @@ function addBrand(prefix){
   const idIn   = document.getElementById(prefix+'-brand-id-input');
   const name = nameIn.value.trim(); const id = idIn.value.trim();
   if(!name || !id){ showToast('Enter both brand name and ID','error'); return; }
-  const dict = prefix==='ce-cfg' ? ceCfgBrands : (prefix==='ap-cfg' ? apCfgBrands : cfgBrands);
+  const dict = prefix==='ce-cfg' ? ceCfgBrands : (prefix==='ap-cfg' ? apCfgBrands : (prefix==='ts-cfg' ? tsCfgBrands : cfgBrands));
   dict[name] = id;
-  const containerId = prefix==='ce-cfg'?'ce-cfg-brands-list':(prefix==='ap-cfg'?'ap-cfg-brands-list':'cfg-brands-list');
+  const containerId = prefix==='ce-cfg'?'ce-cfg-brands-list':(prefix==='ap-cfg'?'ap-cfg-brands-list':(prefix==='ts-cfg'?'ts-cfg-brands-list':'cfg-brands-list'));
   renderBrandTags(prefix, dict, containerId);
   nameIn.value = ''; idIn.value = '';
 }
 function removeBrand(prefix, name){
-  const dict = prefix==='ce-cfg' ? ceCfgBrands : (prefix==='ap-cfg' ? apCfgBrands : cfgBrands);
+  const dict = prefix==='ce-cfg' ? ceCfgBrands : (prefix==='ap-cfg' ? apCfgBrands : (prefix==='ts-cfg' ? tsCfgBrands : cfgBrands));
   delete dict[name];
-  const containerId = prefix==='ce-cfg'?'ce-cfg-brands-list':(prefix==='ap-cfg'?'ap-cfg-brands-list':'cfg-brands-list');
+  const containerId = prefix==='ce-cfg'?'ce-cfg-brands-list':(prefix==='ap-cfg'?'ap-cfg-brands-list':(prefix==='ts-cfg'?'ts-cfg-brands-list':'cfg-brands-list'));
   renderBrandTags(prefix, dict, containerId);
 }
 async function openConfig(){

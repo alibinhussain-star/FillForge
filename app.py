@@ -1007,6 +1007,956 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
     return filled, skipped
 
+    # ═══════════════════════════════════════════════════════════════
+# CE 5-FILE PROCESS MODULE (Smart Phone & Feature Phone)
+# Generates: JPIN, ProductAttributeValue, L3, TaxMaster, SCM
+# ═══════════════════════════════════════════════════════════════
+
+CE5_CONFIG_PATH = '/tmp/fillforge_ce5_config.json'
+
+CE5_DEFAULT_CONFIG = {
+    "brands": {
+        "Nothing":  "BR-1190296500",
+        "Redmi":    "BR-1190296387",
+        "AI Plus":  "BR-1190300100",
+        "Iqoo":     "BR-1190296450",
+        "Motorola": "BR-1190296386",
+        "Oppo":     "BR-1190296391",
+        "Realme":   "BR-1190296393",
+        "Itel":     "BR-1190296555",
+        "Samsung":  "BR-1190296380",
+        "Karbonn":  "BR-1190296392",
+    },
+    "biz_cat_id":          "BCAT-139438",
+    "biz_cat_name":        "Consumer Electronics",
+    "discovery_cat":       "DISCAT-135528",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2026",
+    "pv_config": {
+        "smart phone": {
+            "pv_id":   "PV-1914272826",
+            "pv_name": "Smartphones",
+        },
+        "feature phone": {
+            "pv_id":   "PV-1914272825",
+            "pv_name": "Feature Phones",
+        },
+    },
+}
+
+CE5_CATEGORIES = ['Smart Phone', 'Feature Phone']
+
+# Column hints for the input listing file
+CE5_DUMP_COL_HINTS = {
+    'seller_name':       ['Seller Name'],
+    'seller_solv_id':    ['Seller Solv ID'],
+    'ind_category':      ['Industry Category'],
+    'ind_sub_category':  ['Industry Sub Category'],
+    'product_type':      ['Product Type'],
+    'product_subtype':   ['Product Sub-type'],
+    'child_sku':         ['Child SKU','SKU','Seller SKU ID'],
+    'relationship':      ['Relationship'],
+    'parent_product_id': ['Parent Product ID'],
+    'brand':             ['Brand','Brand Name'],
+    'model_title':       ['Name of the model/Title name','Name of the model','Model Title'],
+    'product_desc':      ['Product Description'],
+    'product_id_pref':   ['Product ID (Preferred)'],
+    'gst':               ['GST'],
+    'image':             ['Main Image URL','Image Link'],
+    'image2':            ['Other Image URL 1'],
+    'image3':            ['Other Image URL 2'],
+    'image4':            ['Other Image URL 3'],
+    'image5':            ['Other Image URL 4'],
+    'image6':            ['Other Image URL 5'],
+    'warranty':          ['Warranty Period','Warranty'],
+    'country':           ['Country/Region of Origin','Country of Origin'],
+    'packaging_qty':     ['Packaging Quantity'],
+    'packaging_type':    ['Packaging Type'],
+    'hsn':               ['HSN Code'],
+    'mrp':               ['MRP'],
+    'sp':                ['Selling Price'],
+    'moq':               ['*Minimum Order Quantity','MOQ'],
+    'sku_id':            ['SKU ID','Child SKU'],
+    'ram':               ['RAM'],
+    'dims':              ['*Product Dimension (LXBXH)','Product Dimension (LXBXH)'],
+    'dim_uom':           ['*Product Dimension UOM','Product Dimension UOM'],
+    'weight':            ['Product Weight'],
+    'storage':           ['Storage Capacity'],
+    'retail_margin':     ['Retail Margin'],
+    'model_number':      ['Model Number'],
+    'battery':           ['Battery Capacity'],
+    'sim_type':          ['Sim Type'],
+    'os':                ['Operating System'],
+    'front_camera':      ['Front Camera'],
+    'back_camera':       ['Back Camera'],
+    'product_condition': ['Product Condition'],
+    'network_support':   ['Network Support'],
+    'processor_core':    ['Processor Core'],
+    'variant_image':     ['Variant Image URL'],
+    'screen_size':       ['Screen Size'],
+    'color':             ['Product Color','Product Colour'],
+    'solv_commission':   ['solv commission'],
+    'ean':               ['EAN Number','EAN'],
+    'stock':             ['Stock'],
+    'type':              ['*Type','Type'],
+}
+
+CE5_EXISTING_DUMP_HINTS = {
+    'jpin':          ['JPIN','Jpin','jpin'],
+    'title':         ['Title','title','Product Name','Internal_Title'],
+    'internal_title':['Internal_Title','Internal Title'],
+    'child_sku':     ['Child SKU','ChildSKU','Seller SKU ID','SKU'],
+}
+
+
+def get_ce5_config_from_disk():
+    cfg = _load_config(CE5_CONFIG_PATH, CE5_DEFAULT_CONFIG)
+    # Always use code defaults for pv_config
+    cfg['pv_config'] = CE5_DEFAULT_CONFIG['pv_config']
+    return cfg
+
+
+def _ce5_get_pv_config(pv_name, ce5_cfg):
+    """Get PV config by Product Type (Smart Phone / Feature Phone)."""
+    pv_cfg_map = ce5_cfg.get('pv_config') or CE5_DEFAULT_CONFIG['pv_config']
+    key = pv_name.lower().strip()
+    if key in pv_cfg_map:
+        return pv_cfg_map[key]
+    for k, v in pv_cfg_map.items():
+        if k.lower() == key or key in k.lower() or k.lower() in key:
+            return v
+    return next(iter(pv_cfg_map.values()))
+
+
+def _ce5_normalize_text(s):
+    """Normalize string for fuzzy matching (lowercase, strip, collapse spaces)."""
+    if not s: return ''
+    s = str(s).strip().lower()
+    s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r'[^\w\s/+()-]', '', s)
+    return s.strip()
+
+
+def _ce5_build_existing_jpin_map(existing_dump_bytes):
+    """
+    Parse existing dump file and build a map of {normalized_title: JPIN}.
+    Tries to read both 'Title' and 'Internal_Title' columns for matching.
+    """
+    if not existing_dump_bytes:
+        return {}
+    jpin_map = {}
+    try:
+        xl = pd.ExcelFile(io.BytesIO(existing_dump_bytes))
+        for sname in xl.sheet_names:
+            try:
+                df = xl.parse(sname)
+            except:
+                continue
+            col_map = build_col_map(df, CE5_EXISTING_DUMP_HINTS)
+            jpin_col  = col_map.get('jpin')
+            title_col = col_map.get('title')
+            int_col   = col_map.get('internal_title')
+            sku_col   = col_map.get('child_sku')
+            if not jpin_col:
+                continue
+            for _, r in df.iterrows():
+                jpin_val = safe(r.get(jpin_col, ''))
+                if not jpin_val:
+                    continue
+                # Map by Title
+                if title_col:
+                    t = safe(r.get(title_col, ''))
+                    nt = _ce5_normalize_text(t)
+                    if nt and nt not in jpin_map:
+                        jpin_map[nt] = jpin_val
+                # Map by Internal_Title
+                if int_col:
+                    t = safe(r.get(int_col, ''))
+                    nt = _ce5_normalize_text(t)
+                    if nt and nt not in jpin_map:
+                        jpin_map[nt] = jpin_val
+                # Map by SKU
+                if sku_col:
+                    s = safe(r.get(sku_col, ''))
+                    if s:
+                        skey = f'__sku__{_ce5_normalize_text(s)}'
+                        if skey not in jpin_map:
+                            jpin_map[skey] = jpin_val
+    except Exception as e:
+        print(f'Warning: could not parse existing dump: {e}')
+    return jpin_map
+
+
+def _ce5_lookup_jpin(title, internal_title, sku, jpin_map):
+    """Try to find existing JPIN by matching title, internal_title, or SKU."""
+    if not jpin_map:
+        return ''
+    for candidate in [title, internal_title]:
+        nt = _ce5_normalize_text(candidate)
+        if nt and nt in jpin_map:
+            return jpin_map[nt]
+    # Try SKU lookup
+    if sku:
+        skey = f'__sku__{_ce5_normalize_text(sku)}'
+        if skey in jpin_map:
+            return jpin_map[skey]
+    return ''
+
+
+def _ce5_extract_number_only(s):
+    """Extract first integer from a string. '32MP' -> '32', '5G' -> '5'."""
+    if not s: return ''
+    m = re.search(r'(\d+(?:\.\d+)?)', str(s))
+    return m.group(1) if m else ''
+
+
+def _ce5_extract_screen_size_fmt(screen):
+    """Format screen size to '6.7"' format."""
+    if not screen: return ''
+    m = re.search(r'(\d+(?:\.\d+)?)', str(screen))
+    if m: return f'{m.group(1)}"'
+    return str(screen).strip()
+
+
+def _ce5_smartphone_title(brand, model_number, back_camera, pv_name, ram, storage, color, condition):
+    """
+    Smart Phone Title:
+    Brand + Model Number + Back Camera + PV Name + , RAM+Internal Storage, Colour, (Condition)
+    """
+    bc_part = ''
+    if back_camera:
+        bc_num = _ce5_extract_number_only(back_camera)
+        if bc_num:
+            bc_part = f'{bc_num}MP Camera'
+        else:
+            bc_part = back_camera
+
+    pv_short = pv_name.replace('Smartphones', 'Smart Phone') if pv_name else 'Smart Phone'
+
+    parts = [p for p in [brand, model_number, bc_part, pv_short] if p]
+    base = ' '.join(parts)
+
+    # RAM + Storage
+    ram_clean = re.sub(r'\s+', '', str(ram)) if ram else ''
+    sto_clean = re.sub(r'\s+', '', str(storage)) if storage else ''
+    ram_rom = ''
+    if ram_clean and sto_clean:
+        ram_rom = f'{ram_clean} + {sto_clean}'
+    elif ram_clean:
+        ram_rom = ram_clean
+    elif sto_clean:
+        ram_rom = sto_clean
+
+    suffix_parts = []
+    if ram_rom: suffix_parts.append(ram_rom)
+    if color:   suffix_parts.append(color)
+    if condition: suffix_parts.append(f'({condition})')
+
+    if suffix_parts:
+        return f'{base}, {", ".join(suffix_parts)}'
+    return base
+
+
+def _ce5_feature_phone_title(brand, model_number, screen_size, color, condition):
+    """
+    Feature Phone Title:
+    Brand + Model Name + Screen Size (1.8" format) + "Display" + PV Name, Colour (Product Condition)
+    """
+    ss = _ce5_extract_screen_size_fmt(screen_size)
+    display_part = f'{ss} Display' if ss else ''
+    parts = [p for p in [brand, model_number, display_part, 'Feature Phone'] if p]
+    base = ' '.join(parts)
+    suffix_parts = []
+    if color:     suffix_parts.append(color)
+    if condition: suffix_parts.append(f'({condition})')
+    if suffix_parts:
+        return f'{base}, {", ".join(suffix_parts)}'
+    return base
+
+
+def _ce5_clean_model_number(model_num, brand):
+    """Remove brand name from Model Number per mapping logic."""
+    if not model_num: return ''
+    s = str(model_num).strip()
+    if brand:
+        s = re.sub(rf'^\s*{re.escape(brand)}\s+', '', s, flags=re.IGNORECASE).strip()
+    return s
+
+
+def _ce5_extract_os_version(os_str):
+    """Take Number from OS string; if no number → '#'."""
+    if not os_str: return '#'
+    m = re.search(r'(\d+(?:\.\d+)?)', str(os_str))
+    return m.group(1) if m else '#'
+
+
+def fill_ce5_files(rows_df, col_map, pv_category, existing_articles, existing_skus, jpin_map):
+    """
+    Generate 5 output workbooks for one CE PV (Smart Phone / Feature Phone).
+    Returns: (wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped)
+    """
+    _ce5_cfg = get_ce5_config_from_disk()
+    brands_dict = normalize_brands(_ce5_cfg.get('brands', {}))
+    fallback_brand, fallback_id = ('', '')
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+
+    pv_cfg = _ce5_get_pv_config(pv_category, _ce5_cfg)
+    pv_id   = pv_cfg.get('pv_id', '')
+    pv_name = pv_cfg.get('pv_name', pv_category)
+    is_smart = 'smart' in pv_category.lower()
+
+    # ── JPIN headers ─────────────────────────────────────────────
+    JPIN_HEADERS = [
+        'JPIN','Title','Internal_Title','BrandID','BrandName','PVID','PVName',
+        'Business Category Id','Business Category Name',
+        'Product Identifier','Set Name','Set Count','Pack Name','Pack of','is Combo',
+        'Available Sizes','Set Details','Set Description','Set Composition',
+        'Product Color','Article Number','Model Name','Product Condition',
+        'ImageURL1','ImageURL2','ImageURL3','ImageURL4','ImageURL5','ImageURL6',
+        'VideoURL1','VideoURL2','SizeChartURL',
+        'CatalogStatus','StatusRemark','CustomerDiscoveryCategories',
+        'Singular Unit Of Measurement','Plural Unit Of Measurement',
+        'Singular Unit Of Measurement Abbreviation','Plural Unit Of Measurement Abbreviation',
+        'Seller SKU ID','Product Description',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy','Ingestion Row Status','Exception',
+    ]
+
+    # ── TaxMaster headers ────────────────────────────────────────
+    TAX_HEADERS = [
+        'TaxMasterID','Jpin','Title','ProductVerticalId','ProductVerticalName',
+        'hsnCode','sinTax','cess','vatPercentage','gstPercentage',
+        'cgstComponentShare','sgstComponentShare','IgstComponentShare',
+        'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
+    ]
+
+    # ── SCM headers ──────────────────────────────────────────────
+    SCM_HEADERS = [
+        'JPIN','Title','Net_Weight','Net_Weight_Measuring_Unit','DeadWeight',
+        'VolumetricWeight','ShippingCalculationType',
+        'L1-caseSize','L2-caseSize','L3-caseSize','L4-caseSize',
+        'L1-packagingType','L2-packagingType','L3-packagingType','L4-packagingType',
+        'L0-UnitShippingContainerType','L1-UnitShippingContainerType',
+        'L2-UnitShippingContainerType','L3-UnitShippingContainerType',
+        'L4-UnitShippingContainerType',
+        'Fragile','Brittle',
+        'length_l0','width_l0','height_l0',
+        'length_l1','width_l1','height_l1',
+        'length_l2','width_l2','height_l2',
+        'length_l3','width_l3','height_l3',
+        'length_l4','width_l4','height_l4',
+        'volumetricweight_l1','volumetricweight_l2','volumetricweight_l3','volumetricweight_l4',
+        'APMC Notified Commodity',
+        'L1-deadWeight','L2-deadWeight','L3-deadWeight','L4-deadWeight',
+        'Net_Quantity','Net_Quantity_Measuring_Unit',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy',
+    ]
+
+    # ── PAV headers (different for Smart vs Feature) ────────────
+    if is_smart:
+        PAV_HEADERS = [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'DESCRIPTION','BATTERY_CAPACITY_MAH','CHARGING_TYPE_SUPPORTED',
+            'COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY','KEY_FEATURES','MANUFACTURING_YEAR',
+            'PACKAGE_CONTENTS','PORT_TYPE',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_WEIGHT_IN_KG','PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'WARRANTY','MANUFACTURER','OPERATING_SYSTEM_OS','OS_VERSION',
+            'PROCESSOR_BRAND_AND_MODEL_NAME','NUMBER_OF_PROCESSOR_CORES',
+            'DISPLAY_SIZE','DISPLAY_RESOLUTION','RAM','INTERNAL_STORAGE',
+            'PRIMARY_CAMERA_RESOLUTION','FRONT_CAMERA_RESOLUTION','REAR_FLASH',
+            'SIM_TYPE','SIM_SIZE','WIFI','BLUETOOTH_VERSION','FINGERPRINT_SENSOR',
+            'CLOCK_SPEED','REFRESH_RATE','TOUCHSCREEN_TYPE',
+            'EXPANDABLE_STORAGE_TYPE','EXPANDABLE_STORAGE_CAPACITY_MAX',
+            'PRIMARY_CAMERA_SETUP','FRONT_FLASH','VIDEO_RECORDING_RESOLUTION',
+            'BATTERY_TYPE','REMOVABLE_BATTERY','FAST_CHARGING_WATTAGE',
+            'WIRELESS_CHARGING_SUPPORT','HYBRID_SIM_SLOT','NETWORK_TYPE_SUPPORTED',
+            'GPS_SUPPORT','NFC_SUPPORT','INFRARED_IR_BLASTER','AUDIO_JACK',
+            'FINGERPRINT_SENSOR_POSITION','FACE_UNLOCK','WATER_RESISTANCE_RATING',
+            'TORCH_OR_FLASHLIGHT','RAM_ROM',
+        ]
+    else:
+        PAV_HEADERS = [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'DESCRIPTION','BATTERY_CAPACITY_MAH','CHARGING_TYPE_SUPPORTED',
+            'COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY','KEY_FEATURES','MANUFACTURING_YEAR',
+            'PACKAGE_CONTENTS','PORT_TYPE',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_WEIGHT_IN_KG','PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'WARRANTY','MANUFACTURER','OPERATING_SYSTEM_OS','OS_VERSION',
+            'DISPLAY_SIZE','DISPLAY_TYPE','DISPLAY_RESOLUTION',
+            'RAM','INTERNAL_STORAGE','EXPANDABLE_STORAGE',
+            'SIM_TYPE','BLUETOOTH_VERSION',
+            'EXPANDABLE_STORAGE_TYPE','EXPANDABLE_STORAGE_CAPACITY_MAX',
+            'BATTERY_TYPE','REMOVABLE_BATTERY','HYBRID_SIM_SLOT',
+            'NETWORK_TYPE_SUPPORTED','AUDIO_JACK','FM_RADIO',
+            'TORCH_OR_FLASHLIGHT','RAM_ROM',
+        ]
+
+    # ── L3 headers ───────────────────────────────────────────────
+    L3_HEADERS = [
+        'Industry Category','Industry Sub Category','Product Type','Product Sub-type',
+        'Child SKU','Relationship','Parent Product ID','Brand','Name of the model',
+        'Product Description','Product ID (Preferred)','GST',
+        'Main Image URL','Other Image URL 1','Warranty Period','Country/Region of Origin',
+        'Packaging Quantity','Packaging Type','HSN Code','MRP','Selling Price',
+        '*Minimum Order Quantity','SKU ID','RAM',
+        '*Product Dimension (LXBXH)','*Product Dimension UOM','Product Weight',
+        'Storage Capacity','Retail Margin','Other Image URL 2','Model Number',
+        'Battery Capacity','Sim Type','Operating System','Front Camera','Back Camera',
+        'Product Condition','Network Support','Processor Core','Variant Image URL',
+        'Screen Size','Product Color','solv commission','EAN Number','Stock','*Type','JPIN',
+    ]
+
+    def _make_wb(headers, sheet_name):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+        for ci, h in enumerate(headers, 1):
+            ws.cell(1, ci).value = h
+        return wb, ws
+
+    wb_jpin, ws_jpin = _make_wb(JPIN_HEADERS, 'JPIN Template')
+    wb_tax,  ws_tax  = _make_wb(TAX_HEADERS,  'TaxMaster')
+    wb_pav,  ws_pav  = _make_wb(PAV_HEADERS,  'ProductAttributeValue')
+    wb_scm,  ws_scm  = _make_wb(SCM_HEADERS,  'SCM')
+    wb_l3,   ws_l3   = _make_wb(L3_HEADERS,   'L3')
+
+    def _col(headers):
+        return {h: i+1 for i, h in enumerate(headers) if h}
+
+    tcol_jpin = _col(JPIN_HEADERS)
+    tcol_tax  = _col(TAX_HEADERS)
+    tcol_pav  = _col(PAV_HEADERS)
+    tcol_scm  = _col(SCM_HEADERS)
+    tcol_l3   = _col(L3_HEADERS)
+
+    def _write(ws, tcol, data, row_idx):
+        for col_name, val in data.items():
+            if col_name in tcol and val is not None and str(val) not in ('None',):
+                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+
+    skipped, filled = [], 0
+
+    # Deduplicate parent rows: each unique (Child SKU + Color) becomes one row
+    seen_keys = set()
+
+    for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+        if not brand and fallback_brand:
+            brand = fallback_brand
+            brand_id = fallback_id
+
+        child_sku = safe(drow.get(col_map.get('child_sku',''), ''))
+        if not child_sku:
+            continue
+
+        color_raw = safe(drow.get(col_map.get('color',''), ''))
+        color     = title_case_color(color_raw)
+
+        # Dedupe key
+        dedupe_key = f'{child_sku.upper()}__{color.upper()}'
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+
+        # Read raw fields
+        model_title    = safe(drow.get(col_map.get('model_title',''), ''))
+        model_num_raw  = safe(drow.get(col_map.get('model_number',''), ''))
+        model_number   = _ce5_clean_model_number(model_num_raw, brand)
+        if not model_number:
+            model_number = _ce5_clean_model_number(model_title, brand)
+
+        product_desc   = safe(drow.get(col_map.get('product_desc',''), ''))
+        ram            = safe(drow.get(col_map.get('ram',''), ''))
+        storage        = safe(drow.get(col_map.get('storage',''), ''))
+        front_camera   = safe(drow.get(col_map.get('front_camera',''), ''))
+        back_camera    = safe(drow.get(col_map.get('back_camera',''), ''))
+        screen_size    = safe(drow.get(col_map.get('screen_size',''), ''))
+        battery        = safe(drow.get(col_map.get('battery',''), ''))
+        sim_type       = safe(drow.get(col_map.get('sim_type',''), ''))
+        os_raw         = safe(drow.get(col_map.get('os',''), ''))
+        processor_core = safe(drow.get(col_map.get('processor_core',''), ''))
+        network        = safe(drow.get(col_map.get('network_support',''), ''))
+        warranty       = safe(drow.get(col_map.get('warranty',''), ''))
+        condition      = safe(drow.get(col_map.get('product_condition',''), '')) or _ce5_cfg['product_condition']
+        country        = safe(drow.get(col_map.get('country',''), '')) or _ce5_cfg['country_of_origin']
+        packing_qty    = safe(drow.get(col_map.get('packaging_qty',''), '')) or '1'
+        packing_type   = safe(drow.get(col_map.get('packaging_type',''), '')) or 'Box'
+        retail_margin  = safe(drow.get(col_map.get('retail_margin',''), ''))
+        variant_img    = safe(drow.get(col_map.get('variant_image',''), ''))
+        solv_comm      = safe(drow.get(col_map.get('solv_commission',''), ''))
+        ean            = safe(drow.get(col_map.get('ean',''), ''))
+        stock          = safe(drow.get(col_map.get('stock',''), ''))
+        type_raw       = safe(drow.get(col_map.get('type',''), '')) or 'Unit'
+
+        img_url  = safe(drow.get(col_map.get('image',''), ''))
+        img2_url = safe(drow.get(col_map.get('image2',''), ''))
+        img3_url = safe(drow.get(col_map.get('image3',''), ''))
+        img4_url = safe(drow.get(col_map.get('image4',''), ''))
+        img5_url = safe(drow.get(col_map.get('image5',''), ''))
+        img6_url = safe(drow.get(col_map.get('image6',''), ''))
+
+        mrp_raw    = drow.get(col_map.get('mrp',''), '')
+        sp_raw     = drow.get(col_map.get('sp',''), '')
+        moq_raw    = drow.get(col_map.get('moq',''), 1)
+        hsn_raw    = drow.get(col_map.get('hsn',''), '')
+        gst_raw    = drow.get(col_map.get('gst',''), 18)
+        weight_raw = safe(drow.get(col_map.get('weight',''), ''))
+        dim_raw    = safe(drow.get(col_map.get('dims',''), ''))
+        dim_uom    = safe(drow.get(col_map.get('dim_uom',''), '')) or 'cm'
+
+        try:    hsn = int(float(hsn_raw)) if str(hsn_raw).strip() not in ('','nan') else ''
+        except: hsn = ''
+        try:    gst = int(float(gst_raw))
+        except: gst = 18
+        try:    mrp = float(mrp_raw) if str(mrp_raw).strip() not in ('','nan') else ''
+        except: mrp = ''
+        try:    sp  = float(sp_raw)  if str(sp_raw).strip()  not in ('','nan') else ''
+        except: sp  = ''
+        try:    moq = int(float(moq_raw))
+        except: moq = 1
+
+        weight_clean = ''
+        if weight_raw:
+            m = re.search(r'([0-9.]+)', weight_raw)
+            if m: weight_clean = float(m.group(1))
+
+        L, B, H = parse_lbh(dim_raw)
+
+        # Build RAM + Storage combo
+        ram_clean = re.sub(r'\s+', '', str(ram)) if ram else ''
+        sto_clean = re.sub(r'\s+', '', str(storage)) if storage else ''
+        ram_rom = f'{ram_clean} + {sto_clean}' if (ram_clean and sto_clean) else (ram_clean or sto_clean or '')
+        set_details = f'{ram_clean}+{sto_clean}' if (ram_clean and sto_clean) else (ram_clean or sto_clean or '')
+
+        # Build Title
+        if is_smart:
+            title = _ce5_smartphone_title(brand, model_number, back_camera, pv_name,
+                                          ram_clean, sto_clean, color, condition)
+        else:
+            title = _ce5_feature_phone_title(brand, model_number, screen_size, color, condition)
+        internal_title = title
+
+        # JPIN Lookup
+        existing_jpin = _ce5_lookup_jpin(title, internal_title, child_sku, jpin_map)
+
+        # Set Description per category
+        set_desc = '1pc of Smartphones' if is_smart else '1pc of Feature Phone'
+
+        filled += 1
+        row_idx = filled + 1
+
+        # ── JPIN ──
+        jpin_row = {
+            'JPIN':                                    existing_jpin,
+            'Title':                                   title,
+            'Internal_Title':                          internal_title,
+            'BrandID':                                 brand_id,
+            'BrandName':                               brand,
+            'PVID':                                    pv_id,
+            'PVName':                                  pv_name,
+            'Business Category Id':                    _ce5_cfg['biz_cat_id'],
+            'Business Category Name':                  _ce5_cfg['biz_cat_name'],
+            'Product Identifier':                      'Set',
+            'Set Name':                                'Set of 1',
+            'Set Count':                               1,
+            'Pack Name':                               'Pack of 1',
+            'Pack of':                                 1,
+            'is Combo':                                'yes',
+            'Available Sizes':                         '1',
+            'Set Details':                             set_details,
+            'Set Description':                         set_desc,
+            'Set Composition':                         'Set :- 1',
+            'Product Color':                           color,
+            'Article Number':                          model_number,
+            'Model Name':                              model_number,
+            'Product Condition':                       condition,
+            'ImageURL1':                               img_url,
+            'ImageURL2':                               img2_url,
+            'ImageURL3':                               img3_url,
+            'ImageURL4':                               img4_url,
+            'ImageURL5':                               img5_url,
+            'ImageURL6':                               img6_url,
+            'CatalogStatus':                           _ce5_cfg['catalog_status'],
+            'StatusRemark':                            _ce5_cfg['status_remark'],
+            'CustomerDiscoveryCategories':             _ce5_cfg['discovery_cat'],
+            'Singular Unit Of Measurement':            'Piece',
+            'Plural Unit Of Measurement':              'Pieces',
+            'Singular Unit Of Measurement Abbreviation': 'Pc',
+            'Plural Unit Of Measurement Abbreviation': 'Pcs',
+            'Seller SKU ID':                           child_sku,
+            'Product Description':                     product_desc,
+        }
+        _write(ws_jpin, tcol_jpin, jpin_row, row_idx)
+
+        # ── TaxMaster ──
+        tax_row = {
+            'Jpin':                 existing_jpin,
+            'Title':                title,
+            'ProductVerticalId':    pv_id,
+            'ProductVerticalName':  pv_name,
+            'hsnCode':              hsn,
+            'gstPercentage':        gst,
+            'cgstComponentShare':   _ce5_cfg['gst_cgst'],
+            'sgstComponentShare':   _ce5_cfg['gst_sgst'],
+            'IgstComponentShare':   _ce5_cfg['gst_igst'],
+            'status':               _ce5_cfg['tax_master_status'],
+        }
+        _write(ws_tax, tcol_tax, tax_row, row_idx)
+
+        # ── PAV ──
+        if is_smart:
+            pav_row = {
+                'Jpin':                          existing_jpin,
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ce5_cfg['catalog_status'],
+                'StatusRemark':                  _ce5_cfg['status_remark'],
+                'BATTERY_CAPACITY_MAH':          battery,
+                'COUNTRY_OF_ORIGIN':             country,
+                'PRODUCT_BREADTH':               0.0,
+                'PRODUCT_DIMENSION_UOM':         '#',
+                'PRODUCT_HEIGHT':                0.0,
+                'PRODUCT_LENGTH':                0.0,
+                'PRODUCT_WEIGHT_IN_KG':          0.0,
+                'OPERATING_SYSTEM_OS':           os_raw,
+                'OS_VERSION':                    _ce5_extract_os_version(os_raw),
+                'NUMBER_OF_PROCESSOR_CORES':     processor_core,
+                'DISPLAY_SIZE':                  _ce5_extract_screen_size_fmt(screen_size),
+                'RAM':                           ram,
+                'INTERNAL_STORAGE':              storage,
+                'PRIMARY_CAMERA_RESOLUTION':     back_camera,
+                'FRONT_CAMERA_RESOLUTION':       front_camera,
+                'RAM_ROM':                       ram_rom,
+            }
+        else:
+            pav_row = {
+                'Jpin':                          existing_jpin,
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ce5_cfg['catalog_status'],
+                'StatusRemark':                  _ce5_cfg['status_remark'],
+                'BATTERY_CAPACITY_MAH':          battery,
+                'COUNTRY_OF_ORIGIN':             country,
+                'PRODUCT_BREADTH':               0.0,
+                'PRODUCT_DIMENSION_UOM':         '#',
+                'PRODUCT_HEIGHT':                0.0,
+                'PRODUCT_LENGTH':                0.0,
+                'PRODUCT_WEIGHT_IN_KG':          0.0,
+                'DISPLAY_SIZE':                  _ce5_extract_screen_size_fmt(screen_size),
+                'RAM':                           ram if ram else '#',
+                'INTERNAL_STORAGE':              storage if storage else '#',
+                'RAM_ROM':                       ram_rom if ram_rom else '#',
+            }
+        _write(ws_pav, tcol_pav, pav_row, row_idx)
+
+        # ── SCM ──
+        scm_row = {
+            'JPIN':                          existing_jpin,
+            'Title':                         title,
+            'Net_Weight':                    0,
+            'Net_Weight_Measuring_Unit':     'g',
+            'DeadWeight':                    0.25,
+            'VolumetricWeight':              0,
+            'ShippingCalculationType':       'Dead Weight',
+            'L1-caseSize':                   1,
+            'L2-caseSize':                   0,
+            'L3-caseSize':                   0,
+            'L4-caseSize':                   0,
+            'L1-packagingType':              'Bag',
+            'L0-UnitShippingContainerType':  'Crate - Medium',
+            'L1-UnitShippingContainerType':  'Bag',
+            'L2-UnitShippingContainerType':  'Bag',
+            'Fragile':                       'No',
+            'Brittle':                       'No',
+            'length_l0':                     0,
+            'width_l0':                      0,
+            'height_l0':                     0,
+            'length_l1':                     24,
+            'width_l1':                      24,
+            'height_l1':                     33,
+            'volumetricweight_l1':           4.021675,
+            'APMC Notified Commodity':       'No',
+            'L1-deadWeight':                 0,
+            'Net_Quantity':                  1,
+            'Net_Quantity_Measuring_Unit':   'Pc',
+        }
+        _write(ws_scm, tcol_scm, scm_row, row_idx)
+
+        # ── L3 ──
+        l3_row = {
+            'Industry Category':            'Consumer Electronics',
+            'Industry Sub Category':        'Mobile',
+            'Product Type':                 'Smart Phone' if is_smart else 'Feature Phone',
+            'Child SKU':                    child_sku,
+            'Relationship':                 'Parent',
+            'Parent Product ID':            child_sku,
+            'Brand':                        brand,
+            'Name of the model':            title,
+            'Product Description':          product_desc,
+            'GST':                          gst,
+            'Main Image URL':               img_url,
+            'Other Image URL 1':            img2_url,
+            'Warranty Period':              warranty,
+            'Country/Region of Origin':     country,
+            'Packaging Quantity':           packing_qty,
+            'Packaging Type':               packing_type,
+            'HSN Code':                     hsn,
+            'MRP':                          mrp,
+            'Selling Price':                sp,
+            '*Minimum Order Quantity':      moq,
+            'SKU ID':                       child_sku,
+            'RAM':                          ram,
+            '*Product Dimension (LXBXH)':   dim_raw,
+            '*Product Dimension UOM':       dim_uom,
+            'Product Weight':               weight_clean,
+            'Storage Capacity':             storage,
+            'Retail Margin':                retail_margin,
+            'Other Image URL 2':            img3_url,
+            'Model Number':                 model_number,
+            'Battery Capacity':             battery,
+            'Sim Type':                     sim_type,
+            'Operating System':             os_raw,
+            'Front Camera':                 front_camera,
+            'Back Camera':                  back_camera,
+            'Product Condition':            condition,
+            'Network Support':              network,
+            'Processor Core':               processor_core,
+            'Variant Image URL':            variant_img,
+            'Screen Size':                  screen_size,
+            'Product Color':                color,
+            'solv commission':              solv_comm,
+            'EAN Number':                   ean,
+            'Stock':                        stock,
+            '*Type':                        type_raw,
+            'JPIN':                         existing_jpin,
+        }
+        _write(ws_l3, tcol_l3, l3_row, row_idx)
+
+    return wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped
+
+
+# ── CE 5-File Routes ────────────────────────────────────────────
+
+@app.route('/ce5_categories')
+def get_ce5_categories():
+    return jsonify({'categories': CE5_CATEGORIES})
+
+
+@app.route('/ce5_config', methods=['GET'])
+def ce5_config_get_route():
+    return jsonify(get_ce5_config_from_disk())
+
+
+@app.route('/ce5_config', methods=['POST'])
+def update_ce5_config():
+    cfg  = get_ce5_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(CE5_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ce5_config_updated', f"brands={cfg.get('brands')}")
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/detect_ce5_categories', methods=['POST'])
+def detect_ce5_categories():
+    try:
+        dump_file = request.files.get('dump')
+        if not dump_file:
+            return jsonify({'categories': []})
+        xl = pd.ExcelFile(io.BytesIO(dump_file.read()))
+        frames = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        col_map = build_col_map(all_dump, CE5_DUMP_COL_HINTS)
+        pt_col = col_map.get('product_type')
+        if pt_col and pt_col in all_dump.columns:
+            found = [str(v).strip() for v in all_dump[pt_col].dropna().unique()
+                     if str(v).strip() not in ('nan','None','')]
+            matched = []
+            for v in found:
+                vl = v.lower().strip()
+                for cat in CE5_CATEGORIES:
+                    if cat.lower() == vl or cat.lower().replace(' ','') == vl.replace(' ',''):
+                        if cat not in matched:
+                            matched.append(cat)
+                        break
+            return jsonify({'categories': matched if matched else found, 'all_found': found})
+        return jsonify({'categories': [], 'all_found': []})
+    except Exception as e:
+        return jsonify({'categories': [], 'error': str(e)})
+
+
+@app.route('/process_ce5', methods=['POST'])
+def process_ce5():
+    """CE 5-File processor: generates JPIN, PAV, SCM, TaxMaster, L3 per PV."""
+    try:
+        categories_raw = request.form.get('categories', '')
+        try:    categories = json.loads(categories_raw)
+        except: categories = [s.strip() for s in categories_raw.split(',') if s.strip()]
+
+        base_file     = request.files.get('base_data')
+        dump_file     = request.files.get('dump')
+        existing_file = request.files.get('existing_dump')
+
+        if not categories:
+            return jsonify({'error': 'Please select at least one Product Type'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Listing file is required'}), 400
+
+        dump_bytes = dump_file.read()
+        xl = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from listing file'}), 400
+
+        col_map = build_col_map(all_dump, CE5_DUMP_COL_HINTS)
+        pt_col = col_map.get('product_type')
+
+        # Build JPIN lookup from existing dump
+        jpin_map = {}
+        if existing_file:
+            existing_bytes = existing_file.read()
+            jpin_map = _ce5_build_existing_jpin_map(existing_bytes)
+
+        # Build base existing-articles/skus set (for skip logic - optional)
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf  = bxl.parse(sname)
+                    bcol = build_col_map(bdf, CE_BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except: pass
+
+        results, all_skipped, grand_filled = [], [], 0
+        jpin_matched_count = 0
+        preview_rows = []
+        preview_cols = ['Title','Seller SKU ID','Article Number','Product Color',
+                        'Set Details','Set Count','JPIN']
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for category in categories:
+                if pt_col and pt_col in all_dump.columns:
+                    col_vals = all_dump[pt_col].astype(str).str.strip().str.lower()
+                    mask = col_vals == category.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        # try with whitespace removed
+                        mask2 = col_vals.str.replace(' ','') == category.lower().replace(' ','')
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped = fill_ce5_files(
+                    filtered, col_map, category, existing_articles, existing_skus, jpin_map
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                # Count JPIN matches
+                ws_j = wb_jpin.active
+                for r in range(2, filled + 2):
+                    if ws_j.cell(r, 1).value:
+                        jpin_matched_count += 1
+
+                safe_cat = re.sub(r"[^\w\s-]", "", category).replace(" ", "_")
+                files_written = []
+                for wb_obj, label in [
+                    (wb_jpin, 'JPIN'),
+                    (wb_tax,  'TaxMaster'),
+                    (wb_pav,  'ProductAttributeValue'),
+                    (wb_scm,  'SupplyChainAttribute'),
+                    (wb_l3,   'L3'),
+                ]:
+                    fname   = f'ce_{label}_{safe_cat}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
+
+                results.append({
+                    'category': category,
+                    'filled':   filled,
+                    'skipped':  len(skipped),
+                    'files':    files_written,
+                })
+
+                ws_jpin_p = wb_jpin.active
+                jpin_headers = [ws_jpin_p.cell(1, c).value for c in range(1, ws_jpin_p.max_column + 1)]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for pc in preview_cols:
+                        if pc in jpin_headers:
+                            rdata[pc] = ws_jpin_p.cell(r, jpin_headers.index(pc)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_category': category})
+
+        out_name  = 'ce_5files_filled.zip'
+        zip_buf.seek(0)
+        out_bytes = zip_buf.getvalue()
+
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': '.zip', 'created': time.time()}
+
+        write_log('anonymous', 'ce5_catalog_generated',
+                  f'categories={categories} filled={grand_filled} jpin_matched={jpin_matched_count}')
+
+        return jsonify({
+            'status':         'ok',
+            'grand_filled':   grand_filled,
+            'grand_skipped':  len(all_skipped),
+            'jpin_matched':   jpin_matched_count,
+            'results':        results,
+            'skipped_details':all_skipped[:50],
+            'preview':        preview_rows,
+            'preview_cols':   preview_cols,
+            'download_token': file_token,
+            'filename':       out_name,
+            'is_zip':         True,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
 
 
 # ═══════════════════════════════════════════════════════════════

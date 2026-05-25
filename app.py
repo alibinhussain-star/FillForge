@@ -688,11 +688,36 @@ def extract_model_name(title_name):
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned if cleaned else s
 
-if subtype and 'feature phone' in subtype.lower():
-    title = make_feature_phone_title(brand, model_name, screen_size, subtype, color, condition)
-else:
-    title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
-internal_title = title
+def make_ce_title(brand, model_name, back_camera, category_type, ram_storage, color, condition):
+    core_parts = []
+    if brand:         core_parts.append(brand)
+    if model_name:    core_parts.append(model_name)
+    if back_camera:   core_parts.append(f'{back_camera} Camera')
+    if category_type: core_parts.append(category_type)
+    base = ' '.join(core_parts)
+    suffix_parts = []
+    if ram_storage: suffix_parts.append(ram_storage)
+    color_condition = ' '.join(p for p in [color, f'({condition})' if condition else ''] if p)
+    if color_condition: suffix_parts.append(color_condition)
+    if suffix_parts:
+        return f"{base}, {', '.join(suffix_parts)}"
+    return base
+
+def make_feature_phone_title(brand, model_name, screen_size, category_type, color, condition):
+    core_parts = []
+    if brand:       core_parts.append(brand)
+    if model_name:  core_parts.append(model_name)
+    if screen_size: core_parts.append(f'{screen_size}" Display')
+    if category_type: core_parts.append(category_type)
+    base = ' '.join(core_parts)
+    
+    suffix_parts = []
+    color_condition = ' '.join(p for p in [color, f'({condition})' if condition else ''] if p)
+    if color_condition: suffix_parts.append(color_condition)
+    
+    if suffix_parts:
+        return f"{base}, {', '.join(suffix_parts)}"
+    return base
 
 def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery,
                         screen_size, display_type, color, front_camera, back_camera, os):
@@ -841,7 +866,11 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         ram_storage = ram_rom if ram_rom else (ram or storage or '')
         condition   = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
 
-        title          = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
+        # ── TITLE: route Feature Phone to its own title function ──
+        if subtype and 'feature phone' in subtype.lower():
+            title = make_feature_phone_title(brand, model_name, screen_size, subtype, color, condition)
+        else:
+            title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
         internal_title = title
 
         description = prod_desc if prod_desc else make_ce_description(
@@ -997,7 +1026,6 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
                 ws.cell(row=row_idx, column=tcol[col_name]).value = val
 
     return filled, skipped
-
     # ═══════════════════════════════════════════════════════════════
 # CE 5-FILE PROCESS MODULE (Smart Phone & Feature Phone)
 # Generates: JPIN, ProductAttributeValue, L3, TaxMaster, SCM

@@ -271,8 +271,306 @@ svg{display:block}
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
+<!-- ═══════════════════════════════════════════════════════════════
+   LOADING SCREEN OVERLAY — Shows on first visit & every 3 hours
+   ═══════════════════════════════════════════════════════════════ -->
+<div id="loading-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(180deg, #f8f9fa 0%, #eef0f4 100%);z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;">
+
+  <!-- Decorative dots background -->
+  <div style="position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:0;">
+    <div style="position:absolute;width:6px;height:6px;background:#d0d5dd;border-radius:50%;opacity:0.4;top:10%;left:5%;box-shadow:30px 20px 0 #d0d5dd,60px -10px 0 #d0d5dd,80px 40px 0 #d0d5dd;"></div>
+    <div style="position:absolute;width:6px;height:6px;background:#d0d5dd;border-radius:50%;opacity:0.4;bottom:15%;right:8%;box-shadow:-20px -30px 0 #d0d5dd,-50px 10px 0 #d0d5dd,-80px -20px 0 #d0d5dd;"></div>
+  </div>
+
+  <div style="width:100%;max-width:1100px;padding:30px 40px;text-align:center;position:relative;z-index:1;">
+
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px;">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#1a2332 0%,#2d3a4f 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;position:relative;">
+        <div style="position:absolute;bottom:5px;right:5px;width:9px;height:9px;background:#ff6b35;border-radius:50%;"></div>
+        <span style="color:white;font-size:22px;font-weight:800;position:relative;z-index:1;">F</span>
+      </div>
+      <div style="line-height:1.1;">
+        <div style="font-size:26px;font-weight:800;color:#1a2332;letter-spacing:-0.5px;">FillForge</div>
+        <div style="font-size:10px;color:#8b95a5;text-transform:uppercase;letter-spacing:2px;font-weight:600;">Jumbotail Catalog Ops</div>
+      </div>
+    </div>
+
+    <!-- Main Heading -->
+    <div style="margin-top:20px;">
+      <h2 style="font-size:38px;font-weight:800;color:#1a2332;line-height:1.2;margin:0;">Automating catalogs.<br><span style="color:#ff6b35;">Accelerating growth.</span></h2>
+      <p style="font-size:16px;color:#5a6678;margin-top:6px;font-weight:500;">Catalog ops, simplified.</p>
+    </div>
+
+    <!-- Hero Scene -->
+    <div style="position:relative;height:180px;margin:10px 0;">
+      <!-- Left: Tablet & Folder -->
+      <div style="position:absolute;left:5%;top:50%;transform:translateY(-50%);display:flex;align-items:flex-end;">
+        <div style="width:140px;height:100px;background:#1a2332;border-radius:12px;position:relative;box-shadow:0 8px 30px rgba(26,35,50,0.2);transform:rotate(-8deg);">
+          <div style="position:absolute;top:6px;left:6px;right:6px;bottom:6px;background:white;border-radius:8px;overflow:hidden;padding:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:7px;color:#8b95a5;">
+              <div style="width:14px;height:14px;background:#4caf50;border-radius:3px;display:flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:bold;">X</div>
+              <div style="flex:1;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+              <div style="flex:0.6;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:7px;color:#8b95a5;">
+              <div style="flex:0.6;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+              <div style="flex:1;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:7px;color:#8b95a5;">
+              <div style="flex:1;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+              <div style="flex:0.6;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:7px;color:#8b95a5;">
+              <div style="flex:0.6;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+              <div style="flex:1;height:3px;background:#e8ecf1;border-radius:2px;"></div>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;margin-left:-15px;margin-bottom:-5px;">
+          <div style="width:70px;height:50px;background:linear-gradient(135deg,#2d3a4f 0%,#1a2332 100%);border-radius:8px 8px 4px 4px;position:relative;box-shadow:0 4px 15px rgba(26,35,50,0.2);">
+            <div style="position:absolute;top:-6px;left:8px;width:25px;height:10px;background:#2d3a4f;border-radius:4px 4px 0 0;"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:24px;height:24px;background:#ff6b35;border-radius:50%;display:flex;align-items:center;justify-content:center;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating icons -->
+      <div style="position:absolute;width:36px;height:36px;background:white;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;font-size:18px;top:10%;left:15%;animation:ffloat 3s ease-in-out infinite;">👟</div>
+      <div style="position:absolute;width:36px;height:36px;background:white;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;font-size:18px;top:5%;left:28%;animation:ffloat 3s ease-in-out 0.5s infinite;">👕</div>
+      <div style="position:absolute;width:36px;height:36px;background:white;border-radius:10px;box-shadow:0 4px 15px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:center;font-size:18px;top:15%;left:22%;animation:ffloat 3s ease-in-out 1s infinite;">🎧</div>
+
+      <!-- Dashed path -->
+      <div style="position:absolute;top:30%;left:25%;right:25%;height:2px;border-top:2px dashed #c5ccd6;border-radius:50%;transform:rotate(-3deg);"></div>
+
+      <!-- Rocket -->
+      <div id="load-rocket" style="position:absolute;right:18%;top:20%;width:100px;height:140px;transition:transform 2s cubic-bezier(0.25,0.46,0.45,0.94);">
+        <div style="position:relative;width:60px;height:110px;margin:0 auto;">
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:40px;height:35px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:50% 50% 0 0;"></div>
+          <div style="position:absolute;top:30px;left:50%;transform:translateX(-50%);width:44px;height:55px;background:linear-gradient(180deg,#2d3a4f 0%,#1a2332 100%);border-radius:0 0 8px 8px;"></div>
+          <div style="position:absolute;top:38px;left:50%;transform:translateX(-50%);width:20px;height:20px;background:#4a90d9;border-radius:50%;border:3px solid #1a2332;display:flex;align-items:center;justify-content:center;">
+            <span style="color:white;font-size:10px;font-weight:800;">F</span>
+          </div>
+          <div style="position:absolute;bottom:15px;left:-8px;width:18px;height:30px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:8px 0 4px 8px;transform:rotate(-15deg);"></div>
+          <div style="position:absolute;bottom:15px;right:-8px;width:18px;height:30px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:0 8px 8px 4px;transform:rotate(15deg);"></div>
+          <div style="position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:50px;height:20px;background:radial-gradient(ellipse,rgba(200,200,200,0.3) 0%,transparent 70%);border-radius:50%;"></div>
+          <div id="load-flame" style="position:absolute;bottom:-35px;left:50%;transform:translateX(-50%);width:28px;height:0px;background:linear-gradient(to bottom,#ff8c42,#ff6b35,#ff4500,transparent);border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;transition:height 0.3s ease;opacity:0.9;"></div>
+        </div>
+      </div>
+
+      <!-- Right: Product Card -->
+      <div style="position:absolute;right:5%;top:50%;transform:translateY(-50%);">
+        <div style="width:130px;background:white;border-radius:12px;padding:10px;box-shadow:0 8px 30px rgba(0,0,0,0.08);text-align:left;position:relative;">
+          <span style="display:inline-block;background:#ff6b35;color:white;font-size:8px;font-weight:700;padding:2px 8px;border-radius:10px;margin-bottom:6px;">ACTIVE</span>
+          <div style="width:100%;height:50px;background:linear-gradient(135deg,#f0f0f0 0%,#e0e0e0 100%);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:6px;">👟</div>
+          <div style="display:flex;gap:2px;margin-bottom:4px;">
+            <div style="width:8px;height:8px;background:#ffc107;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>
+            <div style="width:8px;height:8px;background:#ffc107;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>
+            <div style="width:8px;height:8px;background:#ffc107;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>
+            <div style="width:8px;height:8px;background:#ffc107;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>
+            <div style="width:8px;height:8px;background:#ffc107;clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);"></div>
+          </div>
+          <div style="position:absolute;bottom:-8px;right:-8px;width:28px;height:28px;background:#ff6b35;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;font-size:13px;color:#5a6678;font-weight:500;">
+      <svg id="load-status-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+      <span id="load-status-text">Processing your catalog...</span>
+    </div>
+
+    <!-- Progress Bar -->
+    <div style="margin-top:12px;position:relative;padding:0 80px;">
+      <div id="load-progress-pct" style="position:absolute;right:30px;top:-5px;font-size:20px;font-weight:800;color:#1a2332;">0%</div>
+      <div style="height:10px;background:#e8ecf1;border-radius:5px;overflow:hidden;position:relative;">
+        <div id="load-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35 0%,#ff8c5a 100%);border-radius:5px;transition:width 0.1s linear;position:relative;">
+          <div style="position:absolute;right:0;top:0;bottom:0;width:40px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.5));animation:shimmer 0.8s infinite;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-top:30px;position:relative;padding:0 10px;">
+      <div style="position:absolute;top:24px;left:50px;right:50px;height:2px;background:repeating-linear-gradient(90deg,#c5ccd6 0px,#c5ccd6 5px,transparent 5px,transparent 10px);z-index:0;"></div>
+
+      <div class="load-step" id="lstep1" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+        <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:#fff3e8;transition:all 0.4s ease;position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ff6b35;color:white;border-radius:50%;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;">01</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Reading File</div>
+        <div style="font-size:10px;color:#8b95a5;max-width:110px;line-height:1.3;">Extracting product data from your file</div>
+      </div>
+      <div class="load-step" id="lstep2" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+        <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:#fff3e8;transition:all 0.4s ease;position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 11H5m14 0a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2m14 0V9a2 2 0 0 0-2-2M5 11V9a2 2 0 0 1 2-2m0 0V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M7 7h10"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ff6b35;color:white;border-radius:50%;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;">02</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Mapping Fields</div>
+        <div style="font-size:10px;color:#8b95a5;max-width:110px;line-height:1.3;">Smartly matching columns & values</div>
+      </div>
+      <div class="load-step" id="lstep3" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+        <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:#fff3e8;transition:all 0.4s ease;position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 5-5v-5z"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ff6b35;color:white;border-radius:50%;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;">03</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Downloading Assets</div>
+        <div style="font-size:10px;color:#8b95a5;max-width:110px;line-height:1.3;">Fetching images & media files</div>
+      </div>
+      <div class="load-step" id="lstep4" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+        <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:#fff3e8;transition:all 0.4s ease;position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ff6b35;color:white;border-radius:50%;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;">04</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Validating Data</div>
+        <div style="font-size:10px;color:#8b95a5;max-width:110px;line-height:1.3;">Checking accuracy & completeness</div>
+      </div>
+      <div class="load-step" id="lstep5" style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+        <div style="width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;background:#fff3e8;transition:all 0.4s ease;position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+          <span style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;background:#ff6b35;color:white;border-radius:50%;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;">05</span>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Preparing Catalog</div>
+        <div style="font-size:10px;color:#8b95a5;max-width:110px;line-height:1.3;">Finalizing data for marketplace launch</div>
+      </div>
+    </div>
+
+    <!-- Hang Tight -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:20px;font-size:12px;color:#ff6b35;font-weight:600;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      <span>Hang tight! Great catalogs take just a few smart steps.</span>
+    </div>
+
+    <!-- Categories -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:24px;">
+      <div class="load-cat" id="lcat1" style="background:white;border-radius:14px;padding:16px 12px;text-align:left;border:2px solid transparent;transition:all 0.3s ease;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#e8ecf1;border-radius:0 0 12px 12px;"></div>
+        <span style="font-size:28px;margin-bottom:6px;display:block;">👟</span>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Footwear</div>
+        <div style="font-size:10px;color:#5a6678;font-style:italic;line-height:1.3;margin-bottom:4px;">"Lacing up your catalog magic…"</div>
+        <div style="font-size:9px;color:#8b95a5;line-height:1.3;">Turning footwear SKUs into launch-ready marketplace listings.</div>
+        <div style="margin-top:10px;height:3px;background:#e8ecf1;border-radius:2px;overflow:hidden;">
+          <div id="lcp1" style="height:100%;width:0%;background:#ff6b35;border-radius:2px;transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+      <div class="load-cat" id="lcat2" style="background:white;border-radius:14px;padding:16px 12px;text-align:left;border:2px solid transparent;transition:all 0.3s ease;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#e8ecf1;border-radius:0 0 12px 12px;"></div>
+        <span style="font-size:28px;margin-bottom:6px;display:block;">👕</span>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Apparel & Fashion</div>
+        <div style="font-size:10px;color:#5a6678;font-style:italic;line-height:1.3;margin-bottom:4px;">"Stitching variants together perfectly."</div>
+        <div style="font-size:9px;color:#8b95a5;line-height:1.3;">Sizes, colors & styles synced without the spreadsheet chaos.</div>
+        <div style="margin-top:10px;height:3px;background:#e8ecf1;border-radius:2px;overflow:hidden;">
+          <div id="lcp2" style="height:100%;width:0%;background:#7c3aed;border-radius:2px;transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+      <div class="load-cat" id="lcat3" style="background:white;border-radius:14px;padding:16px 12px;text-align:left;border:2px solid transparent;transition:all 0.3s ease;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#e8ecf1;border-radius:0 0 12px 12px;"></div>
+        <span style="font-size:28px;margin-bottom:6px;display:block;">📱</span>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Consumer Electronics</div>
+        <div style="font-size:10px;color:#5a6678;font-style:italic;line-height:1.3;margin-bottom:4px;">"Charging your catalog to 100%…"</div>
+        <div style="font-size:9px;color:#8b95a5;line-height:1.3;">Processing specs, images & variants at lightning speed.</div>
+        <div style="margin-top:10px;height:3px;background:#e8ecf1;border-radius:2px;overflow:hidden;">
+          <div id="lcp3" style="height:100%;width:0%;background:#2563eb;border-radius:2px;transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+      <div class="load-cat" id="lcat4" style="background:white;border-radius:14px;padding:16px 12px;text-align:left;border:2px solid transparent;transition:all 0.3s ease;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#e8ecf1;border-radius:0 0 12px 12px;"></div>
+        <span style="font-size:28px;margin-bottom:6px;display:block;">🏀</span>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Toys & Sports</div>
+        <div style="font-size:10px;color:#5a6678;font-style:italic;line-height:1.3;margin-bottom:4px;">"Powering playtime, one SKU at a time."</div>
+        <div style="font-size:9px;color:#8b95a5;line-height:1.3;">From action figures to sports gear — your catalog is game-ready.</div>
+        <div style="margin-top:10px;height:3px;background:#e8ecf1;border-radius:2px;overflow:hidden;">
+          <div id="lcp4" style="height:100%;width:0%;background:#16a34a;border-radius:2px;transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+      <div class="load-cat" id="lcat5" style="background:white;border-radius:14px;padding:16px 12px;text-align:left;border:2px solid transparent;transition:all 0.3s ease;position:relative;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:#e8ecf1;border-radius:0 0 12px 12px;"></div>
+        <span style="font-size:28px;margin-bottom:6px;display:block;">🛋️</span>
+        <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Home Furnishing</div>
+        <span style="display:inline-block;background:#f3f4f6;color:#9ca3af;font-size:8px;font-weight:700;padding:2px 6px;border-radius:8px;margin-top:4px;">Coming Soon</span>
+        <div style="font-size:10px;color:#5a6678;font-style:italic;line-height:1.3;margin-top:4px;">"Preparing comfort for its grand arrival…"</div>
+        <div style="font-size:9px;color:#8b95a5;line-height:1.3;">Beautiful spaces and smarter catalogs are on the way.</div>
+        <div style="margin-top:10px;height:3px;background:#e8ecf1;border-radius:2px;overflow:hidden;">
+          <div id="lcp5" style="height:100%;width:0%;background:#ea580c;border-radius:2px;transition:width 0.3s ease;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div style="display:flex;justify-content:center;gap:32px;margin-top:28px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff3e8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div><div style="font-size:12px;font-weight:700;color:#1a2332;">Save Hours</div><div style="font-size:10px;color:#8b95a5;">Automate repetitive tasks</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff3e8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div><div style="font-size:12px;font-weight:700;color:#1a2332;">High Accuracy</div><div style="font-size:10px;color:#8b95a5;">Reduce errors & rework</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff3e8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg>
+        </div>
+        <div><div style="font-size:12px;font-weight:700;color:#1a2332;">Faster Launch</div><div style="font-size:10px;color:#8b95a5;">Go live in minutes, not days</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff3e8;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff6b35" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <div><div style="font-size:12px;font-weight:700;color:#1a2332;">Sell More</div><div style="font-size:10px;color:#8b95a5;">Better data, better results</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Launch completion overlay (hidden until 95%) -->
+  <div id="load-complete" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(248,249,250,0.97);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:10000;opacity:0;transition:opacity 0.5s ease;">
+    <div style="position:relative;width:150px;height:250px;">
+      <div id="launch-rocket-anim" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);animation:launchUp 2.5s ease-in forwards;">
+        <div style="position:relative;width:60px;height:110px;margin:0 auto;transform:scale(1.5);">
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:40px;height:35px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:50% 50% 0 0;"></div>
+          <div style="position:absolute;top:30px;left:50%;transform:translateX(-50%);width:44px;height:55px;background:linear-gradient(180deg,#2d3a4f 0%,#1a2332 100%);border-radius:0 0 8px 8px;"></div>
+          <div style="position:absolute;top:38px;left:50%;transform:translateX(-50%);width:20px;height:20px;background:#4a90d9;border-radius:50%;border:3px solid #1a2332;display:flex;align-items:center;justify-content:center;"><span style="color:white;font-size:10px;font-weight:800;">F</span></div>
+          <div style="position:absolute;bottom:15px;left:-8px;width:18px;height:30px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:8px 0 4px 8px;transform:rotate(-15deg);"></div>
+          <div style="position:absolute;bottom:15px;right:-8px;width:18px;height:30px;background:linear-gradient(135deg,#ff8c42 0%,#ff6b35 100%);border-radius:0 8px 8px 4px;transform:rotate(15deg);"></div>
+          <div style="position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);width:35px;height:0;background:linear-gradient(to bottom,#ff8c42,#ff6b35,#ff4500,transparent);border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;animation:flameBurst 2.5s ease-in forwards;"></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:30px;font-size:32px;font-weight:800;color:#1a2332;animation:fadeUp 1s ease 0.3s both;">🚀 Catalog Launched!</div>
+    <div style="margin-top:6px;font-size:15px;color:#5a6678;animation:fadeUp 1s ease 0.6s both;">Your products are now live on the marketplace.</div>
+  </div>
+</div>
+
+<style>
+@keyframes ffloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);} }
+@keyframes shimmer { 0%{transform:translateX(-40px);} 100%{transform:translateX(40px);} }
+@keyframes launchUp { 0%{transform:translateX(-50%) translateY(0) rotate(0deg);} 15%{transform:translateX(-50%) translateY(15px) rotate(-2deg);} 30%{transform:translateX(-50%) translateY(5px) rotate(2deg);} 50%{transform:translateX(-50%) translateY(25px) rotate(0deg);} 100%{transform:translateX(-50%) translateY(-900px) rotate(0deg);} }
+@keyframes flameBurst { 0%{height:20px;opacity:0.6;} 30%{height:70px;opacity:0.9;} 60%{height:120px;opacity:1;} 100%{height:180px;opacity:0.95;} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+@keyframes confettiDrop { 0%{transform:translateY(0) rotate(0deg);opacity:1;} 100%{transform:translateY(100vh) rotate(720deg);opacity:0;} }
+.load-step.active .step-icon-wrap { box-shadow:0 0 0 3px #ff6b35,0 4px 20px rgba(255,107,53,0.25); transform:scale(1.08); background:white; }
+.load-step.completed .step-icon-wrap { background:#ff6b35; }
+.load-step.completed svg { stroke:white; }
+.load-cat.active { border-color:#ff6b35; box-shadow:0 8px 25px rgba(255,107,53,0.12); animation:cardBounce 0.6s ease; }
+.load-cat.active::after { background:linear-gradient(90deg,#ff6b35,#ff8c5a,#ff6b35); background-size:200% 100%; animation:orangeSweep 1.5s linear infinite; }
+@keyframes orangeSweep { 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+@keyframes cardBounce { 0%,100%{transform:translateY(0);} 30%{transform:translateY(-10px);} 50%{transform:translateY(-5px);} 70%{transform:translateY(-8px);} }
+.confetti-piece { position:fixed;width:8px;height:8px;top:-10px;animation:confettiDrop 3s ease-out forwards; }
+</style>
+
+
 
 <!-- ── SIDEBAR ── -->
 <!-- Welcome Popup -->
@@ -1923,6 +2221,160 @@ document.getElementById('ts-cfg-modal').addEventListener('click', e => { if(e.ta
    ═══════════════════════════════════════════════════════════════ */
 loadSubtypes();
 loadTplSubtypes();
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING SCREEN LOGIC — Show on first visit & every 3 hours
+   ═══════════════════════════════════════════════════════════════ */
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+const LOADING_TIME = 30000;
+const LAUNCH_AT = 95;
+
+function shouldShowLoading() {
+    const lastShown = localStorage.getItem('fillforge_loading_last_shown');
+    if (!lastShown) return true;
+    const elapsed = Date.now() - parseInt(lastShown);
+    return elapsed >= THREE_HOURS_MS;
+}
+
+function markLoadingShown() {
+    localStorage.setItem('fillforge_loading_last_shown', Date.now().toString());
+}
+
+function initLoadingScreen() {
+    if (!shouldShowLoading()) {
+        document.getElementById('loading-overlay').style.display = 'none';
+        return;
+    }
+
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.display = 'flex';
+
+    const startTime = Date.now();
+    let launched = false;
+
+    const categories = [
+        { id: 'lcat1', pid: 'lcp1', name: 'Footwear' },
+        { id: 'lcat2', pid: 'lcp2', name: 'Apparel & Fashion' },
+        { id: 'lcat3', pid: 'lcp3', name: 'Consumer Electronics' },
+        { id: 'lcat4', pid: 'lcp4', name: 'Toys & Sports' },
+        { id: 'lcat5', pid: 'lcp5', name: 'Home Furnishing' }
+    ];
+
+    const steps = [
+        { id: 'lstep1', threshold: 0 },
+        { id: 'lstep2', threshold: 18 },
+        { id: 'lstep3', threshold: 36 },
+        { id: 'lstep4', threshold: 54 },
+        { id: 'lstep5', threshold: 72 }
+    ];
+
+    const statusTexts = [
+        'Reading your file...',
+        'Mapping fields...',
+        'Downloading assets...',
+        'Validating data...',
+        'Preparing catalog...',
+        'Finalizing launch...'
+    ];
+
+    const rocketFlame = document.getElementById('load-flame');
+    const rocketWrapper = document.getElementById('load-rocket');
+
+    function updateProgress() {
+        const elapsed = Date.now() - startTime;
+        let progress = Math.min((elapsed / LOADING_TIME) * 100, 100);
+
+        document.getElementById('load-progress-bar').style.width = progress + '%';
+        document.getElementById('load-progress-pct').textContent = Math.floor(progress) + '%';
+
+        if (progress > 10 && progress < LAUNCH_AT) {
+            rocketFlame.style.height = '50px';
+        }
+        if (progress >= LAUNCH_AT && !launched) {
+            rocketFlame.style.height = '90px';
+        }
+
+        const catInterval = 100 / categories.length;
+        const activeIdx = Math.min(Math.floor(progress / catInterval), categories.length - 1);
+
+        categories.forEach((cat, idx) => {
+            const card = document.getElementById(cat.id);
+            const fill = document.getElementById(cat.pid);
+            if (idx < activeIdx) {
+                card.classList.remove('active'); fill.style.width = '100%';
+            } else if (idx === activeIdx) {
+                card.classList.add('active');
+                fill.style.width = ((progress % catInterval) / catInterval) * 100 + '%';
+            } else {
+                card.classList.remove('active'); fill.style.width = '0%';
+            }
+        });
+
+        steps.forEach((step, idx) => {
+            const el = document.getElementById(step.id);
+            const iconWrap = el.querySelector('div');
+            if (progress >= step.threshold + 14) {
+                iconWrap.style.background = '#ff6b35';
+                iconWrap.querySelector('svg').style.stroke = 'white';
+            } else if (progress >= step.threshold && progress < step.threshold + 14) {
+                iconWrap.style.boxShadow = '0 0 0 3px #ff6b35, 0 4px 20px rgba(255,107,53,0.25)';
+                iconWrap.style.transform = 'scale(1.08)';
+                iconWrap.style.background = 'white';
+            } else {
+                iconWrap.style.background = '#fff3e8';
+                iconWrap.style.boxShadow = 'none';
+                iconWrap.style.transform = 'scale(1)';
+                iconWrap.querySelector('svg').style.stroke = '#ff6b35';
+            }
+        });
+
+        const stIdx = Math.min(Math.floor(progress / 16), 5);
+        document.getElementById('load-status-text').textContent = statusTexts[stIdx];
+
+        if (progress >= LAUNCH_AT && !launched) {
+            launched = true;
+            rocketWrapper.style.transform = 'translateY(-600px) translateX(100px)';
+            rocketWrapper.style.transition = 'transform 2s cubic-bezier(0.25,0.46,0.45,0.94)';
+
+            setTimeout(() => {
+                const complete = document.getElementById('load-complete');
+                complete.style.display = 'flex';
+                setTimeout(() => complete.style.opacity = '1', 10);
+
+                const colors = ['#ff6b35','#ff8c5a','#ffd93d','#6bcb77','#4d96ff','#ff69b4'];
+                for (let i = 0; i < 60; i++) {
+                    setTimeout(() => {
+                        const c = document.createElement('div');
+                        c.style.cssText = 'position:fixed;width:8px;height:8px;top:-10px;animation:confettiDrop 3s ease-out forwards;';
+                        c.style.left = Math.random() * 100 + 'vw';
+                        c.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        c.style.width = (Math.random() * 8 + 4) + 'px';
+                        c.style.height = (Math.random() * 8 + 4) + 'px';
+                        c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                        c.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                        document.body.appendChild(c);
+                        setTimeout(() => c.remove(), 4000);
+                    }, i * 40);
+                }
+
+                setTimeout(() => {
+                    overlay.style.opacity = '0';
+                    overlay.style.transition = 'opacity 0.8s ease';
+                    setTimeout(() => { overlay.style.display = 'none'; markLoadingShown(); }, 800);
+                }, 3000);
+            }, 800);
+        }
+
+        if (progress < 100) requestAnimationFrame(updateProgress);
+    }
+
+    updateProgress();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initLoadingScreen, 100);
+});
+
 </script>
 </body>
 </html>

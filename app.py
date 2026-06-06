@@ -3107,17 +3107,38 @@ def detect_ce_uni_pvs():
         dump_file = request.files.get('dump')
         if not dump_file:
             return jsonify({'pvs': []})
-        xl     = pd.ExcelFile(io.BytesIO(dump_file.read()))
+        
+        # Read raw to find header row
+        raw_bytes = dump_file.read()
+        xl = pd.ExcelFile(io.BytesIO(raw_bytes))
+        
         frames = []
         for sname in xl.sheet_names:
-            try: frames.append(xl.parse(sname))
-            except: pass
+            try:
+                # Try to auto-detect header row by looking for 'Product Verticle'
+                df_raw = xl.parse(sname, header=None)
+                header_row = None
+                for r in range(min(10, len(df_raw))):
+                    row_vals = [str(v).lower().strip() if v is not None else '' for v in df_raw.iloc[r]]
+                    if 'product verticle' in row_vals:
+                        header_row = r
+                        break
+                
+                if header_row is not None:
+                    df = xl.parse(sname, header=header_row)
+                else:
+                    df = xl.parse(sname)  # fallback
+                frames.append(df)
+            except:
+                pass
+        
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        col_map  = build_col_map(all_dump, CE_UNI_INPUT_COL_HINTS)
-        pv_col   = col_map.get('product_verticle')
+        col_map = build_col_map(all_dump, CE_UNI_INPUT_COL_HINTS)
+        pv_col = col_map.get('product_verticle')
+        
         if pv_col and pv_col in all_dump.columns:
-            found   = [str(v).strip() for v in all_dump[pv_col].dropna().unique()
-                       if str(v).strip() not in ('nan', 'None', '')]
+            found = [str(v).strip() for v in all_dump[pv_col].dropna().unique()
+                     if str(v).strip() not in ('nan', 'None', '')]
             matched = [v for v in found if v in CE_UNI_PV_MAP]
             return jsonify({'pvs': matched, 'all_found': found})
         return jsonify({'pvs': [], 'all_found': []})

@@ -557,26 +557,63 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
 
     return len(filled), skipped
 
-"""
-Consumer Electronics — Unified Template Filler Module
-Based on Footwear pattern with Multi-PV/brand config, auto PV detection,
-templates in single tab with PV in col D, output SubType blank,
-title conventions from PV Level sheet, mapping from ProductVerticle<>Mapping Column.
-"""
-
-from flask import Flask, request, jsonify, send_file
-import pandas as pd, re, io, os, json, random, string, time, zipfile
-from datetime import datetime
-from openpyxl import load_workbook, Workbook
-
 # ═══════════════════════════════════════════════════════════════
-# CONFIGURATION
+# CONSUMER ELECTRONICS MODULE
 # ═══════════════════════════════════════════════════════════════
 
-CE_CONFIG_PATH = '/tmp/fillforge_ce_unified_config.json'
+CE_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Consumer Electronic Mapping Logic & templates.xlsx')
+
+def _build_ce_header_row_map():
+    wb  = load_workbook(CE_TEMPLATE_PATH)
+    ws  = wb['CE - PV Template']
+    hdr_map    = {}
+    static_map = {}
+    for r in range(1, ws.max_row + 1):
+        if ws.cell(r, 1).value == 'Category *':
+            for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
+                c3_val      = ws.cell(r2, 3).value
+                c4_val      = ws.cell(r2, 4).value
+                subtype_val = c3_val if c3_val else c4_val
+                if subtype_val and str(subtype_val).strip() not in ('CategoryType *','SubType','Category *','nan',''):
+                    st = str(subtype_val).strip()
+                    if st not in hdr_map:
+                        hdr_map[st] = r
+                        hdrs  = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
+                        entry = {}
+                        for ci, col in enumerate(hdrs):
+                            if col in ('Category *','SubCategory *','CategoryType *',
+                                       'SubType','PVID *','discoveryCategoryIds'):
+                                v = str(ws.cell(r2, ci + 1).value or '').strip()
+                                if v and v not in ('nan','NaN','None'):
+                                    entry[col] = v
+                        static_map[st] = entry
+                    break
+    return hdr_map, static_map
+
+try:
+    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_header_row_map()
+except Exception as e:
+    print(f"Warning: Could not build CE header row map: {e}")
+    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
+
+def load_ce_pv_list():
+    try:
+        pv  = pd.read_excel(CE_TEMPLATE_PATH, sheet_name='Category List')
+        col = pv.columns[0]
+        return [str(v).strip() for v in pv[col].dropna()
+                if str(v).strip() not in ('nan','CategoryType *','')]
+    except Exception as e:
+        print(f"Warning: Could not load CE Category List: {e}")
+        return []
+
+try:
+    CE_PV_LIST = load_ce_pv_list()
+except Exception as e:
+    print(f"Warning: Could not load CE_PV_LIST: {e}")
+    CE_PV_LIST = []
 
 CE_DEFAULT_CONFIG = {
-    "brands": {},
+    "brands":              {},
     "biz_cat_id":          "BCAT-139438",
     "biz_cat_name":        "Consumer Electronics",
     "relationship":        "Parent",
@@ -592,732 +629,845 @@ CE_DEFAULT_CONFIG = {
     "discovery_cat":       "DISCAT-135528",
 }
 
-# ═══════════════════════════════════════════════════════════════
-# LOAD TEMPLATE FILE (Unified Template Creation.xlsx)
-# ═══════════════════════════════════════════════════════════════
-
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Unified Template Creation.xlsx')
-
-
-def _build_ce_unified_header_row_map():
-    """Build mapping: PV Name -> (header_row, static_data) from Templates sheet."""
-    wb = load_workbook(TEMPLATE_PATH)
-    ws = wb['Templates']
-    hdr_map = {}
-    static_map = {}
-    for r in range(1, ws.max_row + 1):
-        if ws.cell(r, 1).value == 'Category *':
-            for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
-                c4_val = ws.cell(r2, 4).value
-                if c4_val and str(c4_val).strip() not in ('SubType', 'Category *', 'nan', ''):
-                    pv_name = str(c4_val).strip()
-                    if pv_name not in hdr_map:
-                        hdr_map[pv_name] = r
-                        hdrs = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
-                        entry = {}
-                        for ci, col in enumerate(hdrs):
-                            if col in ('Category *', 'SubCategory *', 'CategoryType *',
-                                       'SubType', 'PVID *', 'discoveryCategoryIds', 'ProductCode *'):
-                                v = str(ws.cell(r2, ci + 1).value or '').strip()
-                                if v and v not in ('nan', 'NaN', 'None'):
-                                    entry[col] = v
-                        static_map[pv_name] = entry
-                    break
-    return hdr_map, static_map
-
-
-def _load_pv_list():
-    """Load supported PV list from 'Supported Product Verticle' sheet."""
-    try:
-        pv = pd.read_excel(TEMPLATE_PATH, sheet_name='Supported Product Verticle')
-        result = []
-        for _, row in pv.iterrows():
-            name = str(row.get('Product Verticle', '')).strip()
-            pid = str(row.get('Product Verticle ID', '')).strip()
-            family = str(row.get('Unified Template Family', '')).strip()
-            if name and name.lower() != 'product verticle':
-                result.append({'name': name, 'id': pid, 'family': family})
-        return result
-    except Exception as e:
-        print(f"Warning: Could not load PV List: {e}")
-        return []
-
-
-def _load_title_conventions():
-    """Load title conventions from 'PV Level Title Conventions' sheet."""
-    try:
-        df = pd.read_excel(TEMPLATE_PATH, sheet_name='PV Level Title Conventions', header=None)
-        conventions = {}
-        i = 0
-        while i < len(df):
-            pv_name = str(df.iloc[i, 0]).strip() if pd.notna(df.iloc[i, 0]) else ''
-            if pv_name and pv_name != 'Product Verticle' and pv_name in CE_PV_LIST_NAMES:
-                title_example = str(df.iloc[i, 1]).strip() if pd.notna(df.iloc[i, 1]) else ''
-                internal_example = str(df.iloc[i, 2]).strip() if pd.notna(df.iloc[i, 2]) else ''
-                title_conv = ''
-                internal_conv = ''
-                if i + 1 < len(df):
-                    title_conv = str(df.iloc[i + 1, 1]).strip() if pd.notna(df.iloc[i + 1, 1]) else ''
-                    internal_conv = str(df.iloc[i + 1, 2]).strip() if pd.notna(df.iloc[i + 1, 2]) else ''
-                conventions[pv_name] = {
-                    'title_example': title_example,
-                    'internal_example': internal_example,
-                    'title_convention': title_conv,
-                    'internal_convention': internal_conv,
-                }
-                i += 2
-            else:
-                i += 1
-        return conventions
-    except Exception as e:
-        print(f"Warning: Could not load title conventions: {e}")
-        return {}
-
-
-def _load_mapping_logic():
-    """Load mapping logic from 'ProductVerticle<>Mapping Column' sheet."""
-    try:
-        df = pd.read_excel(TEMPLATE_PATH, sheet_name='ProductVerticle<>Mapping Column')
-        logic = {}
-        for _, row in df.iterrows():
-            metric = str(row.get('Metric', '')).strip()
-            attr_type = str(row.get('Attribute Type', '')).strip()
-            mapping = str(row.get('Mapping Logic', '')).strip()
-            subtypes = str(row.get('Subtype ( Comma Seprated)', '')).strip()
-            pv_list = [s.strip() for s in subtypes.split(',')]
-            for pv in pv_list:
-                if pv not in logic:
-                    logic[pv] = {}
-                logic[pv][metric] = {
-                    'attr_type': attr_type,
-                    'logic': mapping
-                }
-        return logic
-    except Exception as e:
-        print(f"Warning: Could not load mapping logic: {e}")
-        return {}
-
-
-# Initialize at module load
-try:
-    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_unified_header_row_map()
-except Exception as e:
-    print(f"Warning: Could not build header row map: {e}")
-    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
-
-try:
-    CE_PV_LIST_RAW = _load_pv_list()
-    CE_PV_LIST = [p['name'] for p in CE_PV_LIST_RAW]
-    CE_PV_LIST_NAMES = set(CE_PV_LIST)
-    CE_PV_ID_MAP = {p['name']: p['id'] for p in CE_PV_LIST_RAW}
-    CE_PV_FAMILY_MAP = {p['name']: p['family'] for p in CE_PV_LIST_RAW}
-except Exception as e:
-    print(f"Warning: Could not load PV_LIST: {e}")
-    CE_PV_LIST_RAW, CE_PV_LIST, CE_PV_LIST_NAMES = [], [], set()
-    CE_PV_ID_MAP, CE_PV_FAMILY_MAP = {}, {}
-
-try:
-    CE_TITLE_CONVENTIONS = _load_title_conventions()
-except Exception as e:
-    print(f"Warning: Could not load title conventions: {e}")
-    CE_TITLE_CONVENTIONS = {}
-
-try:
-    CE_MAPPING_LOGIC = _load_mapping_logic()
-except Exception as e:
-    print(f"Warning: Could not load mapping logic: {e}")
-    CE_MAPPING_LOGIC = {}
-
-
-# ═══════════════════════════════════════════════════════════════
-# CONFIG HELPERS
-# ═══════════════════════════════════════════════════════════════
-
-def _load_config(path, defaults):
-    cfg = {k: v for k, v in defaults.items()}
-    if os.path.exists(path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                saved = json.load(f)
-            cfg.update(saved)
-        except Exception as e:
-            print(f'Warning: could not load config from {path}: {e}')
-    return cfg
-
-
-def _save_config(path, cfg):
-    try:
-        tmp = path + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
-    except Exception as e:
-        print(f'Warning: could not save config to {path}: {e}')
-
-
-def get_ce_unified_config():
-    return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
-
-
-# ═══════════════════════════════════════════════════════════════
-# UTILITY FUNCTIONS
-# ═══════════════════════════════════════════════════════════════
-
-def safe(val, default=''):
-    try:
-        if pd.isna(val):
-            return default
-    except:
-        pass
-    s = str(val).strip() if val is not None else default
-    return default if s in ('nan', 'None', 'NaN', '') else s
-
-
-def detect_col(df, candidates):
-    for c in candidates:
-        if c in df.columns:
-            return c
-    for c in df.columns:
-        for cand in candidates:
-            if cand.lower() in c.lower():
-                return c
-    return None
-
-
-def build_col_map(df, hints):
-    return {k: detect_col(df, v) for k, v in hints.items() if detect_col(df, v)}
-
-
-def normalize_brands(brands_data):
-    if not brands_data:
-        return {}
-    if isinstance(brands_data, dict):
-        return brands_data
-    if isinstance(brands_data, list):
-        result = {}
-        for item in brands_data:
-            if isinstance(item, dict):
-                name = item.get('name', item.get('brandName', ''))
-                bid = item.get('id', item.get('brandId', ''))
-                if name:
-                    result[name] = bid
-            elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                result[item[0]] = item[1]
-        return result
-    return {}
-
-
-def get_brand_info(drow, col_map, brands_dict):
-    brands_dict = normalize_brands(brands_dict)
-    if not brands_dict:
-        return '', ''
-    fallback_brand, fallback_id = next(iter(brands_dict.items()))
-    brand_col = col_map.get('brand')
-    if not brand_col:
-        return fallback_brand, fallback_id
-    try:
-        file_brand = str(drow.get(brand_col, '')).strip()
-    except:
-        file_brand = ''
-    if not file_brand or file_brand.lower() in ('nan', 'none', '', 'null'):
-        return fallback_brand, fallback_id
-    file_brand_lower = file_brand.lower().strip()
-    for b_name, b_id in brands_dict.items():
-        if b_name.lower().strip() == file_brand_lower:
-            return b_name, b_id
-    for b_name, b_id in brands_dict.items():
-        bn = b_name.lower().strip()
-        if bn in file_brand_lower or file_brand_lower in bn:
-            return b_name, b_id
-    file_first_word = file_brand_lower.split()[0] if file_brand_lower.split() else ''
-    if file_first_word:
-        for b_name, b_id in brands_dict.items():
-            cfg_first_word = b_name.lower().strip().split()[0] if b_name.strip().split() else ''
-            if cfg_first_word and cfg_first_word == file_first_word:
-                return b_name, b_id
-    return fallback_brand, fallback_id
-
-
-def parse_lbh(dim_str):
-    parts = re.split(r'[Xx×]', str(dim_str).strip())
-    if len(parts) == 3:
-        try:
-            return int(parts[0]), int(parts[1]), int(parts[2])
-        except:
-            pass
-    return None, None, None
-
-
-# ═══════════════════════════════════════════════════════════════
-# COLUMN HINTS FOR INPUT FILE
-# ═══════════════════════════════════════════════════════════════
-
 CE_DUMP_COL_HINTS = {
-    'pv':              ['Product Verticle', 'Product Vertical', 'ProductVerticle', 'PV', 'Product Type', 'Product Sub-type', 'CategoryType *', 'Subtype', 'SubType'],
-    'sku':             ['Seller SKU ID', 'ChildSKU *', 'ChildSKU', 'SKU', 'Child SKU'],
-    'model_name':      ['Model Name', 'Name of the model/Title name', 'MODEL_NAME *', 'Model Name'],
-    'mrp':             ['MRP', '*MRP', 'MRP *', 'MRP full Set'],
-    'sp':              ['Selling Price', 'SellingPrice *', '*Selling Price', '*Selling Price per Pair'],
-    'moq':             ['*MOQ', 'MOQ *', 'MOQ', '*Minimum Order Quantity'],
-    'brand':           ['Brand', 'Brand Name', 'brandName *', 'brand_name'],
-    'image':           ['imageURL1', 'ImageURL1', 'Main Image URL', 'Image Link', 'Image Links'],
-    'image2':          ['imageURL2', 'ImageURL2', 'Other Image URL 1', 'Other Image URL1'],
-    'image3':          ['imageURL3', 'ImageURL3', 'Other Image URL 2', 'Other Image URL2'],
-    'image4':          ['imageURL4', 'ImageURL4', 'Other Image URL 3', 'Other Image URL3'],
-    'image5':          ['imageURL5', 'ImageURL5', 'Other Image URL 4', 'Other Image URL4'],
-    'image6':          ['imageURL6', 'ImageURL6', 'Other Image URL 5', 'Other Image URL5'],
-    'product_desc':    ['Product Description', 'productDescription *', 'Description'],
-    'color':           ['Colour', 'Color', 'PRODUCT_COLOR *', 'Product Color', 'Product Colour', 'Primary Colour'],
-    'product_condition': ['Product Condition', 'Condition'],
-    'packing':         ['Packaging Type', 'PACKAGING_TYPE *', 'Packing Type'],
-    'material':        ['Product Material', 'Material', 'MATERIAL *'],
-    'adapter_connector': ['Adapter Connector Type', 'ADAPTER_CONNECTOR_TYPE *'],
-    'country':         ['Country of Origin', 'COUNTRY_OF_ORIGIN *', 'Country/Region of Origin'],
-    'num_ports':       ['Number of Ports', 'NO_OF_ADAPTER_PORTS *'],
-    'connector_type':  ['Connector Type', 'Connector type'],
-    'output_voltage':  ['Output Voltage', 'OUTPUT_CURRENT_OR_VOLTAGE *'],
-    'port_type':       ['Port type', 'Port Type', 'PORT_TYPE *'],
-    'dims':            ['Product Dimension (LXBXH)', '*Product Dimension (LXBXH)', 'Product Dimension'],
-    'dim_uom':         ['Unit of Measurement', 'PRODUCT_DIMENSION_UOM *', '*Product Dimension UOM'],
-    'no_of_connectors': ['No of Connetors', 'No Of Connectors'],
-    'product_name':    ['Product Name', 'PRODUCT_TYPE *', 'Product Type'],
-    'weight':          ['Product Weight (KG)', '*Product Weight (In KG)', 'PRODUCT_WEIGHT_IN_KG *', 'Product Weight'],
-    'hsn':             ['HSN', 'HSN Code', '*HSN Code', 'hsnCode *'],
-    'gst':             ['GST', '*GST', 'gstPercentage *', 'GSTpercentage'],
-    'bluetooth':       ['Bluetooth Version', 'BLUETOOTH_VERSION *'],
-    'speaker_type':    ['Speaker Type', 'SPEAKER_TYPE *'],
-    'wired_wireless':  ['Wired or Unwired', 'WIRED_OR_WIRELESS *'],
-    'mic_type':        ['Mic Type', 'MIC_TYPE *'],
-    'compatible_brand_model': ['Compatible Brand + Model Name', 'COMPATIBLE_BRAND_MODEL *'],
-    'case_cover_type': ['Case & Cover Type', 'CASE_COVER_TYPE *'],
-    'closure_type':    ['Case & Cover Closure', 'CLOSURE_TYPE *'],
-    'pattern':         ['Pattern', 'DESIGN *'],
-    'compatible_brand': ['Compatible Brand', 'COMPATIBLE_BRAND *'],
-    'coverage':        ['Coverage', 'COVERAGE *'],
-    'screen_guard_type': ['Screen Guard type', 'SCREEN_GUARD_OR_PROTECTOR_TYPE *'],
-    'screen_thickness': ['Screen Card Thickness', 'THICKNESS *'],
-    'battery_capacity': ['Battery Capacity', 'BATTERY_CAPACITY_MAH *'],
-    'charging_type':   ['Charging type supported', 'CHARGING_TYPE_SUPPORTED'],
-    'display_size':    ['Display Size', 'DISPLAY_SIZE *', 'Screen Size'],
-    'ram':             ['RAM', 'RAM *'],
-    'storage':         ['Internal Storage', 'INTERNAL_STORAGE *', 'Storage Capacity'],
-    'os':              ['Operating System', 'OPERATING_SYSTEM_OS *'],
-    'os_version':      ['Operating System Version', 'OS_VERSION *'],
-    'processor_core':  ['Processor Core', 'NUMBER_OF_PROCESSOR_CORES *'],
-    'back_camera':     ['Back Camera', 'PRIMARY_CAMERA_RESOLUTION *'],
-    'front_camera':    ['Front Camera', 'FRONT_CAMERA_RESOLUTION *'],
-    'sim_type':        ['Sim Type', 'SIM_TYPE *'],
-    'network_support': ['Network Support', 'Network', 'NETWORK_TYPE_SUPPORTED'],
-    'card_type':       ['Card type', 'MEMORY_CARD_TYPE *'],
-    'speed_class':     ['Speed Class', 'SPEED_CLASS *'],
-    'storage_capacity': ['Storage Capacity', 'STORAGE_CAPACITY *'],
-    'holder_type':     ['Holder Type', 'HOLDER_TYPE *'],
-    'lock_mechanism':  ['Lock Mechanism', 'LOCK_MECHANISM *'],
-    'rotation_type':   ['Rotation type', 'ROTATION_OR_ADJUSTABILITY *'],
-    'no_of_output_ports': ['No of Output Ports', 'Number of Output Ports'],
-    'output_ports_type': ['Output Ports Type', 'Output ports type'],
-    'display_type':    ['Display Type', 'DISPLAY_TYPE *'],
-    'display_shape':   ['Display Shape', 'DISPLAY_SHAPE *'],
-    'display_resolution': ['Display Resolution', 'DISPLAY_RESOLUTION'],
-    'expandable_storage': ['Expandable Storage', 'EXPANDABLE_STORAGE'],
-    'bluetooth_version': ['Bluetooth Version', 'BLUETOOTH_VERSION'],
-    'expandable_storage_type': ['Expandable Storage Type', 'EXPANDABLE_STORAGE_TYPE'],
-    'expandable_storage_max': ['Expandable Storage Capacity Max', 'EXPANDABLE_STORAGE_CAPACITY_MAX'],
-    'battery_type':    ['Battery Type', 'BATTERY_TYPE'],
-    'removable_battery': ['Removable Battery', 'REMOVABLE_BATTERY'],
-    'hybrid_sim':      ['Hybrid Sim Slot', 'HYBRID_SIM_SLOT'],
-    'audio_jack':      ['Audio Jack', 'AUDIO_JACK'],
-    'fm_radio':        ['FM Radio', 'FM_RADIO'],
-    'torch':           ['Torch or Flashlight', 'TORCH_OR_FLASHLIGHT'],
-    'rear_flash':      ['Rear Flash', 'REAR_FLASH'],
-    'wifi':            ['WIFI', 'Wifi'],
-    'fingerprint':     ['Fingerprint Sensor', 'FINGERPRINT_SENSOR'],
-    'clock_speed':     ['Clock Speed', 'CLOCK_SPEED'],
-    'refresh_rate':    ['Refresh Rate', 'REFRESH_RATE'],
-    'touchscreen':     ['Touchscreen Type', 'TOUCHSCREEN_TYPE'],
-    'primary_camera_setup': ['Primary Camera Setup', 'PRIMARY_CAMERA_SETUP'],
-    'front_flash':     ['Front Flash', 'FRONT_FLASH'],
-    'video_resolution': ['Video Recording Resolution', 'VIDEO_RECORDING_RESOLUTION'],
-    'fast_charging':   ['Fast Charging Wattage', 'FAST_CHARGING_WATTAGE'],
-    'wireless_charging': ['Wireless Charging Support', 'WIRELESS_CHARGING_SUPPORT'],
-    'gps':             ['GPS Support', 'GPS_SUPPORT'],
-    'nfc':             ['NFC Support', 'NFC_SUPPORT'],
-    'infrared':        ['Infrared IR Blaster', 'INFRARED_IR_BLASTER'],
-    'fingerprint_pos': ['Fingerprint Sensor Position', 'FINGERPRINT_SENSOR_POSITION'],
-    'face_unlock':     ['Face Unlock', 'FACE_UNLOCK'],
-    'water_resistance': ['Water Resistance Rating', 'WATER_RESISTANCE_RATING'],
-    'strap_color':     ['Strap Color', 'STRAP_COLOR *'],
-    'core_brand':      ['Core Brand', 'CORE_BRAND *'],
-    'cable_length':    ['Cable Length', 'CABLE_LENGTH_IN_METER *'],
-    'cable_type':      ['Cable Type', 'CABLE_TYPE'],
-    'cable_material':  ['Cable Material', 'CABLE_MATERIAL *'],
+    'sku':            ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
+    'article':        ['Model Number','MODEL NUMBER','Model NUMBER',
+                       'Article Number','Article Code','ARTICLE_NUMBER',
+                       'Name of the model/Title name'],
+    'image':          ['Main Image URL','Image Links','Image Link','ImageURL1','imageURL1 *'],
+    'image2':         ['Other Image URL 1','Other Image URL1'],
+    'image3':         ['Other Image URL 2','Other Image URL2'],
+    'image4':         ['Other Image URL 3','Other Image URL3'],
+    'image5':         ['Other Image URL 4','Other Image URL4'],
+    'image6':         ['Other Image URL 5','Other Image URL5'],
+    'vertical':       ['Product Type','Product Sub-type','CategoryType *','Subtype','SubType'],
+    'brand':          ['Brand','Brand Name','brandName *','brand_name'],
+    'mrp':            ['MRP','*MRP full Set','MRP *','MRP full Set'],
+    'sp':             ['Selling Price','SellingPrice *','*Selling Price per Pair'],
+    'moq':            ['*Minimum Order Quantity','*MOQ','MOQ *','MOQ'],
+    'color':          ['Product Color','Product Colour','Primary Colour','PRODUCT_COLOR *'],
+    'product_desc':   ['Product Description','productDescription *'],
+    'hsn':            ['HSN Code','*HSN Code','hsnCode *'],
+    'gst':            ['GST','*GST','gstPercentage *'],
+    'weight':         ['Product Weight','*Product Weight (In KG) Full Ste','PRODUCT_WEIGHT_IN_KG *'],
+    'dims':           ['*Product Dimension (LXBXH)','Product Dimension (LXBXH) Full Set','Product Dimension'],
+    'dim_uom':        ['*Product Dimension UOM','PRODUCT_DIMENSION_UOM *'],
+    'packing':        ['Packaging Type','PACKAGING_TYPE *'],
+    'country':        ['Country/Region of Origin','Country of Origin','COUNTRY_OF_ORIGIN *'],
+    'warranty':       ['Warranty Period','Warranty'],
+    'battery':        ['Battery Capacity','BATTERY_CAPACITY_MAH *'],
+    'charging_type':  ['Charging type supported','CHARGING_TYPE_SUPPORTED *'],
+    'ram':            ['RAM','RAM *'],
+    'storage':        ['Storage Capacity','INTERNAL_STORAGE *'],
+    'sim_type':       ['Sim Type','SIM_TYPE *'],
+    'os':             ['Operating System','OPERATING_SYSTEM_OS *'],
+    'front_camera':   ['Front Camera','FRONT_CAMERA_RESOLUTION *'],
+    'back_camera':    ['Back Camera','PRIMARY_CAMERA_RESOLUTION *'],
+    'screen_size':    ['Screen Size','DISPLAY_SIZE *'],
+    'display_type':   ['Display Type','DISPLAY_TYPE *'],
+    'processor_core': ['Processor Core','NUMBER_OF_PROCESSOR_CORES *'],
+    'network_support':['Network Support','Network'],
+    'bluetooth':      ['Bluetooth Version','BLUETOOTH_VERSION *'],
+    'product_type':   ['Product Type','Product Sub-type'],
 }
 
 CE_BASE_COL_HINTS = {
-    'article': ['Model Name', 'Name of the model/Title name', 'Article Number', 'ARTICLE_NUMBER'],
-    'sku':     ['Seller SKU ID', 'ChildSKU', 'Child SKU', 'SKU'],
+    'article': ['Model Number','MODEL NUMBER','Name of the model/Title name',
+                'Article Number','Article Code','ARTICLE_NUMBER'],
+    'sku':     ['Child SKU','ChildSKU'],
 }
 
+def extract_model_name(title_name):
+    s = str(title_name).strip()
+    if not s: return s
+    cleaned = re.sub(r'\s*\([^)]*\)\s*', ' ', s)
+    cleaned = re.sub(r'\s+(Fresh|Seal Open|Non Activated|Open Seal)\s*$', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+\d+\s*GB\s*RAM.*$', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+\d+\s*GB\s*ROM.*$', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+\d+G\s*.*$', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned if cleaned else s
 
-# ═══════════════════════════════════════════════════════════════
-# TITLE BUILDERS (per PV from conventions)
-# ═══════════════════════════════════════════════════════════════
+def make_ce_title(brand, model_name, back_camera, category_type, ram_storage, color, condition):
+    core_parts = []
+    if brand:         core_parts.append(brand)
+    if model_name:    core_parts.append(model_name)
+    if back_camera:   core_parts.append(f'{back_camera} Camera')
+    if category_type: core_parts.append(category_type)
+    base = ' '.join(core_parts)
+    suffix_parts = []
+    if ram_storage: suffix_parts.append(ram_storage)
+    color_condition = ' '.join(p for p in [color, f'({condition})' if condition else ''] if p)
+    if color_condition: suffix_parts.append(color_condition)
+    if suffix_parts:
+        return f"{base}, {', '.join(suffix_parts)}"
+    return base
 
-def _extract_condition(condition_raw, cfg):
-    c = safe(condition_raw)
-    if not c:
-        c = cfg.get('product_condition', 'Fresh')
-    return c
+def make_feature_phone_title(brand, model_name, screen_size, category_type, color, condition):
+    core_parts = []
+    if brand:       core_parts.append(brand)
+    if model_name:  core_parts.append(model_name)
+    if screen_size: core_parts.append(f'{screen_size}" Display')
+    if category_type: core_parts.append(category_type)
+    base = ' '.join(core_parts)
+    
+    suffix_parts = []
+    color_condition = ' '.join(p for p in [color, f'({condition})' if condition else ''] if p)
+    if color_condition: suffix_parts.append(color_condition)
+    
+    if suffix_parts:
+        return f"{base}, {', '.join(suffix_parts)}"
+    return base
 
+def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery,
+                        screen_size, display_type, color, front_camera, back_camera, os):
+    parts = []
+    if brand and model_name:
+        parts.append(f"Experience the {brand} {model_name}")
+    if category_type:
+        parts.append(f", a powerful {category_type}")
+    if ram and storage:
+        parts.append(f" featuring {ram} RAM and {storage} internal storage")
+    if processor:
+        parts.append(f", powered by a {processor} processor")
+    if battery:
+        parts.append(f". Equipped with a {battery} battery")
+    if screen_size and display_type:
+        parts.append(f", it boasts a {screen_size} {display_type} display")
+    if front_camera and back_camera:
+        parts.append(f". Capture stunning photos with {back_camera} rear and {front_camera} front cameras")
+    if color:
+        parts.append(f". Available in {color} color")
+    if os:
+        parts.append(f". Runs on {os}")
+    return ''.join(parts) + ". Ideal for everyday use with reliable performance and modern features."
 
-def _title_case_color(raw):
-    if not raw:
-        return raw
-    return ' '.join(w.capitalize() for w in str(raw).strip().split())
+def extract_from_description(desc, field_type):
+    if not desc: return ''
+    desc_lower = str(desc).lower()
+    if field_type == 'display_type':
+        for dt in ['super amoled','amoled','pls lcd','lcd','ips','oled','tft']:
+            if dt in desc_lower:
+                if dt == 'super amoled': return 'Super AMOLED'
+                if dt == 'pls lcd':      return 'PLS LCD'
+                return dt.upper()
+        return ''
+    if field_type == 'charging_type':
+        if 'usb type-c' in desc_lower or 'usb c' in desc_lower or 'type-c' in desc_lower:
+            return 'USB Type-C'
+        if 'micro usb' in desc_lower or 'micro-usb' in desc_lower:
+            return 'Micro USB'
+        if 'lightning' in desc_lower:
+            return 'Lightning'
+        return ''
+    if field_type == 'bluetooth':
+        m = re.search(r'bluetooth\s*(\d+\.?\d*)', desc_lower)
+        return f'Bluetooth {m.group(1)}' if m else ''
+    if field_type == 'processor':
+        for proc in ['dimensity','snapdragon','helio','exynos','kirin','mediatek']:
+            if proc in desc_lower:
+                m = re.search(rf'{proc}\s+([a-z]*\d+\s*[a-z]*)', desc_lower, re.IGNORECASE)
+                if m:
+                    return f"{proc.capitalize()} {m.group(1).strip().upper()}"
+                return proc.capitalize()
+        return ''
+    return ''
 
-
-def make_ce_title(pv_name, brand, model_name, color, condition, **kwargs):
-    """Build title based on PV-specific convention from 'PV Level Title Conventions' sheet."""
-    color = _title_case_color(color)
-    condition = _extract_condition(condition, kwargs.get('cfg', {}))
-
-    if pv_name == 'Mobile Adapters & Cables':
-        # Brand + Product Condition + Output Voltage + Adapter Connector Type + , Colour
-        output_voltage = kwargs.get('output_voltage', '')
-        adapter_connector = kwargs.get('adapter_connector', '')
-        parts = [p for p in [brand, condition, output_voltage, adapter_connector] if p]
-        base = ' '.join(parts)
-        # Add "Adapter" if not already in the base
-        if 'Adapter' not in base:
-            base = f"{base} Adapter"
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Speakers':
-        # Brand + Model Name + Product Condition + Speaker Type + , Colour
-        speaker_type = kwargs.get('speaker_type', '')
-        parts = [p for p in [brand, model_name, condition, speaker_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Mobile Case & Covers':
-        # Brand + Product Condition + Compatible Brand + Model Name + Product Material + Case & Cover Type + , Colour
-        compatible_brand_model = kwargs.get('compatible_brand_model', '')
-        material = kwargs.get('material', '')
-        case_type = kwargs.get('case_cover_type', '')
-        parts = [p for p in [brand, condition, compatible_brand_model, material, case_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Feature Phones':
-        # Brand + Model Name + Display Size + "Display" + Product Verticle + , Colour (Product Condition)
-        display_size = kwargs.get('display_size', '')
-        ds_part = f'{display_size}" Display' if display_size else ''
-        parts = [p for p in [brand, model_name, ds_part, pv_name] if p]
-        base = ' '.join(parts)
-        suffix = f"{color} ({condition})" if color else f"({condition})"
-        return f"{base}, {suffix}"
-
-    elif pv_name == 'Headsets':
-        # Brand + Model Name + Product Condition + Product Verticle + , Colour
-        parts = [p for p in [brand, model_name, condition, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'TWS Ear Buds':
-        # Brand + Model Name + Product Condition + "Earbuds" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Earbuds'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Earphones':
-        # Brand + Model Name + Product Condition + "Wired Earphones" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Wired Earphones'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Neck Bands':
-        # Brand + Model Name + Product Condition + "Neckband" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Neckband'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Memory Cards':
-        # Brand + Storage Capacity + Card type + Product Verticle + , Speed Class
-        # NOTE: model_name is NOT used here; storage_capacity and card_type are used instead
-        storage_capacity = kwargs.get('storage_capacity', '')
-        card_type = kwargs.get('card_type', '')
-        speed_class = kwargs.get('speed_class', '')
-        parts = [p for p in [brand, storage_capacity, card_type, pv_name] if p]
-        base = ' '.join(parts)
-        suffix = f", {speed_class}" if speed_class else ''
-        return f"{base}{suffix}"
-
-    elif pv_name == 'Mobile Cables':
-        # Brand + Product Condition + No of Connectors + Connector Type + Product Verticle + , Colour
-        no_of_connectors = kwargs.get('no_of_connectors', '')
-        connector_type = kwargs.get('connector_type', '')
-        parts = [p for p in [brand, condition, no_of_connectors, connector_type, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Mobile Holders':
-        # Brand + Product Condition + Product Verticle + Rotation type + , Colour
-        rotation_type = kwargs.get('rotation_type', '')
-        parts = [p for p in [brand, condition, pv_name, rotation_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Screen Guards / Protectors':
-        # Brand + Product Condition + Screen Guard type + Coverage + "for" Compatible Brand + Model Name
-        screen_guard_type = kwargs.get('screen_guard_type', '')
-        coverage = kwargs.get('coverage', '')
-        compatible_brand_model = kwargs.get('compatible_brand_model', '')
-        parts = [p for p in [brand, condition, screen_guard_type, coverage] if p]
-        base = ' '.join(parts)
-        if compatible_brand_model:
-            base = f"{base} for {compatible_brand_model}"
-        return base
-
-    elif pv_name == 'Power Bank':
-        # Brand + Product Condition + Battery Capacity + Product Verticle + No of Output Ports + Output Ports Type + , Colour
-        battery_capacity = kwargs.get('battery_capacity', '')
-        no_of_output_ports = kwargs.get('no_of_output_ports', '')
-        output_ports_type = kwargs.get('output_ports_type', '')
-        parts = [p for p in [brand, condition, battery_capacity, pv_name, no_of_output_ports, output_ports_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Smartphones':
-        # Brand + Model Name + Back Camera + "Camera" + Product Verticle + , RAM + Internal Storage + , Colour (Product Condition)
-        back_camera = kwargs.get('back_camera', '')
-        ram = kwargs.get('ram', '')
-        storage = kwargs.get('storage', '')
-        cam_part = f'{back_camera} Camera' if back_camera else ''
-        ram_storage = f'{ram} + {storage}' if (ram and storage) else (ram or storage)
-        parts = [p for p in [brand, model_name, cam_part, pv_name] if p]
-        base = ' '.join(parts)
-        suffix_parts = []
-        if ram_storage:
-            suffix_parts.append(ram_storage)
-        if color:
-            suffix_parts.append(f'{color} ({condition})')
-        if suffix_parts:
-            return f"{base}, {', '.join(suffix_parts)}"
-        return base
-
-    elif pv_name == 'Smart Watches':
-        # Brand + Model Name + Product Condition + Display Size + "Display" + Product Verticle + , Colour
-        display_size = kwargs.get('display_size', '')
-        ds_part = f'{display_size}" Display' if display_size else ''
-        parts = [p for p in [brand, model_name, condition, ds_part, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    # Fallback
-    parts = [p for p in [brand, model_name, pv_name] if p]
-    base = ' '.join(parts)
-    return f"{base}, {color}" if color else base
-
-
-def make_ce_internal_title(pv_name, brand, model_name, color, condition, **kwargs):
-    """Build internal title based on PV-specific convention from 'PV Level Title Conventions' sheet."""
-    color = _title_case_color(color)
-    condition = _extract_condition(condition, kwargs.get('cfg', {}))
-
-    if pv_name == 'Mobile Adapters & Cables':
-        # Brand + Product Condition + Model Name + Output Voltage + Adapter Connector Type + , Colour
-        output_voltage = kwargs.get('output_voltage', '')
-        adapter_connector = kwargs.get('adapter_connector', '')
-        parts = [p for p in [brand, condition, model_name, output_voltage, adapter_connector] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Speakers':
-        # Brand + Model Name + Product Condition + Speaker Type + , Colour
-        speaker_type = kwargs.get('speaker_type', '')
-        parts = [p for p in [brand, model_name, condition, speaker_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Mobile Case & Covers':
-        # Brand + Product Condition + Model Name + Compatible Brand + Model Name + Product Material + Case & Cover Type + , Colour
-        compatible_brand_model = kwargs.get('compatible_brand_model', '')
-        material = kwargs.get('material', '')
-        case_type = kwargs.get('case_cover_type', '')
-        parts = [p for p in [brand, condition, model_name, compatible_brand_model, material, case_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Feature Phones':
-        # Brand + Model Name + Display Size + "Display" + Product Verticle + , Colour (Product Condition)
-        display_size = kwargs.get('display_size', '')
-        ds_part = f'{display_size}" Display' if display_size else ''
-        parts = [p for p in [brand, model_name, ds_part, pv_name] if p]
-        base = ' '.join(parts)
-        suffix = f"{color} ({condition})" if color else f"({condition})"
-        return f"{base}, {suffix}"
-
-    elif pv_name == 'Headsets':
-        # Brand + Model Name + Product Condition + Product Verticle + , Colour
-        parts = [p for p in [brand, model_name, condition, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'TWS Ear Buds':
-        # Brand + Model Name + Product Condition + "Earbuds" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Earbuds'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Earphones':
-        # Brand + Model Name + Product Condition + "Wired Earphones" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Wired Earphones'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Neck Bands':
-        # Brand + Model Name + Product Condition + "Neckband" + , Colour
-        parts = [p for p in [brand, model_name, condition, 'Neckband'] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Memory Cards':
-        # Brand + Storage Capacity + Card type + Product Verticle + , Speed Class
-        # NOTE: model_name is NOT used here; storage_capacity and card_type are used instead
-        storage_capacity = kwargs.get('storage_capacity', '')
-        card_type = kwargs.get('card_type', '')
-        speed_class = kwargs.get('speed_class', '')
-        parts = [p for p in [brand, storage_capacity, card_type, pv_name] if p]
-        base = ' '.join(parts)
-        suffix = f", {speed_class}" if speed_class else ''
-        return f"{base}{suffix}"
-
-    elif pv_name == 'Mobile Cables':
-        # Brand + Product Condition + Model Name + No of Connectors + Connector Type + Product Verticle + , Colour
-        no_of_connectors = kwargs.get('no_of_connectors', '')
-        connector_type = kwargs.get('connector_type', '')
-        parts = [p for p in [brand, condition, model_name, no_of_connectors, connector_type, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Mobile Holders':
-        # Brand + Product Condition + Model Name + Product Verticle + Rotation type + , Colour
-        rotation_type = kwargs.get('rotation_type', '')
-        parts = [p for p in [brand, condition, model_name, pv_name, rotation_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Screen Guards / Protectors':
-        # Brand + Product Condition + Model Name + Screen Guard type + Coverage + "for" Compatible Brand + Model Name
-        screen_guard_type = kwargs.get('screen_guard_type', '')
-        coverage = kwargs.get('coverage', '')
-        compatible_brand_model = kwargs.get('compatible_brand_model', '')
-        parts = [p for p in [brand, condition, model_name, screen_guard_type, coverage] if p]
-        base = ' '.join(parts)
-        if compatible_brand_model:
-            base = f"{base} for {compatible_brand_model}"
-        return base
-
-    elif pv_name == 'Power Bank':
-        # Brand + Product Condition + Model Name + Battery Capacity + Product Verticle + No of Output Ports + Output Ports Type + , Colour
-        battery_capacity = kwargs.get('battery_capacity', '')
-        no_of_output_ports = kwargs.get('no_of_output_ports', '')
-        output_ports_type = kwargs.get('output_ports_type', '')
-        parts = [p for p in [brand, condition, model_name, battery_capacity, pv_name, no_of_output_ports, output_ports_type] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    elif pv_name == 'Smartphones':
-        # Brand + Model Name + Back Camera + "Camera" + Product Verticle + , RAM + Internal Storage + , Colour (Product Condition)
-        back_camera = kwargs.get('back_camera', '')
-        ram = kwargs.get('ram', '')
-        storage = kwargs.get('storage', '')
-        cam_part = f'{back_camera} Camera' if back_camera else ''
-        ram_storage = f'{ram} + {storage}' if (ram and storage) else (ram or storage)
-        parts = [p for p in [brand, model_name, cam_part, pv_name] if p]
-        base = ' '.join(parts)
-        suffix_parts = []
-        if ram_storage:
-            suffix_parts.append(ram_storage)
-        if color:
-            suffix_parts.append(f'{color} ({condition})')
-        if suffix_parts:
-            return f"{base}, {', '.join(suffix_parts)}"
-        return base
-
-    elif pv_name == 'Smart Watches':
-        # Brand + Model Name + Product Condition + Display Size + "Display" + Product Verticle + , Colour
-        display_size = kwargs.get('display_size', '')
-        ds_part = f'{display_size}" Display' if display_size else ''
-        parts = [p for p in [brand, model_name, condition, ds_part, pv_name] if p]
-        base = ' '.join(parts)
-        return f"{base}, {color}" if color else base
-
-    # Fallback
-    parts = [p for p in [brand, model_name, pv_name] if p]
-    base = ' '.join(parts)
-    return f"{base}, {color}" if color else base
-
-
-# ═══════════════════════════════════════════════════════════════
-# SET DETAILS BUILDER
-# ═══════════════════════════════════════════════════════════════
-
-def _build_set_details_ce(pv_name, **kwargs):
-    """Build SET_DETAILS based on PV rules from ProductVerticle<>Mapping Column."""
-    if pv_name == 'Mobile Case & Covers':
-        cbm = kwargs.get('compatible_brand_model', '')
-        return cbm if cbm else '1pc'
-    elif pv_name in ('Smartphones', 'Feature Phones'):
-        ram = kwargs.get('ram', '')
-        storage = kwargs.get('storage', '')
-        if ram and storage:
-            return f'{ram} + {storage}'
-        return ram or storage or '1pc'
-    else:
-        return '1pc'
-
-
-# ═══════════════════════════════════════════════════════════════
-# TEMPLATE WORKBOOK BUILDER
-# ═══════════════════════════════════════════════════════════════
-
-def get_ce_unified_template_wb_for_pv(pv_name):
-    """Get template workbook for a specific PV from the unified template."""
+def get_ce_template_wb_for_subtype(subtype):
     try:
-        wb_src = load_workbook(TEMPLATE_PATH)
-        ws_src = wb_src['Templates']
-        hdr_row = CE_SUBTYPE_HEADER_ROW.get(pv_name, 1)
+        wb_src  = load_workbook(CE_TEMPLATE_PATH)
+        ws_src  = wb_src['CE - PV Template']
+        hdr_row = CE_SUBTYPE_HEADER_ROW.get(subtype, 2)
         headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
         while headers and headers[-1] is None:
             headers.pop()
     except Exception as e:
-        print(f"Warning: Could not load template for {pv_name}: {e}")
+        print(f"Warning: Could not load CE template for {subtype}: {e}")
         headers = []
-
-    wb_new = Workbook()
-    ws_new = wb_new.active
-    ws_new.title = 'CE Unified Template'
+    wb_new       = Workbook()
+    ws_new       = wb_new.active
+    ws_new.title = 'CE - PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
     return wb_new, headers
 
+def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
+    tcol        = {h: i+1 for i, h in enumerate(headers) if h}
+    _ce_cfg     = get_ce_config_from_disk()
+    brands_dict = normalize_brands(_ce_cfg.get('brands', {}))
+    fallback_brand, fallback_id = ('', '')
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    st_data = CE_SUBTYPE_MAP.get(subtype, {})
+    skipped, filled = [], 0
 
-# ═══════════════════════════════════════════════════════════════
-# MAIN TEMPLATE FILLER
+    for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+        if not brand and fallback_brand:
+            brand    = fallback_brand
+            brand_id = fallback_id
+
+        sku_raw    = safe(drow.get(col_map.get('sku',''), ''))
+        model_num  = safe(drow.get(col_map.get('article',''), ''))
+        article    = model_num if model_num else sku_raw
+        model_name = article
+
+        if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
+            skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
+            continue
+
+        filled  += 1
+        row_idx  = filled + 1
+
+        mrp          = drow.get(col_map.get('mrp',''), '')
+        sp           = drow.get(col_map.get('sp',''), '')
+        moq          = drow.get(col_map.get('moq',''), 1)
+        color        = safe(drow.get(col_map.get('color',''), ''))
+        weight       = drow.get(col_map.get('weight',''), '')
+        dim_raw      = safe(drow.get(col_map.get('dims',''), ''))
+        hsn          = drow.get(col_map.get('hsn',''), '')
+        gst          = drow.get(col_map.get('gst',''), 18)
+        packing      = safe(drow.get(col_map.get('packing',''), '')) or 'BOX'
+        country      = safe(drow.get(col_map.get('country',''), '')) or _ce_cfg['country_of_origin']
+        dim_uom      = safe(drow.get(col_map.get('dim_uom',''), '')) or 'cm'
+        prod_desc    = safe(drow.get(col_map.get('product_desc',''), ''))
+        warranty     = safe(drow.get(col_map.get('warranty',''), ''))
+        battery      = safe(drow.get(col_map.get('battery',''), ''))
+        charging     = safe(drow.get(col_map.get('charging_type',''), ''))
+        ram          = safe(drow.get(col_map.get('ram',''), ''))
+        storage      = safe(drow.get(col_map.get('storage',''), ''))
+        sim_type     = safe(drow.get(col_map.get('sim_type',''), ''))
+        os           = safe(drow.get(col_map.get('os',''), ''))
+        front_cam    = safe(drow.get(col_map.get('front_camera',''), ''))
+        back_cam     = safe(drow.get(col_map.get('back_camera',''), ''))
+        screen_size  = safe(drow.get(col_map.get('screen_size',''), ''))
+        display_type = safe(drow.get(col_map.get('display_type',''), ''))
+        proc_core    = safe(drow.get(col_map.get('processor_core',''), ''))
+        network      = safe(drow.get(col_map.get('network_support',''), ''))
+        bluetooth    = safe(drow.get(col_map.get('bluetooth',''), ''))
+        prod_type    = safe(drow.get(col_map.get('product_type',''), ''))
+
+        img_url  = safe(drow.get(col_map.get('image',''), ''))
+        img2_url = safe(drow.get(col_map.get('image2',''), ''))
+        img3_url = safe(drow.get(col_map.get('image3',''), ''))
+        img4_url = safe(drow.get(col_map.get('image4',''), ''))
+        img5_url = safe(drow.get(col_map.get('image5',''), ''))
+        img6_url = safe(drow.get(col_map.get('image6',''), ''))
+
+        desc = prod_desc if prod_desc else ''
+        if not display_type:
+            display_type = extract_from_description(desc, 'display_type')
+        if not charging:
+            charging = extract_from_description(desc, 'charging_type')
+        if not bluetooth:
+            bluetooth = extract_from_description(desc, 'bluetooth')
+
+        ram_rom     = f"{ram} + {storage}" if (ram and storage) else ''
+        ram_storage = ram_rom if ram_rom else (ram or storage or '')
+        condition   = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
+
+        # ── TITLE: route Feature Phone to its own title function ──
+        if subtype and 'feature phone' in subtype.lower():
+            title = make_feature_phone_title(brand, model_name, screen_size, subtype, color, condition)
+        else:
+            title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
+        internal_title = title
+
+        description = prod_desc if prod_desc else make_ce_description(
+            brand, model_name, subtype, ram, storage, proc_core, battery,
+            screen_size, display_type, color, front_cam, back_cam, os
+        )
+
+        package_contents = 'Handset' if (prod_type and 'smart phone' in prod_type.lower()) else ''
+
+        L, B, H = parse_lbh(dim_raw)
+
+        weight_clean = ''
+        if weight:
+            m = re.search(r'([0-9.]+)', str(weight))
+            if m: weight_clean = float(m.group(1))
+
+        try:    mrp = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
+        except: mrp = ''
+        try:    sp  = float(sp)       if str(sp).strip()     not in ('','nan') else ''
+        except: sp  = ''
+        try:    hsn = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
+        except: hsn = ''
+        try:    gst = int(float(gst))
+        except: gst = 18
+        try:    moq = int(float(moq))
+        except: moq = 1
+
+        row_data = {
+            'Category *':                                  st_data.get('Category *', 'Consumer Electronics'),
+            'SubCategory *':                               st_data.get('SubCategory *', 'Mobile'),
+            'CategoryType *':                              subtype,
+            'SubType':                                     subtype,
+            'PVID *':                                      st_data.get('PVID *', ''),
+            'BusinessCategoryId *':                        _ce_cfg['biz_cat_id'],
+            'BusinessCategoryName *':                      _ce_cfg['biz_cat_name'],
+            'Relationship *':                              _ce_cfg['relationship'],
+            'ParentProductId *':                           sku_raw,
+            'ChildSKU *':                                  sku_raw,
+            'MRP *':                                       mrp,
+            'SellingPrice *':                              sp,
+            'MOQ *':                                       moq,
+            'title *':                                     title,
+            'internalTitle *':                             internal_title,
+            'brandId *':                                   brand_id,
+            'brandName *':                                 brand,
+            'imageURL1 *':                                 img_url,
+            'imageURL2':                                   img2_url,
+            'imageURL3':                                   img3_url,
+            'imageURL4':                                   img4_url,
+            'imageURL5':                                   img5_url,
+            'imageURL6':                                   img6_url,
+            'catalogStatus *':                             _ce_cfg['catalog_status'],
+            'statusRemark':                                _ce_cfg['status_remark'],
+            'discoveryCategoryIds':                        st_data.get('discoveryCategoryIds', _ce_cfg['discovery_cat']),
+            'productDescription *':                        description,
+            'PRODUCT_IDENTIFIER *':                        'Set',
+            'SET_NAME *':                                  'Set of 1',
+            'SET_COUNT *':                                 1,
+            'PACK_NAME *':                                 'Pack of 1',
+            'PACK_OF *':                                   1,
+            'IS_COMBO *':                                  'yes',
+            'AVAILABLE_SIZES *':                           '1',
+            'SET_DETAILS *':                                ram_rom,
+            'SET_DESCRIPTION *':                           '1pc of Smartphones',
+            'PRODUCT_COLOR *':                             color,
+            'ARTICLE_NUMBER *':                            article,
+            'MODEL_NAME *':                                model_name,
+            'PRODUCT_CONDITION *':                         _ce_cfg['product_condition'],
+            'UNIT_OF_MEASUREMENT_SINGULAR *':              'Piece',
+            'UNIT_OF_MEASUREMENT_PLURAL *':                'Pieces',
+            'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pc',
+            'UNIT_OF_MEASUREMENT_PLURAL_ABBREVIATION *':   'Pcs',
+            'SELLER_SKU_ID *':                             sku_raw,
+            'PACKAGING_TYPE *':                            packing,
+            'DESCRIPTION':                                 '',
+            'BATTERY_CAPACITY_MAH *':                      battery,
+            'CHARGING_TYPE_SUPPORTED *':                   charging,
+            'COUNTRY_OF_ORIGIN *':                         country,
+            'EAN *':                                       '',
+            'IMPORTED_BY':                                 '',
+            'KEY_FEATURES':                                '',
+            'MANUFACTURING_YEAR':                          _ce_cfg['manufacturing_year'],
+            'PACKAGE_CONTENTS *':                          package_contents,
+            'PORT_TYPE':                                   '',
+            'PRODUCT_BREADTH *':                           B,
+            'PRODUCT_DIMENSION_UOM *':                     dim_uom,
+            'PRODUCT_HEIGHT *':                            H,
+            'PRODUCT_LENGTH *':                            L,
+            'PRODUCT_WEIGHT_IN_KG *':                      weight_clean,
+            'PRODUCT_MANUFACTURING_CITY':                  '',
+            'PRODUCT_MANUFACTURING_STATE':                 '',
+            'WARRANTY':                                    warranty,
+            'MANUFACTURER':                                '',
+            'OPERATING_SYSTEM_OS':                         os,
+            'OS_VERSION':                                  '',
+            'DISPLAY_SIZE *':                              screen_size,
+            'DISPLAY_TYPE *':                              display_type,
+            'DISPLAY_RESOLUTION':                          '',
+            'RAM *':                                       ram,
+            'INTERNAL_STORAGE *':                          storage,
+            'EXPANDABLE_STORAGE *':                        '',
+            'SIM_TYPE *':                                  sim_type,
+            'BLUETOOTH_VERSION *':                         bluetooth,
+            'EXPANDABLE_STORAGE_TYPE':                     '',
+            'EXPANDABLE_STORAGE_CAPACITY_MAX':             '',
+            'BATTERY_TYPE':                                '',
+            'REMOVABLE_BATTERY':                           '',
+            'HYBRID_SIM_SLOT':                             '',
+            'NETWORK_TYPE_SUPPORTED':                      network,
+            'AUDIO_JACK':                                  '',
+            'FM_RADIO *':                                  '',
+            'TORCH_OR_FLASHLIGHT *':                       '',
+            'RAM_ROM *':                                   ram_rom,
+            'PROCESSOR_BRAND_AND_MODEL_NAME':              extract_from_description(desc, 'processor'),
+            'NUMBER_OF_PROCESSOR_CORES *':                 proc_core,
+            'PRIMARY_CAMERA_RESOLUTION *':                 back_cam,
+            'FRONT_CAMERA_RESOLUTION *':                   front_cam,
+            'REAR_FLASH':                                  '',
+            'SIM_SIZE':                                    '',
+            'WIFI':                                        '',
+            'FINGERPRINT_SENSOR':                          '',
+            'CLOCK_SPEED':                                 '',
+            'REFRESH_RATE':                                '',
+            'TOUCHSCREEN_TYPE':                            '',
+            'PRIMARY_CAMERA_SETUP':                        '',
+            'FRONT_FLASH':                                 '',
+            'VIDEO_RECORDING_RESOLUTION':                  '',
+            'FAST_CHARGING_WATTAGE':                       '',
+            'WIRELESS_CHARGING_SUPPORT':                   '',
+            'GPS_SUPPORT':                                 '',
+            'NFC_SUPPORT':                                 '',
+            'INFRARED_IR_BLASTER':                         '',
+            'FINGERPRINT_SENSOR_POSITION':                 '',
+            'FACE_UNLOCK':                                 '',
+            'WATER_RESISTANCE_RATING':                     '',
+            'hsnCode *':                                   hsn,
+            'gstPercentage *':                             gst,
+            'cgstShare *':                                 _ce_cfg['gst_cgst'],
+            'sgstShare *':                                 _ce_cfg['gst_sgst'],
+            'igstShare *':                                 _ce_cfg['gst_igst'],
+            'cess':                                        '',
+            'sinTax':                                      '',
+            'vatPercentage':                               '',
+            'otherCess':                                   '',
+            'validityPeriodStartDate':                     '',
+            'validityPeriodEndDate':                       '',
+            'declarationForm':                             '',
+            'taxMasterStatus':                             _ce_cfg['tax_master_status'],
+        }
+
+        for col_name, val in row_data.items():
+            if col_name in tcol and val is not None and str(val) not in ('None',''):
+                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+
+    return filled, skipped
+    # ═══════════════════════════════════════════════════════════════
+# CE 5-FILE PROCESS MODULE (Smart Phone & Feature Phone)
+# Generates: JPIN, ProductAttributeValue, L3, TaxMaster, SCM
 # ═══════════════════════════════════════════════════════════════
 
-def fill_ce_unified_template(ws, headers, rows_df, col_map, pv_name, existing_articles, existing_skus):
-    """Fill template for Consumer Electronics unified template."""
-    tcol = {h: i + 1 for i, h in enumerate(headers) if h}
-    _cfg = get_ce_unified_config()
-    brands_dict = normalize_brands(_cfg.get('brands', {}))
+CE5_CONFIG_PATH = '/tmp/fillforge_ce5_config.json'
+
+CE5_DEFAULT_CONFIG = {
+    "brands": {
+        "Nothing":  "BR-1190296500",
+        "Redmi":    "BR-1190296387",
+        "AI Plus":  "BR-1190300100",
+        "Iqoo":     "BR-1190296450",
+        "Motorola": "BR-1190296386",
+        "Oppo":     "BR-1190296391",
+        "Realme":   "BR-1190296393",
+        "Itel":     "BR-1190296555",
+        "Samsung":  "BR-1190296380",
+        "Karbonn":  "BR-1190296392",
+    },
+    "biz_cat_id":          "BCAT-139438",
+    "biz_cat_name":        "Consumer Electronics",
+    "discovery_cat":       "DISCAT-135528",
+    "catalog_status":      "ACTIVE",
+    "status_remark":       "Ready to Launch",
+    "tax_master_status":   "active",
+    "gst_cgst":            50,
+    "gst_sgst":            50,
+    "gst_igst":            0,
+    "country_of_origin":   "India",
+    "product_condition":   "Fresh",
+    "manufacturing_year":  "2026",
+    "pv_config": {
+        "smart phone": {
+            "pv_id":   "PV-1914272826",
+            "pv_name": "Smartphones",
+        },
+        "feature phone": {
+            "pv_id":   "PV-1914272825",
+            "pv_name": "Feature Phones",
+        },
+    },
+}
+
+CE5_CATEGORIES = ['Smart Phone', 'Feature Phone']
+
+# Column hints for the input listing file
+CE5_DUMP_COL_HINTS = {
+    'seller_name':       ['Seller Name'],
+    'seller_solv_id':    ['Seller Solv ID'],
+    'ind_category':      ['Industry Category'],
+    'ind_sub_category':  ['Industry Sub Category'],
+    'product_type':      ['Product Type'],
+    'product_subtype':   ['Product Sub-type'],
+    'child_sku':         ['Child SKU','SKU','Seller SKU ID'],
+    'relationship':      ['Relationship'],
+    'parent_product_id': ['Parent Product ID'],
+    'brand':             ['Brand','Brand Name'],
+    'model_title':       ['Name of the model/Title name','Name of the model','Model Title'],
+    'product_desc':      ['Product Description'],
+    'product_id_pref':   ['Product ID (Preferred)'],
+    'gst':               ['GST'],
+    'image':             ['Main Image URL','Image Link'],
+    'image2':            ['Other Image URL 1'],
+    'image3':            ['Other Image URL 2'],
+    'image4':            ['Other Image URL 3'],
+    'image5':            ['Other Image URL 4'],
+    'image6':            ['Other Image URL 5'],
+    'warranty':          ['Warranty Period','Warranty'],
+    'country':           ['Country/Region of Origin','Country of Origin'],
+    'packaging_qty':     ['Packaging Quantity'],
+    'packaging_type':    ['Packaging Type'],
+    'hsn':               ['HSN Code'],
+    'mrp':               ['MRP'],
+    'sp':                ['Selling Price'],
+    'moq':               ['*Minimum Order Quantity','MOQ'],
+    'sku_id':            ['SKU ID','Child SKU'],
+    'ram':               ['RAM'],
+    'dims':              ['*Product Dimension (LXBXH)','Product Dimension (LXBXH)'],
+    'dim_uom':           ['*Product Dimension UOM','Product Dimension UOM'],
+    'weight':            ['Product Weight'],
+    'storage':           ['Storage Capacity'],
+    'retail_margin':     ['Retail Margin'],
+    'model_number':      ['Model Number'],
+    'battery':           ['Battery Capacity'],
+    'sim_type':          ['Sim Type'],
+    'os':                ['Operating System'],
+    'front_camera':      ['Front Camera'],
+    'back_camera':       ['Back Camera'],
+    'product_condition': ['Product Condition'],
+    'network_support':   ['Network Support'],
+    'processor_core':    ['Processor Core'],
+    'variant_image':     ['Variant Image URL'],
+    'screen_size':       ['Screen Size'],
+    'color':             ['Product Color','Product Colour'],
+    'solv_commission':   ['solv commission'],
+    'ean':               ['EAN Number','EAN'],
+    'stock':             ['Stock'],
+    'type':              ['*Type','Type'],
+}
+
+CE5_EXISTING_DUMP_HINTS = {
+    'jpin':          ['JPIN','Jpin','jpin'],
+    'title':         ['Title','title','Product Name','Internal_Title'],
+    'internal_title':['Internal_Title','Internal Title'],
+    'child_sku':     ['Child SKU','ChildSKU','Seller SKU ID','SKU'],
+}
+
+
+def get_ce5_config_from_disk():
+    cfg = _load_config(CE5_CONFIG_PATH, CE5_DEFAULT_CONFIG)
+    # Always use code defaults for pv_config
+    cfg['pv_config'] = CE5_DEFAULT_CONFIG['pv_config']
+    return cfg
+
+
+def _ce5_get_pv_config(pv_name, ce5_cfg):
+    """Get PV config by Product Type (Smart Phone / Feature Phone)."""
+    pv_cfg_map = ce5_cfg.get('pv_config') or CE5_DEFAULT_CONFIG['pv_config']
+    key = pv_name.lower().strip()
+    if key in pv_cfg_map:
+        return pv_cfg_map[key]
+    for k, v in pv_cfg_map.items():
+        if k.lower() == key or key in k.lower() or k.lower() in key:
+            return v
+    return next(iter(pv_cfg_map.values()))
+
+
+def _ce5_normalize_text(s):
+    """Normalize string for fuzzy matching (lowercase, strip, collapse spaces)."""
+    if not s: return ''
+    s = str(s).strip().lower()
+    s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r'[^\w\s/+()-]', '', s)
+    return s.strip()
+
+
+def _ce5_build_existing_jpin_map(existing_dump_bytes):
+    """
+    Parse existing dump file and build a map of {normalized_title: JPIN}.
+    Tries to read both 'Title' and 'Internal_Title' columns for matching.
+    """
+    if not existing_dump_bytes:
+        return {}
+    jpin_map = {}
+    try:
+        xl = pd.ExcelFile(io.BytesIO(existing_dump_bytes))
+        for sname in xl.sheet_names:
+            try:
+                df = xl.parse(sname)
+            except:
+                continue
+            col_map = build_col_map(df, CE5_EXISTING_DUMP_HINTS)
+            jpin_col  = col_map.get('jpin')
+            title_col = col_map.get('title')
+            int_col   = col_map.get('internal_title')
+            sku_col   = col_map.get('child_sku')
+            if not jpin_col:
+                continue
+            for _, r in df.iterrows():
+                jpin_val = safe(r.get(jpin_col, ''))
+                if not jpin_val:
+                    continue
+                # Map by Title
+                if title_col:
+                    t = safe(r.get(title_col, ''))
+                    nt = _ce5_normalize_text(t)
+                    if nt and nt not in jpin_map:
+                        jpin_map[nt] = jpin_val
+                # Map by Internal_Title
+                if int_col:
+                    t = safe(r.get(int_col, ''))
+                    nt = _ce5_normalize_text(t)
+                    if nt and nt not in jpin_map:
+                        jpin_map[nt] = jpin_val
+                # Map by SKU
+                if sku_col:
+                    s = safe(r.get(sku_col, ''))
+                    if s:
+                        skey = f'__sku__{_ce5_normalize_text(s)}'
+                        if skey not in jpin_map:
+                            jpin_map[skey] = jpin_val
+    except Exception as e:
+        print(f'Warning: could not parse existing dump: {e}')
+    return jpin_map
+
+
+def _ce5_lookup_jpin(title, internal_title, sku, jpin_map):
+    """Try to find existing JPIN by matching title, internal_title, or SKU."""
+    if not jpin_map:
+        return ''
+    for candidate in [title, internal_title]:
+        nt = _ce5_normalize_text(candidate)
+        if nt and nt in jpin_map:
+            return jpin_map[nt]
+    # Try SKU lookup
+    if sku:
+        skey = f'__sku__{_ce5_normalize_text(sku)}'
+        if skey in jpin_map:
+            return jpin_map[skey]
+    return ''
+
+
+def _ce5_extract_number_only(s):
+    """Extract first integer from a string. '32MP' -> '32', '5G' -> '5'."""
+    if not s: return ''
+    m = re.search(r'(\d+(?:\.\d+)?)', str(s))
+    return m.group(1) if m else ''
+
+
+def _ce5_extract_screen_size_fmt(screen):
+    """Format screen size to '6.7"' format."""
+    if not screen: return ''
+    m = re.search(r'(\d+(?:\.\d+)?)', str(screen))
+    if m: return f'{m.group(1)}"'
+    return str(screen).strip()
+
+
+def _ce5_smartphone_title(brand, model_number, back_camera, pv_name, ram, storage, color, condition):
+    """
+    Smart Phone Title:
+    Brand + Model Number + Back Camera + PV Name + , RAM+Internal Storage, Colour, (Condition)
+    """
+    bc_part = ''
+    if back_camera:
+        bc_num = _ce5_extract_number_only(back_camera)
+        if bc_num:
+            bc_part = f'{bc_num}MP Camera'
+        else:
+            bc_part = back_camera
+
+    pv_short = pv_name.replace('Smartphones', 'Smart Phone') if pv_name else 'Smart Phone'
+
+    parts = [p for p in [brand, model_number, bc_part, pv_short] if p]
+    base = ' '.join(parts)
+
+    # RAM + Storage
+    ram_clean = re.sub(r'\s+', '', str(ram)) if ram else ''
+    sto_clean = re.sub(r'\s+', '', str(storage)) if storage else ''
+    ram_rom = ''
+    if ram_clean and sto_clean:
+        ram_rom = f'{ram_clean} + {sto_clean}'
+    elif ram_clean:
+        ram_rom = ram_clean
+    elif sto_clean:
+        ram_rom = sto_clean
+
+    suffix_parts = []
+    if ram_rom: suffix_parts.append(ram_rom)
+    if color:   suffix_parts.append(color)
+    if condition: suffix_parts.append(f'({condition})')
+
+    if suffix_parts:
+        return f'{base}, {", ".join(suffix_parts)}'
+    return base
+
+
+def _ce5_feature_phone_title(brand, model_number, screen_size, color, condition):
+    """
+    Feature Phone Title:
+    Brand + Model Name + Screen Size (1.8" format) + "Display" + PV Name, Colour (Product Condition)
+    """
+    ss = _ce5_extract_screen_size_fmt(screen_size)
+    display_part = f'{ss} Display' if ss else ''
+    parts = [p for p in [brand, model_number, display_part, 'Feature Phone'] if p]
+    base = ' '.join(parts)
+    suffix_parts = []
+    if color:     suffix_parts.append(color)
+    if condition: suffix_parts.append(f'({condition})')
+    if suffix_parts:
+        return f'{base}, {", ".join(suffix_parts)}'
+    return base
+
+
+def _ce5_clean_model_number(model_num, brand):
+    """Remove brand name from Model Number per mapping logic."""
+    if not model_num: return ''
+    s = str(model_num).strip()
+    if brand:
+        s = re.sub(rf'^\s*{re.escape(brand)}\s+', '', s, flags=re.IGNORECASE).strip()
+    return s
+
+
+def _ce5_extract_os_version(os_str):
+    """Take Number from OS string; if no number → '#'."""
+    if not os_str: return '#'
+    m = re.search(r'(\d+(?:\.\d+)?)', str(os_str))
+    return m.group(1) if m else '#'
+
+
+def fill_ce5_files(rows_df, col_map, pv_category, existing_articles, existing_skus, jpin_map):
+    """
+    Generate 5 output workbooks for one CE PV (Smart Phone / Feature Phone).
+    Returns: (wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped)
+    """
+    _ce5_cfg = get_ce5_config_from_disk()
+    brands_dict = normalize_brands(_ce5_cfg.get('brands', {}))
     fallback_brand, fallback_id = ('', '')
     if brands_dict:
         fallback_brand, fallback_id = next(iter(brands_dict.items()))
 
-    st_data = CE_SUBTYPE_MAP.get(pv_name, {})
+    pv_cfg = _ce5_get_pv_config(pv_category, _ce5_cfg)
+    pv_id   = pv_cfg.get('pv_id', '')
+    pv_name = pv_cfg.get('pv_name', pv_category)
+    is_smart = 'smart' in pv_category.lower()
+
+    # ── JPIN headers ─────────────────────────────────────────────
+    JPIN_HEADERS = [
+        'JPIN','Title','Internal_Title','BrandID','BrandName','PVID','PVName',
+        'Business Category Id','Business Category Name',
+        'Product Identifier','Set Name','Set Count','Pack Name','Pack of','is Combo',
+        'Available Sizes','Set Details','Set Description','Set Composition',
+        'Product Color','Article Number','Model Name','Product Condition',
+        'ImageURL1','ImageURL2','ImageURL3','ImageURL4','ImageURL5','ImageURL6',
+        'VideoURL1','VideoURL2','SizeChartURL',
+        'CatalogStatus','StatusRemark','CustomerDiscoveryCategories',
+        'Singular Unit Of Measurement','Plural Unit Of Measurement',
+        'Singular Unit Of Measurement Abbreviation','Plural Unit Of Measurement Abbreviation',
+        'Seller SKU ID','Product Description',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy','Ingestion Row Status','Exception',
+    ]
+
+    # ── TaxMaster headers ────────────────────────────────────────
+    TAX_HEADERS = [
+        'TaxMasterID','Jpin','Title','ProductVerticalId','ProductVerticalName',
+        'hsnCode','sinTax','cess','vatPercentage','gstPercentage',
+        'cgstComponentShare','sgstComponentShare','IgstComponentShare',
+        'Validity_Period_Start','Validity_Period_End','declarationForm','otherCess','status',
+    ]
+
+    # ── SCM headers ──────────────────────────────────────────────
+    SCM_HEADERS = [
+        'JPIN','Title','Net_Weight','Net_Weight_Measuring_Unit','DeadWeight',
+        'VolumetricWeight','ShippingCalculationType',
+        'L1-caseSize','L2-caseSize','L3-caseSize','L4-caseSize',
+        'L1-packagingType','L2-packagingType','L3-packagingType','L4-packagingType',
+        'L0-UnitShippingContainerType','L1-UnitShippingContainerType',
+        'L2-UnitShippingContainerType','L3-UnitShippingContainerType',
+        'L4-UnitShippingContainerType',
+        'Fragile','Brittle',
+        'length_l0','width_l0','height_l0',
+        'length_l1','width_l1','height_l1',
+        'length_l2','width_l2','height_l2',
+        'length_l3','width_l3','height_l3',
+        'length_l4','width_l4','height_l4',
+        'volumetricweight_l1','volumetricweight_l2','volumetricweight_l3','volumetricweight_l4',
+        'APMC Notified Commodity',
+        'L1-deadWeight','L2-deadWeight','L3-deadWeight','L4-deadWeight',
+        'Net_Quantity','Net_Quantity_Measuring_Unit',
+        'CreatedTime','LastUpdatedTime','LastUpdatedBy',
+    ]
+
+    # ── PAV headers (different for Smart vs Feature) ────────────
+    if is_smart:
+        PAV_HEADERS = [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'DESCRIPTION','BATTERY_CAPACITY_MAH','CHARGING_TYPE_SUPPORTED',
+            'COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY','KEY_FEATURES','MANUFACTURING_YEAR',
+            'PACKAGE_CONTENTS','PORT_TYPE',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_WEIGHT_IN_KG','PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'WARRANTY','MANUFACTURER','OPERATING_SYSTEM_OS','OS_VERSION',
+            'PROCESSOR_BRAND_AND_MODEL_NAME','NUMBER_OF_PROCESSOR_CORES',
+            'DISPLAY_SIZE','DISPLAY_RESOLUTION','RAM','INTERNAL_STORAGE',
+            'PRIMARY_CAMERA_RESOLUTION','FRONT_CAMERA_RESOLUTION','REAR_FLASH',
+            'SIM_TYPE','SIM_SIZE','WIFI','BLUETOOTH_VERSION','FINGERPRINT_SENSOR',
+            'CLOCK_SPEED','REFRESH_RATE','TOUCHSCREEN_TYPE',
+            'EXPANDABLE_STORAGE_TYPE','EXPANDABLE_STORAGE_CAPACITY_MAX',
+            'PRIMARY_CAMERA_SETUP','FRONT_FLASH','VIDEO_RECORDING_RESOLUTION',
+            'BATTERY_TYPE','REMOVABLE_BATTERY','FAST_CHARGING_WATTAGE',
+            'WIRELESS_CHARGING_SUPPORT','HYBRID_SIM_SLOT','NETWORK_TYPE_SUPPORTED',
+            'GPS_SUPPORT','NFC_SUPPORT','INFRARED_IR_BLASTER','AUDIO_JACK',
+            'FINGERPRINT_SENSOR_POSITION','FACE_UNLOCK','WATER_RESISTANCE_RATING',
+            'TORCH_OR_FLASHLIGHT','RAM_ROM',
+        ]
+    else:
+        PAV_HEADERS = [
+            'Jpin','Title','PvId','PvName','BrandId','BrandName',
+            'ImageURL1','ImageURL2','CatalogStatus','StatusRemark',
+            'DESCRIPTION','BATTERY_CAPACITY_MAH','CHARGING_TYPE_SUPPORTED',
+            'COUNTRY_OF_ORIGIN','EAN','IMPORTED_BY','KEY_FEATURES','MANUFACTURING_YEAR',
+            'PACKAGE_CONTENTS','PORT_TYPE',
+            'PRODUCT_BREADTH','PRODUCT_DIMENSION_UOM','PRODUCT_HEIGHT','PRODUCT_LENGTH',
+            'PRODUCT_WEIGHT_IN_KG','PRODUCT_MANUFACTURING_CITY','PRODUCT_MANUFACTURING_STATE',
+            'WARRANTY','MANUFACTURER','OPERATING_SYSTEM_OS','OS_VERSION',
+            'DISPLAY_SIZE','DISPLAY_TYPE','DISPLAY_RESOLUTION',
+            'RAM','INTERNAL_STORAGE','EXPANDABLE_STORAGE',
+            'SIM_TYPE','BLUETOOTH_VERSION',
+            'EXPANDABLE_STORAGE_TYPE','EXPANDABLE_STORAGE_CAPACITY_MAX',
+            'BATTERY_TYPE','REMOVABLE_BATTERY','HYBRID_SIM_SLOT',
+            'NETWORK_TYPE_SUPPORTED','AUDIO_JACK','FM_RADIO',
+            'TORCH_OR_FLASHLIGHT','RAM_ROM',
+        ]
+
+    # ── L3 headers ───────────────────────────────────────────────
+    L3_HEADERS = [
+        'Industry Category','Industry Sub Category','Product Type','Product Sub-type',
+        'Child SKU','Relationship','Parent Product ID','Brand','Name of the model',
+        'Product Description','Product ID (Preferred)','GST',
+        'Main Image URL','Other Image URL 1','Warranty Period','Country/Region of Origin',
+        'Packaging Quantity','Packaging Type','HSN Code','MRP','Selling Price',
+        '*Minimum Order Quantity','SKU ID','RAM',
+        '*Product Dimension (LXBXH)','*Product Dimension UOM','Product Weight',
+        'Storage Capacity','Retail Margin','Other Image URL 2','Model Number',
+        'Battery Capacity','Sim Type','Operating System','Front Camera','Back Camera',
+        'Product Condition','Network Support','Processor Core','Variant Image URL',
+        'Screen Size','Product Color','solv commission','EAN Number','Stock','*Type','JPIN',
+    ]
+
+    def _make_wb(headers, sheet_name):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_name
+        for ci, h in enumerate(headers, 1):
+            ws.cell(1, ci).value = h
+        return wb, ws
+
+    wb_jpin, ws_jpin = _make_wb(JPIN_HEADERS, 'JPIN Template')
+    wb_tax,  ws_tax  = _make_wb(TAX_HEADERS,  'TaxMaster')
+    wb_pav,  ws_pav  = _make_wb(PAV_HEADERS,  'ProductAttributeValue')
+    wb_scm,  ws_scm  = _make_wb(SCM_HEADERS,  'SCM')
+    wb_l3,   ws_l3   = _make_wb(L3_HEADERS,   'L3')
+
+    def _col(headers):
+        return {h: i+1 for i, h in enumerate(headers) if h}
+
+    tcol_jpin = _col(JPIN_HEADERS)
+    tcol_tax  = _col(TAX_HEADERS)
+    tcol_pav  = _col(PAV_HEADERS)
+    tcol_scm  = _col(SCM_HEADERS)
+    tcol_l3   = _col(L3_HEADERS)
+
+    def _write(ws, tcol, data, row_idx):
+        for col_name, val in data.items():
+            if col_name in tcol and val is not None and str(val) not in ('None',):
+                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+
     skipped, filled = [], 0
+
+    # Deduplicate parent rows: each unique (Child SKU + Color) becomes one row
+    seen_keys = set()
 
     for _, drow in rows_df.iterrows():
         brand, brand_id = get_brand_info(drow, col_map, brands_dict)
@@ -1325,676 +1475,506 @@ def fill_ce_unified_template(ws, headers, rows_df, col_map, pv_name, existing_ar
             brand = fallback_brand
             brand_id = fallback_id
 
-        sku_raw = safe(drow.get(col_map.get('sku', ''), ''))
-        model_name = safe(drow.get(col_map.get('model_name', ''), ''))
-        article = model_name if model_name else sku_raw
-
-        if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
-            skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
+        child_sku = safe(drow.get(col_map.get('child_sku',''), ''))
+        if not child_sku:
             continue
+
+        color_raw = safe(drow.get(col_map.get('color',''), ''))
+        color     = title_case_color(color_raw)
+
+        # Dedupe key
+        dedupe_key = f'{child_sku.upper()}__{color.upper()}'
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
+
+        # Read raw fields
+        model_title    = safe(drow.get(col_map.get('model_title',''), ''))
+        model_num_raw  = safe(drow.get(col_map.get('model_number',''), ''))
+        model_number   = _ce5_clean_model_number(model_num_raw, brand)
+        if not model_number:
+            model_number = _ce5_clean_model_number(model_title, brand)
+
+        product_desc   = safe(drow.get(col_map.get('product_desc',''), ''))
+        ram            = safe(drow.get(col_map.get('ram',''), ''))
+        storage        = safe(drow.get(col_map.get('storage',''), ''))
+        front_camera   = safe(drow.get(col_map.get('front_camera',''), ''))
+        back_camera    = safe(drow.get(col_map.get('back_camera',''), ''))
+        screen_size    = safe(drow.get(col_map.get('screen_size',''), ''))
+        battery        = safe(drow.get(col_map.get('battery',''), ''))
+        sim_type       = safe(drow.get(col_map.get('sim_type',''), ''))
+        os_raw         = safe(drow.get(col_map.get('os',''), ''))
+        processor_core = safe(drow.get(col_map.get('processor_core',''), ''))
+        network        = safe(drow.get(col_map.get('network_support',''), ''))
+        warranty       = safe(drow.get(col_map.get('warranty',''), ''))
+        condition      = safe(drow.get(col_map.get('product_condition',''), '')) or _ce5_cfg['product_condition']
+        country        = safe(drow.get(col_map.get('country',''), '')) or _ce5_cfg['country_of_origin']
+        packing_qty    = safe(drow.get(col_map.get('packaging_qty',''), '')) or '1'
+        packing_type   = safe(drow.get(col_map.get('packaging_type',''), '')) or 'Box'
+        retail_margin  = safe(drow.get(col_map.get('retail_margin',''), ''))
+        variant_img    = safe(drow.get(col_map.get('variant_image',''), ''))
+        solv_comm      = safe(drow.get(col_map.get('solv_commission',''), ''))
+        ean            = safe(drow.get(col_map.get('ean',''), ''))
+        stock          = safe(drow.get(col_map.get('stock',''), ''))
+        type_raw       = safe(drow.get(col_map.get('type',''), '')) or 'Unit'
+
+        img_url  = safe(drow.get(col_map.get('image',''), ''))
+        img2_url = safe(drow.get(col_map.get('image2',''), ''))
+        img3_url = safe(drow.get(col_map.get('image3',''), ''))
+        img4_url = safe(drow.get(col_map.get('image4',''), ''))
+        img5_url = safe(drow.get(col_map.get('image5',''), ''))
+        img6_url = safe(drow.get(col_map.get('image6',''), ''))
+
+        mrp_raw    = drow.get(col_map.get('mrp',''), '')
+        sp_raw     = drow.get(col_map.get('sp',''), '')
+        moq_raw    = drow.get(col_map.get('moq',''), 1)
+        hsn_raw    = drow.get(col_map.get('hsn',''), '')
+        gst_raw    = drow.get(col_map.get('gst',''), 18)
+        weight_raw = safe(drow.get(col_map.get('weight',''), ''))
+        dim_raw    = safe(drow.get(col_map.get('dims',''), ''))
+        dim_uom    = safe(drow.get(col_map.get('dim_uom',''), '')) or 'cm'
+
+        try:    hsn = int(float(hsn_raw)) if str(hsn_raw).strip() not in ('','nan') else ''
+        except: hsn = ''
+        try:    gst = int(float(gst_raw))
+        except: gst = 18
+        try:    mrp = float(mrp_raw) if str(mrp_raw).strip() not in ('','nan') else ''
+        except: mrp = ''
+        try:    sp  = float(sp_raw)  if str(sp_raw).strip()  not in ('','nan') else ''
+        except: sp  = ''
+        try:    moq = int(float(moq_raw))
+        except: moq = 1
+
+        weight_clean = ''
+        if weight_raw:
+            m = re.search(r'([0-9.]+)', weight_raw)
+            if m: weight_clean = float(m.group(1))
+
+        L, B, H = parse_lbh(dim_raw)
+
+        # Build RAM + Storage combo
+        ram_clean = re.sub(r'\s+', '', str(ram)) if ram else ''
+        sto_clean = re.sub(r'\s+', '', str(storage)) if storage else ''
+        ram_rom = f'{ram_clean} + {sto_clean}' if (ram_clean and sto_clean) else (ram_clean or sto_clean or '')
+        set_details = f'{ram_clean}+{sto_clean}' if (ram_clean and sto_clean) else (ram_clean or sto_clean or '')
+
+        # Build Title
+        if is_smart:
+            title = _ce5_smartphone_title(brand, model_number, back_camera, pv_name,
+                                          ram_clean, sto_clean, color, condition)
+        else:
+            title = _ce5_feature_phone_title(brand, model_number, screen_size, color, condition)
+        internal_title = title
+
+        # JPIN Lookup
+        existing_jpin = _ce5_lookup_jpin(title, internal_title, child_sku, jpin_map)
+
+        # Set Description per category
+        set_desc = '1pc of Smartphones' if is_smart else '1pc of Feature Phone'
 
         filled += 1
         row_idx = filled + 1
 
-        # Extract all fields from input
-        mrp = drow.get(col_map.get('mrp', ''), '')
-        sp = drow.get(col_map.get('sp', ''), '')
-        moq = drow.get(col_map.get('moq', ''), 1)
-        color = safe(drow.get(col_map.get('color', ''), ''))
-        weight = drow.get(col_map.get('weight', ''), '')
-        dim_raw = safe(drow.get(col_map.get('dims', ''), ''))
-        hsn = drow.get(col_map.get('hsn', ''), '')
-        gst = drow.get(col_map.get('gst', ''), 18)
-        packing = safe(drow.get(col_map.get('packing', ''), '')) or 'BOX'
-        country = safe(drow.get(col_map.get('country', ''), '')) or _cfg['country_of_origin']
-        dim_uom = safe(drow.get(col_map.get('dim_uom', ''), '')) or 'cm'
-        prod_desc = safe(drow.get(col_map.get('product_desc', ''), ''))
-        condition_raw = safe(drow.get(col_map.get('product_condition', ''), ''))
-        condition = condition_raw if condition_raw else _cfg['product_condition']
-
-        img_url = safe(drow.get(col_map.get('image', ''), ''))
-        img2_url = safe(drow.get(col_map.get('image2', ''), ''))
-        img3_url = safe(drow.get(col_map.get('image3', ''), ''))
-        img4_url = safe(drow.get(col_map.get('image4', ''), ''))
-        img5_url = safe(drow.get(col_map.get('image5', ''), ''))
-        img6_url = safe(drow.get(col_map.get('image6', ''), ''))
-
-        # PV-specific fields
-        kwargs = {
-            'output_voltage': safe(drow.get(col_map.get('output_voltage', ''), '')),
-            'adapter_connector': safe(drow.get(col_map.get('adapter_connector', ''), '')),
-            'speaker_type': safe(drow.get(col_map.get('speaker_type', ''), '')),
-            'compatible_brand_model': safe(drow.get(col_map.get('compatible_brand_model', ''), '')),
-            'material': safe(drow.get(col_map.get('material', ''), '')),
-            'case_cover_type': safe(drow.get(col_map.get('case_cover_type', ''), '')),
-            'display_size': safe(drow.get(col_map.get('display_size', ''), '')),
-            'storage_capacity': safe(drow.get(col_map.get('storage_capacity', ''), '')),
-            'card_type': safe(drow.get(col_map.get('card_type', ''), '')),
-            'speed_class': safe(drow.get(col_map.get('speed_class', ''), '')),
-            'no_of_connectors': safe(drow.get(col_map.get('no_of_connectors', ''), '')),
-            'connector_type': safe(drow.get(col_map.get('connector_type', ''), '')),
-            'rotation_type': safe(drow.get(col_map.get('rotation_type', ''), '')),
-            'screen_guard_type': safe(drow.get(col_map.get('screen_guard_type', ''), '')),
-            'coverage': safe(drow.get(col_map.get('coverage', ''), '')),
-            'battery_capacity': safe(drow.get(col_map.get('battery_capacity', ''), '')),
-            'no_of_output_ports': safe(drow.get(col_map.get('no_of_output_ports', ''), '')),
-            'output_ports_type': safe(drow.get(col_map.get('output_ports_type', ''), '')),
-            'back_camera': safe(drow.get(col_map.get('back_camera', ''), '')),
-            'ram': safe(drow.get(col_map.get('ram', ''), '')),
-            'storage': safe(drow.get(col_map.get('storage', ''), '')),
-            'bluetooth': safe(drow.get(col_map.get('bluetooth', ''), '')),
-            'wired_wireless': safe(drow.get(col_map.get('wired_wireless', ''), '')),
-            'mic_type': safe(drow.get(col_map.get('mic_type', ''), '')),
-            'num_ports': safe(drow.get(col_map.get('num_ports', ''), '')),
-            'cable_length': safe(drow.get(col_map.get('cable_length', ''), '')),
-            'cable_type': safe(drow.get(col_map.get('cable_type', ''), '')),
-            'cable_material': safe(drow.get(col_map.get('cable_material', ''), '')),
-            'closure_type': safe(drow.get(col_map.get('closure_type', ''), '')),
-            'pattern': safe(drow.get(col_map.get('pattern', ''), '')),
-            'compatible_brand': safe(drow.get(col_map.get('compatible_brand', ''), '')),
-            'screen_thickness': safe(drow.get(col_map.get('screen_thickness', ''), '')),
-            'charging_type': safe(drow.get(col_map.get('charging_type', ''), '')),
-            'os': safe(drow.get(col_map.get('os', ''), '')),
-            'os_version': safe(drow.get(col_map.get('os_version', ''), '')),
-            'processor_core': safe(drow.get(col_map.get('processor_core', ''), '')),
-            'front_camera': safe(drow.get(col_map.get('front_camera', ''), '')),
-            'sim_type': safe(drow.get(col_map.get('sim_type', ''), '')),
-            'network_support': safe(drow.get(col_map.get('network_support', ''), '')),
-            'display_type': safe(drow.get(col_map.get('display_type', ''), '')),
-            'display_resolution': safe(drow.get(col_map.get('display_resolution', ''), '')),
-            'expandable_storage': safe(drow.get(col_map.get('expandable_storage', ''), '')),
-            'bluetooth_version': safe(drow.get(col_map.get('bluetooth_version', ''), '')),
-            'expandable_storage_type': safe(drow.get(col_map.get('expandable_storage_type', ''), '')),
-            'expandable_storage_max': safe(drow.get(col_map.get('expandable_storage_max', ''), '')),
-            'battery_type': safe(drow.get(col_map.get('battery_type', ''), '')),
-            'removable_battery': safe(drow.get(col_map.get('removable_battery', ''), '')),
-            'hybrid_sim': safe(drow.get(col_map.get('hybrid_sim', ''), '')),
-            'audio_jack': safe(drow.get(col_map.get('audio_jack', ''), '')),
-            'fm_radio': safe(drow.get(col_map.get('fm_radio', ''), '')),
-            'torch': safe(drow.get(col_map.get('torch', ''), '')),
-            'rear_flash': safe(drow.get(col_map.get('rear_flash', ''), '')),
-            'wifi': safe(drow.get(col_map.get('wifi', ''), '')),
-            'fingerprint': safe(drow.get(col_map.get('fingerprint', ''), '')),
-            'clock_speed': safe(drow.get(col_map.get('clock_speed', ''), '')),
-            'refresh_rate': safe(drow.get(col_map.get('refresh_rate', ''), '')),
-            'touchscreen': safe(drow.get(col_map.get('touchscreen', ''), '')),
-            'primary_camera_setup': safe(drow.get(col_map.get('primary_camera_setup', ''), '')),
-            'front_flash': safe(drow.get(col_map.get('front_flash', ''), '')),
-            'video_resolution': safe(drow.get(col_map.get('video_resolution', ''), '')),
-            'fast_charging': safe(drow.get(col_map.get('fast_charging', ''), '')),
-            'wireless_charging': safe(drow.get(col_map.get('wireless_charging', ''), '')),
-            'gps': safe(drow.get(col_map.get('gps', ''), '')),
-            'nfc': safe(drow.get(col_map.get('nfc', ''), '')),
-            'infrared': safe(drow.get(col_map.get('infrared', ''), '')),
-            'fingerprint_pos': safe(drow.get(col_map.get('fingerprint_pos', ''), '')),
-            'face_unlock': safe(drow.get(col_map.get('face_unlock', ''), '')),
-            'water_resistance': safe(drow.get(col_map.get('water_resistance', ''), '')),
-            'strap_color': safe(drow.get(col_map.get('strap_color', ''), '')),
-            'core_brand': safe(drow.get(col_map.get('core_brand', ''), '')),
-            'holder_type': safe(drow.get(col_map.get('holder_type', ''), '')),
-            'lock_mechanism': safe(drow.get(col_map.get('lock_mechanism', ''), '')),
-            'cfg': _cfg,
+        # ── JPIN ──
+        jpin_row = {
+            'JPIN':                                    existing_jpin,
+            'Title':                                   title,
+            'Internal_Title':                          internal_title,
+            'BrandID':                                 brand_id,
+            'BrandName':                               brand,
+            'PVID':                                    pv_id,
+            'PVName':                                  pv_name,
+            'Business Category Id':                    _ce5_cfg['biz_cat_id'],
+            'Business Category Name':                  _ce5_cfg['biz_cat_name'],
+            'Product Identifier':                      'Set',
+            'Set Name':                                'Set of 1',
+            'Set Count':                               1,
+            'Pack Name':                               'Pack of 1',
+            'Pack of':                                 1,
+            'is Combo':                                'yes',
+            'Available Sizes':                         '1',
+            'Set Details':                             set_details,
+            'Set Description':                         set_desc,
+            'Set Composition':                         'Set :- 1',
+            'Product Color':                           color,
+            'Article Number':                          model_number,
+            'Model Name':                              model_number,
+            'Product Condition':                       condition,
+            'ImageURL1':                               img_url,
+            'ImageURL2':                               img2_url,
+            'ImageURL3':                               img3_url,
+            'ImageURL4':                               img4_url,
+            'ImageURL5':                               img5_url,
+            'ImageURL6':                               img6_url,
+            'CatalogStatus':                           _ce5_cfg['catalog_status'],
+            'StatusRemark':                            _ce5_cfg['status_remark'],
+            'CustomerDiscoveryCategories':             _ce5_cfg['discovery_cat'],
+            'Singular Unit Of Measurement':            'Piece',
+            'Plural Unit Of Measurement':              'Pieces',
+            'Singular Unit Of Measurement Abbreviation': 'Pc',
+            'Plural Unit Of Measurement Abbreviation': 'Pcs',
+            'Seller SKU ID':                           child_sku,
+            'Product Description':                     product_desc,
         }
+        _write(ws_jpin, tcol_jpin, jpin_row, row_idx)
 
-        # Build titles
-        title = make_ce_title(pv_name, brand, model_name, color, condition, **kwargs)
-        internal_title = make_ce_internal_title(pv_name, brand, model_name, color, condition, **kwargs)
-
-        # Build set details
-        set_details = _build_set_details_ce(pv_name, **kwargs)
-        set_desc = f'1pc of {pv_name}'
-
-        # Parse dimensions
-        L, B, H = parse_lbh(dim_raw)
-
-        # Clean weight
-        weight_clean = ''
-        if weight:
-            m = re.search(r'([0-9.]+)', str(weight))
-            if m:
-                weight_clean = float(m.group(1))
-
-        # Numeric conversions
-        try:
-            mrp = float(mrp) if str(mrp).strip() not in ('', 'nan') else ''
-        except:
-            mrp = ''
-        try:
-            sp = float(sp) if str(sp).strip() not in ('', 'nan') else ''
-        except:
-            sp = ''
-        try:
-            hsn = int(float(hsn)) if str(hsn).strip() not in ('', 'nan') else ''
-        except:
-            hsn = ''
-        try:
-            gst = int(float(gst))
-        except:
-            gst = 18
-        try:
-            moq = int(float(moq))
-        except:
-            moq = 1
-
-        # Build row data - SubType is BLANK
-        row_data = {
-            'Category *': st_data.get('Category *', 'Consumer Electronics'),
-            'SubCategory *': st_data.get('SubCategory *', ''),
-            'CategoryType *': st_data.get('CategoryType *', ''),
-            'SubType': '',  # BLANK as per requirement
-            'PVID *': st_data.get('PVID *', CE_PV_ID_MAP.get(pv_name, '')),
-            'BusinessCategoryId *': _cfg['biz_cat_id'],
-            'BusinessCategoryName *': _cfg['biz_cat_name'],
-            'ProductCode *': article,
-            'Relationship *': _cfg['relationship'],
-            'ParentProductId *': sku_raw,
-            'ChildSKU *': sku_raw,
-            'MRP *': mrp,
-            'SellingPrice *': sp,
-            'MOQ *': moq,
-            'title *': title,
-            'internalTitle *': internal_title,
-            'brandId *': brand_id,
-            'brandName *': brand,
-            'imageURL1 *': img_url,
-            'imageURL2': img2_url,
-            'imageURL3': img3_url,
-            'imageURL4': img4_url,
-            'imageURL5': img5_url,
-            'imageURL6': img6_url,
-            'videoURL1': '',
-            'videoURL2': '',
-            'sizeChartURLImage': '',
-            'catalogStatus *': _cfg['catalog_status'],
-            'statusRemark': _cfg['status_remark'],
-            'discoveryCategoryIds': st_data.get('discoveryCategoryIds', _cfg['discovery_cat']),
-            'productDescription *': prod_desc,
-            'PRODUCT_IDENTIFIER *': 'Set',
-            'SET_NAME *': 'Set of 1',
-            'SET_COUNT *': 1,
-            'PACK_NAME *': 'Pack of 1',
-            'PACK_OF *': 1,
-            'IS_COMBO *': 'yes',
-            'AVAILABLE_SIZES *': '1',
-            'SET_DETAILS *': set_details,
-            'SET_DESCRIPTION *': set_desc,
-            'PRODUCT_COLOR *': color,
-            'ARTICLE_NUMBER *': article,
-            'MODEL_NAME *': model_name,
-            'PRODUCT_CONDITION *': condition,
-            'UNIT_OF_MEASUREMENT_SINGULAR *': 'Piece',
-            'UNIT_OF_MEASUREMENT_PLURAL *': 'Pieces',
-            'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pc',
-            'UNIT_OF_MEASUREMENT_PLURAL_ABBREVIATION *': 'Pcs',
-            'SELLER_SKU_ID *': sku_raw,
-            'PACKAGING_TYPE *': packing,
-            'DESCRIPTION': '',
-            'MATERIAL *': kwargs.get('material', ''),
-            'ADAPTER_CONNECTOR_TYPE *': kwargs.get('adapter_connector', ''),
-            'CABLE_LENGTH_IN_METER *': kwargs.get('cable_length', ''),
-            'CABLE_MATERIAL *': kwargs.get('cable_material', ''),
-            'CABLE_TYPE': kwargs.get('cable_type', ''),
-            'COUNTRY_OF_ORIGIN *': country,
-            'EAN': '',
-            'IMPORTED_BY': '',
-            'KEY_FEATURES': '',
-            'MANUFACTURING_YEAR': _cfg['manufacturing_year'],
-            'NO_OF_ADAPTER_PORTS *': kwargs.get('num_ports', ''),
-            'OUTPUT_CURRENT_OR_VOLTAGE *': kwargs.get('output_voltage', ''),
-            'PORT_TYPE *': kwargs.get('port_type', ''),
-            'PRODUCT_BREADTH *': B,
-            'PRODUCT_DIMENSION_UOM *': dim_uom,
-            'PRODUCT_HEIGHT *': H,
-            'PRODUCT_LENGTH *': L,
-            'PRODUCT_TYPE *': kwargs.get('product_name', ''),
-            'PRODUCT_WEIGHT_IN_KG *': weight_clean,
-            'PRODUCT_MANUFACTURING_CITY': '',
-            'PRODUCT_MANUFACTURING_STATE': '',
-            'SUITABLE_FOR': '',
-            'WARRANTY': '',
-            'MANUFACTURER': '',
-            'hsnCode *': hsn,
-            'gstPercentage *': gst,
-            'cgstShare *': _cfg['gst_cgst'],
-            'sgstShare *': _cfg['gst_sgst'],
-            'igstShare *': _cfg['gst_igst'],
-            'cess': '',
-            'sinTax': '',
-            'vatPercentage': '',
-            'otherCess': '',
-            'validityPeriodStartDate': '',
-            'validityPeriodEndDate': '',
-            'declarationForm': '',
-            'taxMasterStatus': _cfg['tax_master_status'],
-            'BATTERY_LIFE_FOR_WIRELESS': '',
-            'BLUETOOTH_VERSION_FOR_WIRELESS *': kwargs.get('bluetooth', ''),
-            'CHANNELS': '',
-            'CHARGING_TIME': '',
-            'CONNECTOR_TYPE_FOR_WIRED *': kwargs.get('connector_type', ''),
-            'CONTROL_OPTIONS': '',
-            'MIC_TYPE': kwargs.get('mic_type', ''),
-            'MOUNTING_OR_PLACEMENT_TYPE': '',
-            'SPEAKER_TYPE *': kwargs.get('speaker_type', ''),
-            'WATER_RESISTANCE': '',
-            'WIRED_OR_WIRELESS *': kwargs.get('wired_wireless', ''),
-            'COMPATIBLE_BRAND_MODEL *': kwargs.get('compatible_brand_model', ''),
-            'CASE_COVER_TYPE *': kwargs.get('case_cover_type', ''),
-            'CLOSURE_TYPE *': kwargs.get('closure_type', ''),
-            'DESIGN *': kwargs.get('pattern', ''),
-            'THEME': '',
-            'COMPATIBLE_BRAND *': kwargs.get('compatible_brand', ''),
-            'BATTERY_CAPACITY_MAH *': kwargs.get('battery_capacity', ''),
-            'CHARGING_TYPE_SUPPORTED': kwargs.get('charging_type', ''),
-            'OPERATING_SYSTEM_OS': kwargs.get('os', ''),
-            'OS_VERSION': kwargs.get('os_version', ''),
-            'DISPLAY_SIZE *': kwargs.get('display_size', ''),
-            'DISPLAY_TYPE *': kwargs.get('display_type', ''),
-            'DISPLAY_RESOLUTION': kwargs.get('display_resolution', ''),
-            'RAM *': kwargs.get('ram', ''),
-            'INTERNAL_STORAGE *': kwargs.get('storage', ''),
-            'EXPANDABLE_STORAGE': kwargs.get('expandable_storage', ''),
-            'SIM_TYPE': kwargs.get('sim_type', ''),
-            'BLUETOOTH_VERSION': kwargs.get('bluetooth_version', ''),
-            'EXPANDABLE_STORAGE_TYPE': kwargs.get('expandable_storage_type', ''),
-            'EXPANDABLE_STORAGE_CAPACITY_MAX': kwargs.get('expandable_storage_max', ''),
-            'BATTERY_TYPE': kwargs.get('battery_type', ''),
-            'REMOVABLE_BATTERY': kwargs.get('removable_battery', ''),
-            'HYBRID_SIM_SLOT': kwargs.get('hybrid_sim', ''),
-            'NETWORK_TYPE_SUPPORTED': kwargs.get('network_support', ''),
-            'AUDIO_JACK': kwargs.get('audio_jack', ''),
-            'FM_RADIO': kwargs.get('fm_radio', ''),
-            'TORCH_OR_FLASHLIGHT': kwargs.get('torch', ''),
-            'RAM_ROM *': f"{kwargs.get('ram', '')} + {kwargs.get('storage', '')}" if (kwargs.get('ram') and kwargs.get('storage')) else (kwargs.get('ram', '') or kwargs.get('storage', '')),
-            'PROCESSOR_BRAND_AND_MODEL_NAME': '',
-            'NUMBER_OF_PROCESSOR_CORES *': kwargs.get('processor_core', ''),
-            'PRIMARY_CAMERA_RESOLUTION *': kwargs.get('back_camera', ''),
-            'FRONT_CAMERA_RESOLUTION *': kwargs.get('front_camera', ''),
-            'REAR_FLASH': kwargs.get('rear_flash', ''),
-            'SIM_SIZE': '',
-            'WIFI': kwargs.get('wifi', ''),
-            'FINGERPRINT_SENSOR': kwargs.get('fingerprint', ''),
-            'CLOCK_SPEED': kwargs.get('clock_speed', ''),
-            'REFRESH_RATE': kwargs.get('refresh_rate', ''),
-            'TOUCHSCREEN_TYPE': kwargs.get('touchscreen', ''),
-            'PRIMARY_CAMERA_SETUP': kwargs.get('primary_camera_setup', ''),
-            'FRONT_FLASH': kwargs.get('front_flash', ''),
-            'VIDEO_RECORDING_RESOLUTION': kwargs.get('video_resolution', ''),
-            'FAST_CHARGING_WATTAGE': kwargs.get('fast_charging', ''),
-            'WIRELESS_CHARGING_SUPPORT': kwargs.get('wireless_charging', ''),
-            'GPS_SUPPORT': kwargs.get('gps', ''),
-            'NFC_SUPPORT': kwargs.get('nfc', ''),
-            'INFRARED_IR_BLASTER': kwargs.get('infrared', ''),
-            'FINGERPRINT_SENSOR_POSITION': kwargs.get('fingerprint_pos', ''),
-            'FACE_UNLOCK': kwargs.get('face_unlock', ''),
-            'WATER_RESISTANCE_RATING': kwargs.get('water_resistance', ''),
-            'ACTIVE_NOISE_CANCELLATION_ANC': '',
-            'ADJUSTABLE_OR_FOLDABLE': '',
-            'WEARING_STYLE': '',
-            'MEMORY_CARD_TYPE *': kwargs.get('card_type', ''),
-            'SPEED_CLASS *': kwargs.get('speed_class', ''),
-            'STORAGE_CAPACITY *': kwargs.get('storage_capacity', ''),
-            'COMPATIBLE_BRAND': '',
-            'ADAPTER_INCLUDED': '',
-            'CONNECTION_INTERFACE': '',
-            'HOLDER_TYPE *': kwargs.get('holder_type', ''),
-            'LOCK_MECHANISM *': kwargs.get('lock_mechanism', ''),
-            'ROTATION_OR_ADJUSTABILITY *': kwargs.get('rotation_type', ''),
-            'COVERAGE *': kwargs.get('coverage', ''),
-            'EDGE_TYPE': '',
-            'SCREEN_GUARD_OR_PROTECTOR_TYPE *': kwargs.get('screen_guard_type', ''),
-            'THICKNESS *': kwargs.get('screen_thickness', ''),
-            'PACKAGING_CLASSIFICATION': '',
-            'SUB_BRAND': '',
-            'COLOR *': color,
-            'FOOD_NON-FOOD': '',
-            'STRAP_COLOR *': kwargs.get('strap_color', color),
-            'DISPLAY_SHAPE *': kwargs.get('display_shape', ''),
-            'CORE_BRAND *': kwargs.get('core_brand', ''),
+        # ── TaxMaster ──
+        tax_row = {
+            'Jpin':                 existing_jpin,
+            'Title':                title,
+            'ProductVerticalId':    pv_id,
+            'ProductVerticalName':  pv_name,
+            'hsnCode':              hsn,
+            'gstPercentage':        gst,
+            'cgstComponentShare':   _ce5_cfg['gst_cgst'],
+            'sgstComponentShare':   _ce5_cfg['gst_sgst'],
+            'IgstComponentShare':   _ce5_cfg['gst_igst'],
+            'status':               _ce5_cfg['tax_master_status'],
         }
+        _write(ws_tax, tcol_tax, tax_row, row_idx)
 
-        for col_name, val in row_data.items():
-            if col_name in tcol and val is not None and str(val) not in ('None', ''):
-                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+        # ── PAV ──
+        if is_smart:
+            pav_row = {
+                'Jpin':                          existing_jpin,
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ce5_cfg['catalog_status'],
+                'StatusRemark':                  _ce5_cfg['status_remark'],
+                'BATTERY_CAPACITY_MAH':          battery,
+                'COUNTRY_OF_ORIGIN':             country,
+                'PRODUCT_BREADTH':               0.0,
+                'PRODUCT_DIMENSION_UOM':         '#',
+                'PRODUCT_HEIGHT':                0.0,
+                'PRODUCT_LENGTH':                0.0,
+                'PRODUCT_WEIGHT_IN_KG':          0.0,
+                'OPERATING_SYSTEM_OS':           os_raw,
+                'OS_VERSION':                    _ce5_extract_os_version(os_raw),
+                'NUMBER_OF_PROCESSOR_CORES':     processor_core,
+                'DISPLAY_SIZE':                  _ce5_extract_screen_size_fmt(screen_size),
+                'RAM':                           ram,
+                'INTERNAL_STORAGE':              storage,
+                'PRIMARY_CAMERA_RESOLUTION':     back_camera,
+                'FRONT_CAMERA_RESOLUTION':       front_camera,
+                'RAM_ROM':                       ram_rom,
+            }
+        else:
+            pav_row = {
+                'Jpin':                          existing_jpin,
+                'Title':                         title,
+                'PvId':                          pv_id,
+                'PvName':                        pv_name,
+                'BrandId':                       brand_id,
+                'BrandName':                     brand,
+                'ImageURL1':                     img_url,
+                'ImageURL2':                     img2_url,
+                'CatalogStatus':                 _ce5_cfg['catalog_status'],
+                'StatusRemark':                  _ce5_cfg['status_remark'],
+                'BATTERY_CAPACITY_MAH':          battery,
+                'COUNTRY_OF_ORIGIN':             country,
+                'PRODUCT_BREADTH':               0.0,
+                'PRODUCT_DIMENSION_UOM':         '#',
+                'PRODUCT_HEIGHT':                0.0,
+                'PRODUCT_LENGTH':                0.0,
+                'PRODUCT_WEIGHT_IN_KG':          0.0,
+                'DISPLAY_SIZE':                  _ce5_extract_screen_size_fmt(screen_size),
+                'RAM':                           ram if ram else '#',
+                'INTERNAL_STORAGE':              storage if storage else '#',
+                'RAM_ROM':                       ram_rom if ram_rom else '#',
+            }
+        _write(ws_pav, tcol_pav, pav_row, row_idx)
 
-    return filled, skipped
+        # ── SCM ──
+        scm_row = {
+            'JPIN':                          existing_jpin,
+            'Title':                         title,
+            'Net_Weight':                    0,
+            'Net_Weight_Measuring_Unit':     'g',
+            'DeadWeight':                    0.25,
+            'VolumetricWeight':              0,
+            'ShippingCalculationType':       'Dead Weight',
+            'L1-caseSize':                   1,
+            'L2-caseSize':                   0,
+            'L3-caseSize':                   0,
+            'L4-caseSize':                   0,
+            'L1-packagingType':              'Bag',
+            'L0-UnitShippingContainerType':  'Crate - Medium',
+            'L1-UnitShippingContainerType':  'Bag',
+            'L2-UnitShippingContainerType':  'Bag',
+            'Fragile':                       'No',
+            'Brittle':                       'No',
+            'length_l0':                     0,
+            'width_l0':                      0,
+            'height_l0':                     0,
+            'length_l1':                     24,
+            'width_l1':                      24,
+            'height_l1':                     33,
+            'volumetricweight_l1':           4.021675,
+            'APMC Notified Commodity':       'No',
+            'L1-deadWeight':                 0,
+            'Net_Quantity':                  1,
+            'Net_Quantity_Measuring_Unit':   'Pc',
+        }
+        _write(ws_scm, tcol_scm, scm_row, row_idx)
+
+        # ── L3 ──
+        l3_row = {
+            'Industry Category':            'Consumer Electronics',
+            'Industry Sub Category':        'Mobile',
+            'Product Type':                 'Smart Phone' if is_smart else 'Feature Phone',
+            'Child SKU':                    child_sku,
+            'Relationship':                 'Parent',
+            'Parent Product ID':            child_sku,
+            'Brand':                        brand,
+            'Name of the model':            title,
+            'Product Description':          product_desc,
+            'GST':                          gst,
+            'Main Image URL':               img_url,
+            'Other Image URL 1':            img2_url,
+            'Warranty Period':              warranty,
+            'Country/Region of Origin':     country,
+            'Packaging Quantity':           packing_qty,
+            'Packaging Type':               packing_type,
+            'HSN Code':                     hsn,
+            'MRP':                          mrp,
+            'Selling Price':                sp,
+            '*Minimum Order Quantity':      moq,
+            'SKU ID':                       child_sku,
+            'RAM':                          ram,
+            '*Product Dimension (LXBXH)':   dim_raw,
+            '*Product Dimension UOM':       dim_uom,
+            'Product Weight':               weight_clean,
+            'Storage Capacity':             storage,
+            'Retail Margin':                retail_margin,
+            'Other Image URL 2':            img3_url,
+            'Model Number':                 model_number,
+            'Battery Capacity':             battery,
+            'Sim Type':                     sim_type,
+            'Operating System':             os_raw,
+            'Front Camera':                 front_camera,
+            'Back Camera':                  back_camera,
+            'Product Condition':            condition,
+            'Network Support':              network,
+            'Processor Core':               processor_core,
+            'Variant Image URL':            variant_img,
+            'Screen Size':                  screen_size,
+            'Product Color':                color,
+            'solv commission':              solv_comm,
+            'EAN Number':                   ean,
+            'Stock':                        stock,
+            '*Type':                        type_raw,
+            'JPIN':                         existing_jpin,
+        }
+        _write(ws_l3, tcol_l3, l3_row, row_idx)
+
+    return wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped
 
 
-# ═══════════════════════════════════════════════════════════════
-# PV AUTO-DETECTION
-# ═══════════════════════════════════════════════════════════════
+# ── CE 5-File Routes ────────────────────────────────────────────
 
-def detect_pv_from_value(val):
-    if not val:
-        return None
-    
-    # 1. Standardize the string to lowercase and strip whitespace
-    val_clean = str(val).lower().strip()
-    
-    # 2. CATCH VARIATIONS: Hard override for any variation of Smart Phone / Smartphone
-    if "smart" in val_clean and "phone" in val_clean:
-        return "Smartphones"
-    if "smartphone" in val_clean:
-        return "Smartphones"
-        
-    # 3. Existing keyword detection rules
-    if "charger" in val_clean or "adapter" in val_clean:
-        return "Mobile Adapters & Cables"
-    if "cable" in val_clean:
-        return "Mobile Cables"
-    if "speaker" in val_clean:
-        return "Speakers"
-    if "case" in val_clean or "cover" in val_clean:
-        return "Mobile Case & Covers"
-    if "feature" in val_clean and "phone" in val_clean:
-        return "Feature Phones"
-    if "headset" in val_clean or "headphone" in val_clean:
-        return "Headsets"
-    if "earphone" in val_clean:
-        return "Earphones"
-    if "tws" in val_clean or "earbud" in val_clean:
-        return "TWS Ear Buds"
-    if "neckband" in val_clean:
-        return "Neck Bands"
-    if "memory" in val_clean or "sd card" in val_clean:
-        return "Memory Cards"
-    if "holder" in val_clean:
-        return "Mobile Holders"
-    if "screen" in val_clean or "tempered" in val_clean:
-        return "Screen Guards / Protectors"
-    if "power" in val_clean and "bank" in val_clean:
-        return "Power Bank"
-    if "watch" in val_clean:
-        return "Smart Watches"
-        
-    return None
+@app.route('/ce5_categories')
+def get_ce5_categories():
+    return jsonify({'categories': CE5_CATEGORIES})
 
 
-def detect_pvs_in_dump(all_dump, col_map):
-    """Detect all PVs present in the input file."""
-    pv_col = col_map.get('pv')
-    if not pv_col or pv_col not in all_dump.columns:
-        return []
-
-    found = []
-    for val in all_dump[pv_col].dropna().unique():
-        v = str(val).strip()
-        if v and v.lower() not in ('nan', 'none', ''):
-            detected = detect_pv_from_value(v)
-            if detected and detected not in found:
-                found.append(detected)
-    return found
+@app.route('/ce5_config', methods=['GET'])
+def ce5_config_get_route():
+    return jsonify(get_ce5_config_from_disk())
 
 
-# ═══════════════════════════════════════════════════════════════
-# FLASK ROUTES
-# ═══════════════════════════════════════════════════════════════
-
-# In-memory file store
-FILE_STORE = {}
-
-
-def write_log(email, action, details=''):
-    LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
-    entry = {
-        'ts': datetime.utcnow().isoformat() + 'Z',
-        'email': email or 'anonymous',
-        'action': action,
-        'details': details,
-    }
-    try:
-        with open(LOG_PATH, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry) + '\n')
-    except Exception as e:
-        print('log err', e)
-
-
-@app.route('/ce_unified_config', methods=['GET'])
-def ce_unified_config_get():
-    return jsonify(get_ce_unified_config())
-
-
-@app.route('/ce_unified_config', methods=['POST'])
-def ce_unified_config_post():
-    cfg = get_ce_unified_config()
+@app.route('/ce5_config', methods=['POST'])
+def update_ce5_config():
+    cfg  = get_ce5_config_from_disk()
     data = request.json
     if 'brands' in data:
         data['brands'] = normalize_brands(data['brands'])
     cfg.update(data)
-    _save_config(CE_CONFIG_PATH, cfg)
-    write_log('anonymous', 'ce_unified_config_updated', f"brands={cfg.get('brands')}")
+    _save_config(CE5_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ce5_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 
-@app.route('/ce_unified_pvs')
-def ce_unified_pvs():
-    return jsonify({
-        'pvs': CE_PV_LIST_RAW,
-        'pv_names': CE_PV_LIST,
-        'title_conventions': {k: v['title_convention'] for k, v in CE_TITLE_CONVENTIONS.items()},
-    })
-
-
-@app.route('/detect_ce_unified_pvs', methods=['POST'])
-def detect_ce_unified_pvs():
+@app.route('/detect_ce5_categories', methods=['POST'])
+def detect_ce5_categories():
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
-            return jsonify({'pvs': []})
+            return jsonify({'categories': []})
         xl = pd.ExcelFile(io.BytesIO(dump_file.read()))
         frames = []
         for sname in xl.sheet_names:
-            try:
-                frames.append(xl.parse(sname))
-            except:
-                pass
+            try: frames.append(xl.parse(sname))
+            except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        col_map = build_col_map(all_dump, CE_DUMP_COL_HINTS)
-        detected = detect_pvs_in_dump(all_dump, col_map)
-        return jsonify({
-            'pvs': detected,
-            'pv_count': len(detected),
-        })
+        col_map = build_col_map(all_dump, CE5_DUMP_COL_HINTS)
+        pt_col = col_map.get('product_type')
+        if pt_col and pt_col in all_dump.columns:
+            found = [str(v).strip() for v in all_dump[pt_col].dropna().unique()
+                     if str(v).strip() not in ('nan','None','')]
+            matched = []
+            for v in found:
+                vl = v.lower().strip()
+                for cat in CE5_CATEGORIES:
+                    if cat.lower() == vl or cat.lower().replace(' ','') == vl.replace(' ',''):
+                        if cat not in matched:
+                            matched.append(cat)
+                        break
+            return jsonify({'categories': matched if matched else found, 'all_found': found})
+        return jsonify({'categories': [], 'all_found': []})
     except Exception as e:
-        return jsonify({'pvs': [], 'error': str(e)})
+        return jsonify({'categories': [], 'error': str(e)})
 
 
-@app.route('/process_ce_unified', methods=['POST'])
-def process_ce_unified():
+@app.route('/process_ce5', methods=['POST'])
+def process_ce5():
+    """CE 5-File processor: generates JPIN, PAV, SCM, TaxMaster, L3 per PV."""
     try:
-        pvs_raw = request.form.get('pvs', '')
-        try:
-            selected_pvs = json.loads(pvs_raw)
-        except:
-            selected_pvs = [s.strip() for s in pvs_raw.split(',') if s.strip()]
+        categories_raw = request.form.get('categories', '')
+        try:    categories = json.loads(categories_raw)
+        except: categories = [s.strip() for s in categories_raw.split(',') if s.strip()]
 
-        inline_cfg_raw = request.form.get('config', '')
-        if inline_cfg_raw:
-            try:
-                inline_cfg = json.loads(inline_cfg_raw)
-                if inline_cfg.get('brands'):
-                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
-                disk_cfg = get_ce_unified_config()
-                disk_cfg.update(inline_cfg)
-                _save_config(CE_CONFIG_PATH, disk_cfg)
-            except Exception as e:
-                print(f'inline config parse error: {e}')
+        base_file     = request.files.get('base_data')
+        dump_file     = request.files.get('dump')
+        existing_file = request.files.get('existing_dump')
 
-        base_file = request.files.get('base_data')
-        dump_file = request.files.get('dump')
-
+        if not categories:
+            return jsonify({'error': 'Please select at least one Product Type'}), 400
         if not dump_file:
-            return jsonify({'error': 'Dump / listing file is required'}), 400
+            return jsonify({'error': 'Listing file is required'}), 400
 
         dump_bytes = dump_file.read()
         xl = pd.ExcelFile(io.BytesIO(dump_bytes))
         frames = []
         for sname in xl.sheet_names:
-            try:
-                frames.append(xl.parse(sname))
-            except:
-                pass
+            try: frames.append(xl.parse(sname))
+            except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if all_dump.empty:
-            return jsonify({'error': 'Could not read any data from dump file'}), 400
+            return jsonify({'error': 'Could not read any data from listing file'}), 400
 
-        col_map = build_col_map(all_dump, CE_DUMP_COL_HINTS)
-        pv_col = col_map.get('pv')
+        col_map = build_col_map(all_dump, CE5_DUMP_COL_HINTS)
+        pt_col = col_map.get('product_type')
 
-        # Auto-detect PVs if none selected
-        if not selected_pvs:
-            selected_pvs = detect_pvs_in_dump(all_dump, col_map)
-            if not selected_pvs:
-                return jsonify({'error': 'No PVs detected in input file. Please select PVs manually or check Column A.'}), 400
+        # Build JPIN lookup from existing dump
+        jpin_map = {}
+        if existing_file:
+            existing_bytes = existing_file.read()
+            jpin_map = _ce5_build_existing_jpin_map(existing_bytes)
 
-        # Validate selected PVs
-        for pv in selected_pvs:
-            if pv not in CE_SUBTYPE_MAP:
-                return jsonify({'error': f'PV "{pv}" not found in template'}), 400
-
-        # Build existing articles/skus set
+        # Build base existing-articles/skus set (for skip logic - optional)
         existing_articles, existing_skus = set(), set()
         if base_file:
             bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
             for sname in bxl.sheet_names:
                 try:
-                    bdf = bxl.parse(sname)
+                    bdf  = bxl.parse(sname)
                     bcol = build_col_map(bdf, CE_BASE_COL_HINTS)
                     if 'article' in bcol:
                         existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
                     if 'sku' in bcol:
                         existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
-                except:
-                    pass
+                except: pass
 
         results, all_skipped, grand_filled = [], [], 0
-        preview_rows, preview_cols = [], []
+        jpin_matched_count = 0
+        preview_rows = []
+        preview_cols = ['Title','Seller SKU ID','Article Number','Product Color',
+                        'Set Details','Set Count','JPIN']
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
-            for pv_name in selected_pvs:
-                # Filter rows for this PV
-                if pv_col and pv_col in all_dump.columns:
-                    mask = all_dump[pv_col].astype(str).apply(
-                        lambda x: detect_pv_from_value(x) == pv_name
-                    )
+            for category in categories:
+                if pt_col and pt_col in all_dump.columns:
+                    col_vals = all_dump[pt_col].astype(str).str.strip().str.lower()
+                    mask = col_vals == category.lower()
                     filtered = all_dump[mask].copy()
                     if filtered.empty:
-                        mask2 = all_dump[pv_col].astype(str).str.lower().str.contains(
-                            re.escape(pv_name.lower()), na=False
-                        )
+                        # try with whitespace removed
+                        mask2 = col_vals.str.replace(' ','') == category.lower().replace(' ','')
                         filtered = all_dump[mask2].copy()
                     if filtered.empty:
                         filtered = all_dump.copy()
                 else:
                     filtered = all_dump.copy()
 
-                wb, headers = get_ce_unified_template_wb_for_pv(pv_name)
-                ws = wb.active
-                filled, skipped = fill_ce_unified_template(
-                    ws, headers, filtered, col_map, pv_name, existing_articles, existing_skus
+                wb_jpin, wb_tax, wb_pav, wb_scm, wb_l3, filled, skipped = fill_ce5_files(
+                    filtered, col_map, category, existing_articles, existing_skus, jpin_map
                 )
                 all_skipped.extend(skipped)
                 grand_filled += filled
 
-                safe_pv = re.sub(r"[^\w\s-]", "", pv_name).replace(" ", "_")
-                fname = f'ce_unified_{safe_pv}.xlsx'
-                xls_buf = io.BytesIO()
-                wb.save(xls_buf)
-                zout.writestr(fname, xls_buf.getvalue())
+                # Count JPIN matches
+                ws_j = wb_jpin.active
+                for r in range(2, filled + 2):
+                    if ws_j.cell(r, 1).value:
+                        jpin_matched_count += 1
+
+                safe_cat = re.sub(r"[^\w\s-]", "", category).replace(" ", "_")
+                files_written = []
+                for wb_obj, label in [
+                    (wb_jpin, 'JPIN'),
+                    (wb_tax,  'TaxMaster'),
+                    (wb_pav,  'ProductAttributeValue'),
+                    (wb_scm,  'SupplyChainAttribute'),
+                    (wb_l3,   'L3'),
+                ]:
+                    fname   = f'ce_{label}_{safe_cat}.xlsx'
+                    xls_buf = io.BytesIO()
+                    wb_obj.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    files_written.append(fname)
+
                 results.append({
-                    'pv': pv_name,
-                    'pv_id': CE_PV_ID_MAP.get(pv_name, ''),
-                    'filled': filled,
-                    'skipped': len(skipped),
-                    'filename': fname,
+                    'category': category,
+                    'filled':   filled,
+                    'skipped':  len(skipped),
+                    'files':    files_written,
                 })
 
-                if not preview_cols:
-                    pcols = [
-                        'title *', 'internalTitle *', 'ChildSKU *', 'ARTICLE_NUMBER *',
-                        'MRP *', 'SellingPrice *', 'PRODUCT_COLOR *', 'PVID *',
-                        'SubType', 'SET_DETAILS *', 'hsnCode *', 'gstPercentage *'
-                    ]
-                    preview_cols = [c for c in pcols if c in headers]
-
+                ws_jpin_p = wb_jpin.active
+                jpin_headers = [ws_jpin_p.cell(1, c).value for c in range(1, ws_jpin_p.max_column + 1)]
                 for r in range(2, min(filled + 2, 52)):
                     rdata = {}
-                    for c in preview_cols:
-                        if c in headers:
-                            rdata[c] = ws.cell(r, headers.index(c) + 1).value
+                    for pc in preview_cols:
+                        if pc in jpin_headers:
+                            rdata[pc] = ws_jpin_p.cell(r, jpin_headers.index(pc)+1).value
                     if any(v for v in rdata.values()):
-                        preview_rows.append({**rdata, '_pv': pv_name})
+                        preview_rows.append({**rdata, '_category': category})
 
+        out_name  = 'ce_5files_filled.zip'
         zip_buf.seek(0)
-        if len(selected_pvs) == 1:
-            safe_pv = re.sub(r"[^\w\s-]", "", selected_pvs[0]).replace(" ", "_")
-            out_name = f'ce_unified_{safe_pv}.xlsx'
-            out_ext = '.xlsx'
-            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
-                out_bytes = zin.read(results[0]['filename'])
-        else:
-            out_name = 'ce_unified_templates.zip'
-            out_ext = '.zip'
-            out_bytes = zip_buf.getvalue()
+        out_bytes = zip_buf.getvalue()
 
         file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
-        FILE_STORE[file_token] = {
-            'bytes': out_bytes,
-            'filename': out_name,
-            'ext': out_ext,
-            'created': time.time(),
-        }
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': '.zip', 'created': time.time()}
 
-        write_log('anonymous', 'ce_unified_catalog_generated',
-                  f'pvs={selected_pvs} filled={grand_filled} skipped={len(all_skipped)}')
+        write_log('anonymous', 'ce5_catalog_generated',
+                  f'categories={categories} filled={grand_filled} jpin_matched={jpin_matched_count}')
 
         return jsonify({
-            'status': 'ok',
-            'grand_filled': grand_filled,
-            'grand_skipped': len(all_skipped),
-            'results': results,
-            'skipped_details': all_skipped[:50],
-            'preview': preview_rows,
-            'preview_cols': preview_cols,
+            'status':         'ok',
+            'grand_filled':   grand_filled,
+            'grand_skipped':  len(all_skipped),
+            'jpin_matched':   jpin_matched_count,
+            'results':        results,
+            'skipped_details':all_skipped[:50],
+            'preview':        preview_rows,
+            'preview_cols':   preview_cols,
             'download_token': file_token,
-            'filename': out_name,
-            'is_zip': len(selected_pvs) > 1,
+            'filename':       out_name,
+            'is_zip':         True,
         })
 
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
-
-@app.route('/download_ce_unified/<token>')
-def download_ce_unified(token):
-    if '..' in token or '/' in token or '\\' in token:
-        return 'Invalid', 400
-    if token in FILE_STORE:
-        file_data = FILE_STORE[token]
-        ext = file_data['ext']
-        fname = request.args.get('filename', file_data['filename'])
-        mtype = 'application/zip' if ext == '.zip' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        write_log('anonymous', 'ce_unified_file_downloaded', fname)
-        return send_file(io.BytesIO(file_data['bytes']), as_attachment=True,
-                         download_name=fname, mimetype=mtype)
-    return 'File not found', 404
-
-
-@app.route('/download_ce_unified_template/<pv_name>')
-def download_ce_unified_template(pv_name):
-    if pv_name not in CE_SUBTYPE_HEADER_ROW:
-        return jsonify({'error': f'PV "{pv_name}" not found in template'}), 404
-
-    wb, headers = get_ce_unified_template_wb_for_pv(pv_name)
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    safe_name = re.sub(r"[^\w\s-]", "", pv_name).replace(" ", "_")
-    fname = f'CE_Unified_Template_{safe_name}.xlsx'
-    return send_file(buf, as_attachment=True, download_name=fname,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 
@@ -3657,8 +3637,6 @@ def fill_ap_files(rows_df, col_map, category_key, existing_articles, existing_sk
 FILE_STORE = {}
 
 
-
-
 # ═══════════════════════════════════════════════════════════════
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
@@ -3704,6 +3682,9 @@ def index():
 def get_subtypes():
     return jsonify({'subtypes': PV_LIST})
 
+@app.route('/ce_subtypes')
+def get_ce_subtypes():
+    return jsonify({'subtypes': CE_PV_LIST})
 
 @app.route('/ap_categories')
 def get_ap_categories():
@@ -3713,6 +3694,9 @@ def get_ap_categories():
 def config_get_route():
     return jsonify(get_config())
 
+@app.route('/ce_config', methods=['GET'])
+def ce_config_get_route():
+    return jsonify(get_ce_config_from_disk())
 
 @app.route('/ap_config', methods=['GET'])
 def ap_config_get_route():
@@ -3729,6 +3713,16 @@ def update_config():
     write_log('anonymous', 'config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
+@app.route('/ce_config', methods=['POST'])
+def update_ce_config():
+    cfg  = get_ce_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(CE_CONFIG_PATH, cfg)
+    write_log('anonymous', 'ce_config_updated', f"brands={cfg.get('brands')}")
+    return jsonify({'status': 'ok'})
 
 @app.route('/ap_config', methods=['POST'])
 def update_ap_config():
@@ -3768,6 +3762,28 @@ def detect_verticals():
     except Exception as e:
         return jsonify({'verticals': [], 'error': str(e)})
 
+@app.route('/detect_ce_verticals', methods=['POST'])
+def detect_ce_verticals():
+    try:
+        dump_file = request.files.get('dump')
+        if not dump_file:
+            return jsonify({'verticals': []})
+        xl     = pd.ExcelFile(io.BytesIO(dump_file.read()))
+        frames = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')
+        if vert_col and vert_col in all_dump.columns:
+            found   = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
+                       if str(v).strip() not in ('nan','None','')]
+            matched = [v for v in found if v in CE_SUBTYPE_MAP]
+            return jsonify({'verticals': matched, 'all_found': found})
+        return jsonify({'verticals': [], 'all_found': []})
+    except Exception as e:
+        return jsonify({'verticals': [], 'error': str(e)})
 
 @app.route('/detect_ap_categories', methods=['POST'])
 def detect_ap_categories():
@@ -4133,7 +4149,142 @@ def process_ap():
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+@app.route('/process_ce', methods=['POST'])
+def process_ce():
+    try:
+        subtypes_raw = request.form.get('subtypes', '')
+        try:    subtypes = json.loads(subtypes_raw)
+        except: subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
 
+        inline_cfg_raw = request.form.get('ce_config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                try:
+                    disk_cfg = get_ce_config_from_disk()
+                    disk_cfg.update(inline_cfg)
+                    _save_config(CE_CONFIG_PATH, disk_cfg)
+                except: pass
+            except Exception as e:
+                print(f'inline ce_config parse error: {e}')
+
+        base_file = request.files.get('base_data')
+        dump_file = request.files.get('dump')
+
+        if not subtypes:
+            return jsonify({'error': 'Please select at least one SubType'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Dump / listing file is required'}), 400
+        for st in subtypes:
+            if st not in CE_SUBTYPE_MAP:
+                return jsonify({'error': f'SubType "{st}" not found in CE template'}), 400
+
+        dump_bytes = dump_file.read()
+        xl         = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames     = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from dump file'}), 400
+
+        col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')
+
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf  = bxl.parse(sname)
+                    bcol = build_col_map(bdf, CE_BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except: pass
+
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for subtype in subtypes:
+                if vert_col and vert_col in all_dump.columns:
+                    mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                wb, headers = get_ce_template_wb_for_subtype(subtype)
+                ws = wb.active
+                filled, skipped = fill_ce_template(
+                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'ce_filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
+                wb.save(xls_buf)
+                zout.writestr(fname, xls_buf.getvalue())
+                results.append({'subtype': subtype, 'filled': filled,
+                                 'skipped': len(skipped), 'filename': fname})
+
+                if not preview_cols:
+                    pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
+                             'PRODUCT_COLOR *','RAM *','INTERNAL_STORAGE *',
+                             'DISPLAY_SIZE *','DISPLAY_TYPE *','hsnCode *','SET_COUNT *']
+                    preview_cols = [c for c in pcols if c in headers]
+                    for r in range(2, min(filled + 2, 52)):
+                        rdata = {c: ws.cell(r, headers.index(c)+1).value for c in preview_cols}
+                        if any(v for v in rdata.values()):
+                            preview_rows.append({**rdata, '_subtype': subtype})
+
+        zip_buf.seek(0)
+        if len(subtypes) == 1:
+            safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
+            out_name = f'ce_filled_{safe_st}.xlsx'
+            out_ext  = '.xlsx'
+            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
+                out_bytes = zin.read(results[0]['filename'])
+        else:
+            out_name  = 'ce_filled_templates.zip'
+            out_ext   = '.zip'
+            out_bytes = zip_buf.getvalue()
+
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
+                                   'ext': out_ext, 'created': time.time()}
+
+        write_log('anonymous', 'ce_catalog_generated',
+                  f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
+
+        return jsonify({
+            'status': 'ok', 'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped), 'results': results,
+            'skipped_details': all_skipped[:50], 'preview': preview_rows,
+            'preview_cols': preview_cols, 'download_token': file_token,
+            'filename': out_name, 'is_zip': len(subtypes) > 1,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
+
+
+# ── Subtype-specific template generator ─────────────────────────
 def _generate_blank_template(subtype):
     """Generate a blank Excel template containing only the header row for a specific subtype."""
     from openpyxl import Workbook
@@ -4197,8 +4348,8 @@ def download_template(category):
 
     # Otherwise, serve the full master template file
     if 'electronic' in category_lower or category_lower == 'ce':
-        path  = os.path.join(os.path.dirname(__file__), 'Unified Template Creation.xlsx')
-        fname = 'Unified_Template_Creation.xlsx'
+        path  = CE_TEMPLATE_PATH
+        fname = 'Consumer_Electronics_Template.xlsx'
     elif 'apparel' in category_lower or category_lower in ('ap', 'fashion'):
         path  = os.path.join(os.path.dirname(__file__), 'Apparel Mapping & Logic Template.xlsx')
         fname = 'Apparels_Fashion_Template.xlsx'
@@ -4758,7 +4909,7 @@ def fill_ts_files(rows_df, col_map, pv_category, existing_articles, existing_sku
 @app.route('/debug_config')
 def debug_config():
     cfg    = get_config()
-    ce_cfg = get_ce_unified_config()
+    ce_cfg = get_ce_config_from_disk()
     ap_cfg = get_ap_config_from_disk()
     return jsonify({
         'config_path':           CONFIG_PATH,
@@ -4778,8 +4929,6 @@ def debug_config():
         'ts_brands':             get_ts_config_from_disk().get('brands', {}),
         'ts_config':             get_ts_config_from_disk(),
     })
-
-
 # ═══════════════════════════════════════════════════════════════
 # TOYS & SPORTS MODULE — CYCLES (Gear / Non Gear / Battery Operated)
 # ═══════════════════════════════════════════════════════════════

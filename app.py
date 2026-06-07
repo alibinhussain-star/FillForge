@@ -1664,63 +1664,48 @@ def fill_ce_unified_template(ws, headers, rows_df, col_map, pv_name, existing_ar
 # ═══════════════════════════════════════════════════════════════
 
 def detect_pv_from_value(val):
-    """Auto-detect PV from input column A value."""
     if not val:
         return None
-    s = str(val).strip().lower()
-
-    # Direct match
-    for pv in CE_PV_LIST:
-        if pv.lower() == s:
-            return pv
-
-    # Contains match (longer first to avoid partial matches)
-    for pv in sorted(CE_PV_LIST, key=len, reverse=True):
-        if pv.lower() in s or s in pv.lower():
-            return pv
-
-    # Fuzzy aliases
-    aliases = {
-        'adapter': 'Mobile Adapters & Cables',
-        'charger': 'Mobile Adapters & Cables',
-        'charging adapter': 'Mobile Adapters & Cables',
-        'speaker': 'Speakers',
-        'bluetooth speaker': 'Speakers',
-        'case': 'Mobile Case & Covers',
-        'cover': 'Mobile Case & Covers',
-        'mobile case': 'Mobile Case & Covers',
-        'feature phone': 'Feature Phones',
-        'featurephone': 'Feature Phones',
-        'headset': 'Headsets',
-        'headphones': 'Headsets',
-        'earphone': 'Earphones',
-        'earphones': 'Earphones',
-        'tws': 'TWS Ear Buds',
-        'earbuds': 'TWS Ear Buds',
-        'neckband': 'Neck Bands',
-        'memory card': 'Memory Cards',
-        'sd card': 'Memory Cards',
-        'micro sd': 'Memory Cards',
-        'cable': 'Mobile Cables',
-        'charging cable': 'Mobile Cables',
-        'data cable': 'Mobile Cables',
-        'holder': 'Mobile Holders',
-        'mobile holder': 'Mobile Holders',
-        'screen guard': 'Screen Guards / Protectors',
-        'screen protector': 'Screen Guards / Protectors',
-        'tempered glass': 'Screen Guards / Protectors',
-        'power bank': 'Power Bank',
-        'powerbank': 'Power Bank',
-        'smartphone': 'Smartphones',
-        'smart phone': 'Smartphones',
-        'smartwatch': 'Smart Watches',
-        'smart watch': 'Smart Watches',
-    }
-
-    for alias, pv in aliases.items():
-        if alias in s:
-            return pv
-
+    
+    # 1. Standardize the string to lowercase and strip whitespace
+    val_clean = str(val).lower().strip()
+    
+    # 2. CATCH VARIATIONS: Hard override for any variation of Smart Phone / Smartphone
+    if "smart" in val_clean and "phone" in val_clean:
+        return "Smartphones"
+    if "smartphone" in val_clean:
+        return "Smartphones"
+        
+    # 3. Existing keyword detection rules
+    if "charger" in val_clean or "adapter" in val_clean:
+        return "Mobile Adapters & Cables"
+    if "cable" in val_clean:
+        return "Mobile Cables"
+    if "speaker" in val_clean:
+        return "Speakers"
+    if "case" in val_clean or "cover" in val_clean:
+        return "Mobile Case & Covers"
+    if "feature" in val_clean and "phone" in val_clean:
+        return "Feature Phones"
+    if "headset" in val_clean or "headphone" in val_clean:
+        return "Headsets"
+    if "earphone" in val_clean:
+        return "Earphones"
+    if "tws" in val_clean or "earbud" in val_clean:
+        return "TWS Ear Buds"
+    if "neckband" in val_clean:
+        return "Neck Bands"
+    if "memory" in val_clean or "sd card" in val_clean:
+        return "Memory Cards"
+    if "holder" in val_clean:
+        return "Mobile Holders"
+    if "screen" in val_clean or "tempered" in val_clean:
+        return "Screen Guards / Protectors"
+    if "power" in val_clean and "bank" in val_clean:
+        return "Power Bank"
+    if "watch" in val_clean:
+        return "Smart Watches"
+        
     return None
 
 

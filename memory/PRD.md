@@ -1,50 +1,48 @@
-# Consumer Electronics Module — 18 New SubTypes Expansion
+# Consumer Electronics Module — 18 New SubTypes + Per-SubType Titles
 
 ## Original Problem Statement
-Expand the Consumer Electronics (CE) Module to support 18 new Product SubTypes (beyond the existing Feature Phones + Smart Phone). Update Excel-based ingestion/mapping logic, backend validation/processing pipelines, and frontend UI.
-
-## New SubTypes Added (18)
-Mobile Adapters & Cables, Hair Trimmer, Speakers, Mobile Case & Covers, Earphones,
-Headsets, Memory Cards, Mobile Cables, Mobile Holders, Screen Guards / Protectors,
-Neck Bands, Microphone, Power Bank, Projectors, Smart Watches, Soundbars,
-TWS Ear Buds, Webcams.
+Expand the CE Module to support 18 new Product SubTypes plus apply the bespoke
+title / internalTitle formulas defined in the `CE - Mapping Logic` sheet.
 
 ## Architecture
-- **Backend:** Flask app (`app.py`) running on :5050. Dynamically loads SubTypes from
-  `Consumer_Electronics_Template.xlsx` at startup. Three relevant tabs:
-  - `Category List` → drives `/ce_subtypes` (UI dropdown source).
-  - `CE - PV Template` → per-SubType column schema (header rows keyed by Column D = SubType).
-  - `CE - Mapping Logic` → header → source-column translation rules.
-- **Frontend:** single-page `templates/index.html`. The CE SubType dropdown is populated
-  dynamically via `/ce_subtypes`, so no hard-coded list needed updating.
+- **Backend:** Flask (`app.py`) on :5050. Loads SubTypes dynamically from
+  `Consumer_Electronics_Template.xlsx` at startup.
+- **Frontend:** SPA in `templates/index.html`. Dropdown loaded via `/ce_subtypes`.
 
 ## What's Implemented (Jun 2026)
-- ✅ Excel template updated to include all 20 SubTypes across the 3 tabs
-  (Category List, CE - PV Template, CE - Mapping Logic).
-- ✅ `CE_TEMPLATE_PATH` updated to point at the new file
-  `Consumer_Electronics_Template.xlsx`.
-- ✅ **Bug fixed** in `_build_ce_header_row_map()`: previously keyed by `CategoryType *`
-  (Col C) which made 9/20 SubTypes unreachable (e.g., "Hair Trimmer" vs "Beard Trimmers",
-  "Power Bank" vs "Power Banks"). Now keyed by **SubType (Col D)** as the spec requires.
-- ✅ Frontend help-text updated to describe the expanded 20-vertical coverage.
-- ✅ End-to-end ingestion verified: `Smart Watches` + `Earphones` rows from a test
-  dump file were correctly routed to per-SubType filled .xlsx outputs with proper
-  Category/SubCategory/CategoryType/SubType/PVID mapping.
+- ✅ All 20 SubTypes present across Category List / CE - PV Template / CE - Mapping Logic.
+- ✅ `_build_ce_header_row_map()` now keys by **Column D = SubType** per spec.
+- ✅ `CE_TEMPLATE_PATH` points at the new file.
+- ✅ Frontend help-text updated (20 verticals).
+- ✅ **Per-SubType title + internalTitle formulas implemented** for all 17 SubTypes
+  that have a formula in `CE - Mapping Logic`:
+  Feature Phones, Smart Phone, Mobile Adapters & Cables, Hair Trimmer, Speakers,
+  Mobile Case & Covers, Earphones, Headsets, Memory Cards, Mobile Cables, Mobile Holders,
+  Screen Guards / Protectors, Neck Bands, Microphone, Power Bank, Smart Watches, TWS Ear Buds.
+  Projectors / Soundbars / Webcams have no formula in the spec → generic fallback.
+- ✅ Added 20+ new column hints to `CE_DUMP_COL_HINTS` so seller-dump columns
+  (Output Voltage, Adapter Connector Type, Speaker Type, Compatible Brand, Material,
+  Case Cover Type, Rotation, Screen Guard Type, Coverage, Mic Type, Output Connector Type,
+  Number of Output Ports, Port Type, Memory Card Type, Storage Capacity, Speed Class, etc.)
+  are auto-detected and fed into the title builders.
 
-## Files Touched
-- `/app/ce_app/app.py` (Flask backend)
-- `/app/ce_app/templates/index.html` (frontend)
-- `/app/ce_app/Consumer_Electronics_Template.xlsx` (template — already populated by user)
-- `/app/ce_app/test_ingest.py` (verification script)
+## Verification (`test_all_titles.py`)
+18 rows (one per SubType) submitted → HTTP 200, grand_filled=18. Sample outputs:
+- Smart Phone: `Samsung Galaxy A15 50MP Camera Smart Phone, 6GB+128GB, Blue, (Fresh)`
+- Memory Cards: `SanDisk 128GB microSDXC Memory Cards, Class 10`
+- Screen Guards: `AmazonBasics Fresh Tempered Glass Full Screen for Apple iPhone 15 Pro`
+- Smart Watches: `Noise Pulse 2 Max Fresh 1.85" Display Smart Watches, Jet Black`
+- Power Bank: `Mi Fresh 20000mAh Power Bank 2 USB Type-C, Black`
 
-## Test Verification
-Run: `python3 /app/ce_app/test_ingest.py`
-Result: HTTP 200, grand_filled=2, Smart Watches → PV-1914272870, Earphones → PV-1914272964.
+## Files
+- `/app/ce_app/app.py`
+- `/app/ce_app/templates/index.html`
+- `/app/ce_app/Consumer_Electronics_Template.xlsx`
+- `/app/ce_app/test_ingest.py`  (basic Smart-Watches+Earphones E2E)
+- `/app/ce_app/test_all_titles.py`  (all 18 SubTypes, title verification)
+- `/app/ce_module_updated.zip`  (bundle)
 
-## Backlog / Next Action Items
-- P1: Sub-type-specific title formulas (the `CE - Mapping Logic` sheet defines bespoke
-  title patterns per Product Type, e.g. "Memory Cards → Brand+Storage Capacity+...").
-  Currently the generic `make_ce_title` is used as a fallback for all non-phone types.
-- P2: Per-SubType description templates beyond the smartphone-centric one.
-- P2: Surface CE - Mapping Logic translation rules in the UI (read-only viewer).
-- P3: Add unit tests covering each of the 18 new SubTypes end-to-end.
+## Backlog
+- P2: Per-SubType **productDescription** templates (description still uses smartphone-centric copy).
+- P2: Surface mapping logic as a read-only UI viewer.
+- P3: Unit tests per SubType.

@@ -661,6 +661,27 @@ CE_DUMP_COL_HINTS = {
     'network_support':['Network Support','Network'],
     'bluetooth':      ['Bluetooth Version','BLUETOOTH_VERSION *'],
     'product_type':   ['Product Type','Product Sub-type'],
+    # ── Extra attributes required by per-SubType title formulas ───────────
+    'output_voltage':         ['Output Voltage','Output Current','OUTPUT_CURRENT_OR_VOLTAGE *','Output Voltage/Current'],
+    'adapter_connector_type': ['Adapter Connector Type','ADAPTER_CONNECTOR_TYPE *','Connector Type'],
+    'battery_type':           ['Battery Type','BATTERY_TYPE','Battery type'],
+    'speaker_type':           ['Speaker Type','SPEAKER_TYPE *'],
+    'compatible_brand':       ['Compatible Brand','COMPATIBLE_BRAND *','Compatible With Brand'],
+    'compatible_model':       ['Compatible Model','Compatible Model Number','COMPATIBLE_BRAND_MODEL *','Compatible Brand & Model'],
+    'material':               ['Material','MATERIAL *','Product Material'],
+    'case_cover_type':        ['Case Cover Type','Case & Cover Type','CASE_COVER_TYPE *'],
+    'number_of_connectors':   ['Number of Connectors','No of Connectors','NUMBER_OF_CONNECTORS'],
+    'rotation':               ['Rotation','Rotation/Adjustability','ROTATION_OR_ADJUSTABILITY *'],
+    'screen_guard_type':      ['Screen Guard Type','Screen Guard / Protector Type','SCREEN_GUARD_OR_PROTECTOR_TYPE *'],
+    'coverage':               ['Coverage','COVERAGE *'],
+    'mic_type':               ['Mic Type','Microphone Type','MIC_TYPE *','MIC_TYPE'],
+    'output_connector_type':  ['Output Connector Type','OUTPUT_CONNECTOR_TYPE','Connector Type'],
+    'number_of_output_ports': ['Number of Output Ports','Number of Output Port','No of Output Ports','NO_OF_OUTPUT_PORTS'],
+    'port_type':              ['Port Type','PORT_TYPE *','PORT_TYPE'],
+    'memory_card_type':       ['Memory Card Type','MEMORY_CARD_TYPE *'],
+    'storage_capacity':       ['Storage Capacity','STORAGE_CAPACITY *','Memory Capacity'],
+    'speed_class':            ['Speed Class','SPEED_CLASS *','Class'],
+    'holder_type':            ['Holder Type','HOLDER_TYPE *','Type'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -708,6 +729,192 @@ def make_feature_phone_title(brand, model_name, screen_size, category_type, colo
     if suffix_parts:
         return f"{base}, {', '.join(suffix_parts)}"
     return base
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Per-SubType title + internalTitle formulas (from CE - Mapping Logic)
+# Each builder receives a `f` dict with the resolved field values and
+# returns a clean, comma-normalised string.
+# ═══════════════════════════════════════════════════════════════════
+def _ce_join(parts, sep=' '):
+    """Join non-empty stringified parts, collapsing whitespace."""
+    out = [str(p).strip() for p in parts if p is not None and str(p).strip() not in ('','nan','None','NaN')]
+    return sep.join(out)
+
+def _ce_cond(cond):
+    """Render product condition as '(Fresh)' or '' if blank."""
+    c = str(cond).strip() if cond else ''
+    return f'({c})' if c and c not in ('nan','None','NaN') else ''
+
+def _ce_compose(core_tokens, tail_tokens):
+    """Compose 'core, tail1, tail2' — drops empty tails and the leading comma."""
+    core = _ce_join(core_tokens)
+    tails = [t for t in (_ce_join([x]) for x in tail_tokens) if t]
+    return f"{core}, {', '.join(tails)}" if tails else core
+
+# 1. Feature Phones
+def title_feature_phones(f, internal=False):
+    return _ce_compose(
+        [f['brand'], f['model'], f'{f["screen_size"]}" Display' if f.get('screen_size') else '', f['subtype']],
+        [f['color'], _ce_cond(f.get('condition'))],
+    )
+
+# 2. Smart Phone
+def title_smart_phone(f, internal=False):
+    ram_rom = _ce_join([f.get('ram'), f.get('storage')], '+')
+    return _ce_compose(
+        [f['brand'], f['model'], f'{f["back_camera"]} Camera' if f.get('back_camera') else '', f['subtype']],
+        [ram_rom, f['color'], _ce_cond(f.get('condition'))],
+    )
+
+# 3. Mobile Adapters & Cables
+def title_mobile_adapters(f, internal=False):
+    core = [f['brand'], f.get('condition'), f.get('output_voltage'), f.get('adapter_connector_type')]
+    if internal:
+        core.insert(2, f.get('model'))   # internal title adds Model Number
+    return _ce_compose(core, [f['color']])
+
+# 4. Hair Trimmer
+def title_hair_trimmer(f, internal=False):
+    return _ce_compose(
+        [f['brand'], f['model'], f.get('condition'), f.get('battery_type'), f['subtype']],
+        [f['color']],
+    )
+
+# 5. Speakers
+def title_speakers(f, internal=False):
+    base = _ce_join([f['brand'], f['model'], f.get('condition'), f.get('speaker_type')])
+    if internal:
+        return _ce_compose([base], [f['color']])
+    return base
+
+# 6. Mobile Case & Covers
+def title_mobile_cases(f, internal=False):
+    compat = _ce_join([f.get('compatible_brand'), f.get('compatible_model') or f.get('model')])
+    core = [f['brand'], f.get('condition')]
+    if internal:
+        core.append(f.get('model'))
+    core += [compat, f.get('material'), f.get('case_cover_type')]
+    return _ce_compose(core, [f['color']])
+
+# 7. Earphones
+def title_earphones(f, internal=False):
+    base = _ce_join([f['brand'], f['model'], f.get('condition'), 'Wired Earphones'])
+    if internal:
+        return _ce_compose([base], [f['color']])
+    return base
+
+# 8. Headsets
+def title_headsets(f, internal=False):
+    base = _ce_join([f['brand'], f['model'], f.get('condition'), f['subtype']])
+    if internal:
+        return _ce_compose([base], [f['color']])
+    return base
+
+# 9. Memory Cards
+def title_memory_cards(f, internal=False):
+    return _ce_compose(
+        [f['brand'], f.get('storage_capacity') or f.get('storage'), f.get('memory_card_type'), f['subtype']],
+        [f.get('speed_class')],
+    )
+
+# 10. Mobile Cables
+def title_mobile_cables(f, internal=False):
+    core = [f['brand'], f.get('condition')]
+    if internal:
+        core.append(f.get('model'))
+    core += [f.get('number_of_connectors'), f.get('adapter_connector_type'), f['subtype']]
+    return _ce_compose(core, [f['color']])
+
+# 11. Mobile Holders
+def title_mobile_holders(f, internal=False):
+    core = [f['brand'], f.get('condition')]
+    if internal:
+        core.append(f.get('model'))
+    core += [f['subtype'], f.get('rotation')]
+    return _ce_compose(core, [f['color']])
+
+# 12. Screen Guards / Protectors
+def title_screen_guards(f, internal=False):
+    compat = _ce_join([f.get('compatible_brand'), f.get('compatible_model') or f.get('model')])
+    core = [f['brand'], f.get('condition')]
+    if internal:
+        core.append(f.get('model'))
+    core += [f.get('screen_guard_type'), f.get('coverage'), 'for', compat]
+    return _ce_join(core)   # no trailing color in the spec
+
+# 13. Neck Bands
+def title_neck_bands(f, internal=False):
+    base = _ce_join([f['brand'], f['model'], f.get('condition'), 'Neckband'])
+    if internal:
+        return _ce_compose([base], [f['color']])
+    return base
+
+# 14. Microphone
+def title_microphone(f, internal=False):
+    return _ce_join([f['brand'], f['model'], f.get('condition'),
+                     f.get('mic_type'), 'with', f.get('output_connector_type')])
+
+# 15. Power Bank
+def title_power_bank(f, internal=False):
+    core = [f['brand'], f.get('condition')]
+    if internal:
+        core.append(f.get('model'))
+    core += [f.get('battery'), f['subtype'], f.get('number_of_output_ports'), f.get('port_type')]
+    return _ce_compose(core, [f['color']])
+
+# 16. Smart Watches
+def title_smart_watches(f, internal=False):
+    return _ce_compose(
+        [f['brand'], f['model'], f.get('condition'),
+         f'{f["screen_size"]}" Display' if f.get('screen_size') else '', f['subtype']],
+        [f['color']],
+    )
+
+# 17. TWS Ear Buds
+def title_tws_earbuds(f, internal=False):
+    base = _ce_join([f['brand'], f['model'], f.get('condition'), 'Earbuds'])
+    if internal:
+        return _ce_compose([base], [f['color']])
+    return base
+
+# Dispatcher: subtype → builder function
+CE_TITLE_BUILDERS = {
+    'Feature Phones':              title_feature_phones,
+    'Smart Phone':                 title_smart_phone,
+    'Mobile Adapters & Cables':    title_mobile_adapters,
+    'Hair Trimmer':                title_hair_trimmer,
+    'Speakers':                    title_speakers,
+    'Mobile Case & Covers':        title_mobile_cases,
+    'Earphones':                   title_earphones,
+    'Headsets':                    title_headsets,
+    'Memory Cards':                title_memory_cards,
+    'Mobile Cables':               title_mobile_cables,
+    'Mobile Holders':              title_mobile_holders,
+    'Screen Guards / Protectors':  title_screen_guards,
+    'Neck Bands':                  title_neck_bands,
+    'Microphone':                  title_microphone,
+    'Power Bank':                  title_power_bank,
+    'Smart Watches':               title_smart_watches,
+    'TWS Ear Buds':                title_tws_earbuds,
+}
+
+def build_ce_titles(subtype, fields):
+    """Return (title, internal_title) for a given SubType using its bespoke formula.
+    Falls back to the generic builder for SubTypes without a formula
+    (currently: Projectors, Soundbars, Webcams)."""
+    builder = CE_TITLE_BUILDERS.get(subtype)
+    if builder:
+        try:
+            return builder(fields, internal=False), builder(fields, internal=True)
+        except Exception as e:
+            print(f'Warning: per-SubType title builder failed for {subtype}: {e}')
+    # Generic fallback — original behaviour
+    ram_storage = _ce_join([fields.get('ram'), fields.get('storage')], '+')
+    title = make_ce_title(fields.get('brand',''), fields.get('model',''),
+                          fields.get('back_camera',''), fields.get('subtype',''),
+                          ram_storage, fields.get('color',''), fields.get('condition',''))
+    return title, title
 
 def make_ce_description(brand, model_name, category_type, ram, storage, processor, battery,
                         screen_size, display_type, color, front_camera, back_camera, os):
@@ -853,14 +1060,42 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             bluetooth = extract_from_description(desc, 'bluetooth')
 
         ram_rom     = f"{ram} + {storage}" if (ram and storage) else ''
-        ram_storage = ram_rom if ram_rom else (ram or storage or '')
         condition   = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
 
-        if subtype and 'feature phone' in subtype.lower():
-            title = make_feature_phone_title(brand, model_name, screen_size, subtype, color, condition)
-        else:
-            title = make_ce_title(brand, model_name, back_cam, subtype, ram_storage, color, condition)
-        internal_title = title
+        # ── Per-SubType title + internalTitle (from CE - Mapping Logic) ──
+        ce_fields = {
+            'brand':                  brand,
+            'model':                  model_name,
+            'subtype':                subtype,
+            'condition':              condition,
+            'color':                  color,
+            'ram':                    ram,
+            'storage':                storage,
+            'back_camera':            back_cam,
+            'screen_size':            screen_size,
+            'battery':                battery,
+            'output_voltage':         safe(drow.get(col_map.get('output_voltage',''), '')),
+            'adapter_connector_type': safe(drow.get(col_map.get('adapter_connector_type',''), '')),
+            'battery_type':           safe(drow.get(col_map.get('battery_type',''), '')),
+            'speaker_type':           safe(drow.get(col_map.get('speaker_type',''), '')),
+            'compatible_brand':       safe(drow.get(col_map.get('compatible_brand',''), '')),
+            'compatible_model':       safe(drow.get(col_map.get('compatible_model',''), '')),
+            'material':               safe(drow.get(col_map.get('material',''), '')),
+            'case_cover_type':        safe(drow.get(col_map.get('case_cover_type',''), '')),
+            'number_of_connectors':   safe(drow.get(col_map.get('number_of_connectors',''), '')),
+            'rotation':               safe(drow.get(col_map.get('rotation',''), '')),
+            'screen_guard_type':      safe(drow.get(col_map.get('screen_guard_type',''), '')),
+            'coverage':               safe(drow.get(col_map.get('coverage',''), '')),
+            'mic_type':               safe(drow.get(col_map.get('mic_type',''), '')),
+            'output_connector_type':  safe(drow.get(col_map.get('output_connector_type',''), '')),
+            'number_of_output_ports': safe(drow.get(col_map.get('number_of_output_ports',''), '')),
+            'port_type':              safe(drow.get(col_map.get('port_type',''), '')),
+            'memory_card_type':       safe(drow.get(col_map.get('memory_card_type',''), '')),
+            'storage_capacity':       safe(drow.get(col_map.get('storage_capacity',''), '')),
+            'speed_class':            safe(drow.get(col_map.get('speed_class',''), '')),
+            'holder_type':            safe(drow.get(col_map.get('holder_type',''), '')),
+        }
+        title, internal_title = build_ce_titles(subtype, ce_fields)
 
         description = prod_desc if prod_desc else make_ce_description(
             brand, model_name, subtype, ram, storage, proc_core, battery,

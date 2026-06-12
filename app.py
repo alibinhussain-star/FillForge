@@ -681,7 +681,8 @@ CE_DUMP_COL_HINTS = {
     'memory_card_type':       ['Memory Card Type','MEMORY_CARD_TYPE *'],
     'storage_capacity':       ['Storage Capacity','STORAGE_CAPACITY *','Memory Capacity'],
     'speed_class':            ['Speed Class','SPEED_CLASS *','Class'],
-    'holder_type':            ['Holder Type','HOLDER_TYPE *','Type'],
+    'holder_type':       ['Holder Type','HOLDER_TYPE *','Type'],
+    'product_condition': ['Product Condition','PRODUCT_CONDITION *','Condition'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -1061,7 +1062,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             bluetooth = extract_from_description(desc, 'bluetooth')
 
         ram_rom     = f"{ram} + {storage}" if (ram and storage) else ''
-        condition   = safe(drow.get(col_map.get('product_condition',''), '')) or _ce_cfg['product_condition']
+        _raw_cond = safe(drow.get(col_map.get('product_condition',''), ''))
+        condition = _raw_cond if _raw_cond else ''
 
         # ── Per-SubType title + internalTitle (from CE - Mapping Logic) ──
         ce_fields = {
@@ -1163,7 +1165,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'PRODUCT_COLOR *':                             color,
             'ARTICLE_NUMBER *':                            article,
             'MODEL_NAME *':                                model_name,
-            'PRODUCT_CONDITION *':                         _ce_cfg['product_condition'],
+            'PRODUCT_CONDITION *':                         condition,
             'UNIT_OF_MEASUREMENT_SINGULAR *':              'Piece',
             'UNIT_OF_MEASUREMENT_PLURAL *':                'Pieces',
             'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pc',

@@ -1518,7 +1518,7 @@ def process():
             for sname in bxl.sheet_names:
                 try:
                     bdf  = bxl.parse(sname)
-                    bcol = build_col_map(bdf, BASE_COL_HINTS)
+                    bcol = build_col_map(bdf, CE_BASE_COL_HINTS)
                     if 'article' in bcol:
                         existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
                     if 'sku' in bcol:
@@ -1527,61 +1527,59 @@ def process():
 
         results, all_skipped, grand_filled = [], [], 0
         preview_rows, preview_cols = [], []
+        ticket_col = col_map.get('ticket_id')
 
-ticket_col = col_map.get('ticket_id')
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for subtype in subtypes:
+                if vert_col and vert_col in all_dump.columns:
+                    mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
 
-zip_buf = io.BytesIO()
-with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
-    for subtype in subtypes:
-        if vert_col and vert_col in all_dump.columns:
-            mask     = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
-            filtered = all_dump[mask].copy()
-            if filtered.empty:
-                mask2    = all_dump[vert_col].astype(str).str.lower().str.contains(re.escape(subtype.lower()), na=False)
-                filtered = all_dump[mask2].copy()
-            if filtered.empty:
-                filtered = all_dump.copy()
-        else:
-            filtered = all_dump.copy()
+                # ── Split by Ticket ID if column exists ───────────────────
+                if ticket_col and ticket_col in filtered.columns:
+                    ticket_groups = filtered.groupby(
+                        filtered[ticket_col].astype(str).str.strip(), sort=False
+                    )
+                else:
+                    ticket_groups = [('all', filtered)]
 
-        # ── Split by Ticket ID if column exists ───────────────────
-        if ticket_col and ticket_col in filtered.columns:
-            ticket_groups = filtered.groupby(
-                filtered[ticket_col].astype(str).str.strip(), sort=False
-            )
-        else:
-            ticket_groups = [('all', filtered)]
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
 
-        safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                for ticket_id, ticket_df in ticket_groups:
+                    safe_tid = re.sub(r"[^\w\s-]", "", str(ticket_id)).replace(" ", "_")
+                    fname    = f'ce_filled_{safe_st}_Ticket_{safe_tid}.xlsx'
 
-        for ticket_id, ticket_df in ticket_groups:
-            safe_tid = re.sub(r"[^\w\s-]", "", str(ticket_id)).replace(" ", "_")
-            fname    = f'ce_filled_{safe_st}_Ticket_{safe_tid}.xlsx'
+                    wb, headers = get_ce_template_wb_for_subtype(subtype)
+                    ws = wb.active
+                    filled, skipped = fill_ce_template(
+                        ws, headers, ticket_df, col_map, subtype, existing_articles, existing_skus
+                    )
+                    all_skipped.extend(skipped)
+                    grand_filled += filled
 
-            wb, headers = get_ce_template_wb_for_subtype(subtype)
-            ws = wb.active
-            filled, skipped = fill_ce_template(
-                ws, headers, ticket_df, col_map, subtype, existing_articles, existing_skus
-            )
-            all_skipped.extend(skipped)
-            grand_filled += filled
+                    xls_buf = io.BytesIO()
+                    wb.save(xls_buf)
+                    zout.writestr(fname, xls_buf.getvalue())
+                    results.append({'subtype': subtype, 'ticket_id': ticket_id,
+                                     'filled': filled, 'skipped': len(skipped), 'filename': fname})
 
-            xls_buf = io.BytesIO()
-            wb.save(xls_buf)
-            zout.writestr(fname, xls_buf.getvalue())
-            results.append({'subtype': subtype, 'ticket_id': ticket_id,
-                             'filled': filled, 'skipped': len(skipped), 'filename': fname})
-
-            if not preview_cols:
-                pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
-                         'PRODUCT_COLOR *','RAM *','INTERNAL_STORAGE *',
-                         'DISPLAY_SIZE *','DISPLAY_TYPE *','hsnCode *','SET_COUNT *']
-                preview_cols = [c for c in pcols if c in headers]
-                for r in range(2, min(filled + 2, 52)):
-                    rdata = {c: ws.cell(r, headers.index(c)+1).value for c in preview_cols}
-                    if any(v for v in rdata.values()):
-                        preview_rows.append({**rdata, '_subtype': subtype, '_ticket': ticket_id})
-
+                    if not preview_cols:
+                        pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
+                                 'PRODUCT_COLOR *','RAM *','INTERNAL_STORAGE *',
+                                 'DISPLAY_SIZE *','DISPLAY_TYPE *','hsnCode *','SET_COUNT *']
+                        preview_cols = [c for c in pcols if c in headers]
+                        for r in range(2, min(filled + 2, 52)):
+                            rdata = {c: ws.cell(r, headers.index(c)+1).value for c in preview_cols}
+                            if any(v for v in rdata.values()):
+                                preview_rows.append({**rdata, '_subtype': subtype, '_ticket': ticket_id})
         zip_buf.seek(0)
         if len(subtypes) == 1:
             safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")

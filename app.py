@@ -1544,14 +1544,14 @@ def process():
                     filtered = all_dump.copy()
 
                 # ── Split by Ticket ID if column exists ───────────────────
-              if ticket_col and ticket_col in filtered.columns:
-            # Normalize ticket IDs — strip decimals from float-read integers
-            ticket_series = (
-                filtered[ticket_col]
-                .fillna('unknown')
-                .apply(lambda x: str(int(float(x))) if str(x).replace('.','',1).isdigit() else str(x).strip())
-            )
-            ticket_groups = filtered.groupby(ticket_series, sort=False)
+             if ticket_col and ticket_col in filtered.columns:
+                    # Normalize ticket IDs — strip decimals from float-read integers
+                    ticket_series = (
+                        filtered[ticket_col]
+                        .fillna('unknown')
+                        .apply(lambda x: str(int(float(x))) if str(x).replace('.','',1).isdigit() else str(x).strip())
+                    )
+                    ticket_groups = filtered.groupby(ticket_series, sort=False)
                 else:
                     ticket_groups = [('all', filtered)]
 

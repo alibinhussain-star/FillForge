@@ -653,6 +653,7 @@ CE_DUMP_COL_HINTS = {
     'storage':        ['Storage Capacity','INTERNAL_STORAGE *'],
     'sim_type':       ['Sim Type','SIM_TYPE *'],
     'os':             ['Operating System','OPERATING_SYSTEM_OS *'],
+    'os_version':     ['Operating System','OPERATING_SYSTEM_OS *'],
     'front_camera':   ['Front Camera','FRONT_CAMERA_RESOLUTION *'],
     'back_camera':    ['Back Camera','PRIMARY_CAMERA_RESOLUTION *'],
     'screen_size':    ['Screen Size','DISPLAY_SIZE *'],
@@ -1036,7 +1037,11 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         ram          = safe(drow.get(col_map.get('ram',''), ''))
         storage      = safe(drow.get(col_map.get('storage',''), ''))
         sim_type     = safe(drow.get(col_map.get('sim_type',''), ''))
-        os           = safe(drow.get(col_map.get('os',''), ''))
+        os_raw     = safe(drow.get(col_map.get('os',''), ''))
+            # OPERATING_SYSTEM_OS * → just the text part e.g. "Android"
+        os         = re.sub(r'\s*\d+.*$', '', os_raw).strip()
+            # OS_VERSION * → full value e.g. "Android 15"
+        os_version = os_raw
         front_cam    = safe(drow.get(col_map.get('front_camera',''), ''))
         back_cam     = safe(drow.get(col_map.get('back_camera',''), ''))
         screen_size  = safe(drow.get(col_map.get('screen_size',''), ''))
@@ -1191,8 +1196,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'PRODUCT_MANUFACTURING_STATE':                 '',
             'WARRANTY':                                    warranty,
             'MANUFACTURER':                                '',
-            'OPERATING_SYSTEM_OS':                         os,
-            'OS_VERSION':                                  '',
+            'OPERATING_SYSTEM_OS *':                       os,
+            'OS_VERSION *':                                os_version,
             'DISPLAY_SIZE *':                              screen_size,
             'DISPLAY_TYPE *':                              display_type,
             'DISPLAY_RESOLUTION':                          '',

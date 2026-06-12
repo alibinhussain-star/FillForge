@@ -761,7 +761,7 @@ def title_feature_phones(f, internal=False):
 
 # 2. Smart Phone
 def title_smart_phone(f, internal=False):
-    ram_rom = _ce_join([f.get('ram'), f.get('storage')], '+')
+    ram_rom = _ce_join([f.get('ram'), f.get('storage')], ' + ')
     return _ce_compose(
         [f['brand'], f['model'], f'{f["back_camera"]} Camera' if f.get('back_camera') else '', f['subtype']],
         [ram_rom, f['color'], _ce_cond(f.get('condition'))],

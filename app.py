@@ -1544,7 +1544,7 @@ def process():
                     filtered = all_dump.copy()
 
                 # ── Split by Ticket ID if column exists ───────────────────
-             if ticket_col and ticket_col in filtered.columns:
+                if ticket_col and ticket_col in filtered.columns:
                     # Normalize ticket IDs — strip decimals from float-read integers
                     ticket_series = (
                         filtered[ticket_col]

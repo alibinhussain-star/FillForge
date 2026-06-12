@@ -1581,14 +1581,19 @@ def process():
                             if any(v for v in rdata.values()):
                                 preview_rows.append({**rdata, '_subtype': subtype, '_ticket': ticket_id})
         zip_buf.seek(0)
-        if len(subtypes) == 1:
+        multiple_files = len(results) > 1
+        if not multiple_files:
+            # Single subtype, single ticket — return plain xlsx
             safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
-            out_name = f'filled_{safe_st}.xlsx'
+            tid      = results[0].get('ticket_id', 'all')
+            safe_tid = re.sub(r"[^\w\s-]", "", str(tid)).replace(" ", "_")
+            out_name = f'ce_filled_{safe_st}_Ticket_{safe_tid}.xlsx'
             out_ext  = '.xlsx'
             with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
                 out_bytes = zin.read(results[0]['filename'])
         else:
-            out_name  = 'filled_footwear_templates.zip'
+            # Multiple files (multiple subtypes OR multiple ticket IDs) — return ZIP
+            out_name  = 'ce_filled_templates.zip'
             out_ext   = '.zip'
             out_bytes = zip_buf.getvalue()
 

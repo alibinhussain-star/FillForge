@@ -757,9 +757,12 @@ def _ce_compose(core_tokens, tail_tokens):
 
 # 1. Feature Phones
 def title_feature_phones(f, internal=False):
-    color_cond = _ce_join([f.get('color'), _ce_cond(f.get('condition'))], ' ')
+    color_cond  = _ce_join([f.get('color'), _ce_cond(f.get('condition'))], ' ')
+    subtype_str = str(f.get('subtype', '')).strip()
+    if subtype_str.endswith('Phones'):
+        subtype_str = subtype_str[:-1]  # "Feature Phones" → "Feature Phone"
     return _ce_compose(
-        [f['brand'], f['model'], f'{f["screen_size"]}" Display' if f.get('screen_size') else '', f['subtype']],
+        [f['brand'], f['model'], f'{f["screen_size"]}" Display' if f.get('screen_size') else '', subtype_str],
         [color_cond],
     )
 

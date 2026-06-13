@@ -1527,7 +1527,6 @@ def process():
 
         results, all_skipped, grand_filled = [], [], 0
         preview_rows, preview_cols = [], []
-        ticket_col = col_map.get('ticket_id')
 
         zip_buf = io.BytesIO()
         with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
@@ -1543,61 +1542,44 @@ def process():
                 else:
                     filtered = all_dump.copy()
 
-                # ── Split by Ticket ID if column exists ───────────────────
-                if ticket_col and ticket_col in filtered.columns:
-                    # Normalize ticket IDs — strip decimals from float-read integers
-                    ticket_series = (
-                        filtered[ticket_col]
-                        .fillna('unknown')
-                        .apply(lambda x: str(int(float(x))) if str(x).replace('.','',1).isdigit() else str(x).strip())
-                    )
-                    ticket_groups = filtered.groupby(ticket_series, sort=False)
-                else:
-                    ticket_groups = [('all', filtered)]
+                wb, headers = get_template_wb_for_subtype(subtype)
+                ws = wb.active
+                filled, skipped = fill_template(
+                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
 
                 safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname   = f'filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
+                wb.save(xls_buf)
+                zout.writestr(fname, xls_buf.getvalue())
+                results.append({'subtype': subtype, 'filled': filled,
+                                 'skipped': len(skipped), 'filename': fname})
 
-                for ticket_id, ticket_df in ticket_groups:
-                    safe_tid = re.sub(r"[^\w\s-]", "", str(ticket_id)).replace(" ", "_")
-                    fname    = f'ce_filled_{safe_st}_Ticket_{safe_tid}.xlsx'
+                if not preview_cols:
+                    pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
+                             'PRODUCT_COLOR *','AVAILABLE_SIZES *','SET_DETAILS *',
+                             'SET_COUNT *','FOOTWEAR_TYPE *','hsnCode *']
+                    preview_cols = [c for c in pcols if c in headers]
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for c in preview_cols:
+                        if c in headers:
+                            rdata[c] = ws.cell(r, headers.index(c)+1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_subtype': subtype})
 
-                    wb, headers = get_ce_template_wb_for_subtype(subtype)
-                    ws = wb.active
-                    filled, skipped = fill_ce_template(
-                        ws, headers, ticket_df, col_map, subtype, existing_articles, existing_skus
-                    )
-                    all_skipped.extend(skipped)
-                    grand_filled += filled
-
-                    xls_buf = io.BytesIO()
-                    wb.save(xls_buf)
-                    zout.writestr(fname, xls_buf.getvalue())
-                    results.append({'subtype': subtype, 'ticket_id': ticket_id,
-                                     'filled': filled, 'skipped': len(skipped), 'filename': fname})
-
-                    if not preview_cols:
-                        pcols = ['title *','ChildSKU *','ARTICLE_NUMBER *','MRP *','SellingPrice *',
-                                 'PRODUCT_COLOR *','RAM *','INTERNAL_STORAGE *',
-                                 'DISPLAY_SIZE *','DISPLAY_TYPE *','hsnCode *','SET_COUNT *']
-                        preview_cols = [c for c in pcols if c in headers]
-                        for r in range(2, min(filled + 2, 52)):
-                            rdata = {c: ws.cell(r, headers.index(c)+1).value for c in preview_cols}
-                            if any(v for v in rdata.values()):
-                                preview_rows.append({**rdata, '_subtype': subtype, '_ticket': ticket_id})
         zip_buf.seek(0)
-        multiple_files = len(results) > 1
-        if not multiple_files:
-            # Single subtype, single ticket — return plain xlsx
+        if len(subtypes) == 1:
             safe_st  = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
-            tid      = results[0].get('ticket_id', 'all')
-            safe_tid = re.sub(r"[^\w\s-]", "", str(tid)).replace(" ", "_")
-            out_name = f'ce_filled_{safe_st}_Ticket_{safe_tid}.xlsx'
+            out_name = f'filled_{safe_st}.xlsx'
             out_ext  = '.xlsx'
             with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
                 out_bytes = zin.read(results[0]['filename'])
         else:
-            # Multiple files (multiple subtypes OR multiple ticket IDs) — return ZIP
-            out_name  = 'ce_filled_templates.zip'
+            out_name  = 'filled_footwear_templates.zip'
             out_ext   = '.zip'
             out_bytes = zip_buf.getvalue()
 

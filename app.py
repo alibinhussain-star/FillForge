@@ -757,9 +757,10 @@ def _ce_compose(core_tokens, tail_tokens):
 
 # 1. Feature Phones
 def title_feature_phones(f, internal=False):
+    color_cond = _ce_join([f.get('color'), _ce_cond(f.get('condition'))], ' ')
     return _ce_compose(
         [f['brand'], f['model'], f'{f["screen_size"]}" Display' if f.get('screen_size') else '', f['subtype']],
-        [f['color'], _ce_cond(f.get('condition'))],
+        [color_cond],
     )
 
 # 2. Smart Phone

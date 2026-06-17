@@ -15,6 +15,12 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # ── Logging ────────────────────────────────────────────────────
 LOG_STORE = []  # in-memory log store
+def current_user():
+    try:
+        token = request.cookies.get('ff_session')
+        return validate_session(token) or 'anonymous'
+    except:
+        return 'anonymous'
 
 def write_log(email, action, details=''):
     entry = {
@@ -1536,7 +1542,7 @@ def update_config():
         data['brands'] = normalize_brands(data['brands'])
     cfg.update(data)
     _save_config(CONFIG_PATH, cfg)
-    write_log(current_user(), 'config_updated', f"brands={cfg.get('brands')}")
+    write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/ce_config', methods=['POST'])
@@ -1547,7 +1553,7 @@ def update_ce_config():
         data['brands'] = normalize_brands(data['brands'])
     cfg.update(data)
     _save_config(CE_CONFIG_PATH, cfg)
-    write_log(current_user(), 'ce_config_updated', f"brands={cfg.get('brands')}")
+    write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'ce_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')
@@ -1743,7 +1749,7 @@ def process():
         FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
                                    'ext': out_ext, 'created': time.time()}
 
-        write_log(current_user(), 'fw_catalog_generated',
+        write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'fw_catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
@@ -1875,7 +1881,7 @@ def process_ce():
         FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
                                    'ext': out_ext, 'created': time.time()}
 
-        write_log(current_user(), 'ce_catalog_generated',
+        write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'ce_catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
@@ -1960,7 +1966,7 @@ def download(token):
         fname = request.args.get('filename', file_data['filename'])
         mtype = 'application/zip' if ext == '.zip' else \
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        write_log(current_user(), 'file_downloaded', fname)
+        write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'file_downloaded', fname)
         return send_file(io.BytesIO(file_data['bytes']), as_attachment=True,
                          download_name=fname, mimetype=mtype)
     tmpdir = tempfile.gettempdir()

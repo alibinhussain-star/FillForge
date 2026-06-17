@@ -14,37 +14,20 @@ app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # ── Logging ────────────────────────────────────────────────────
-LOG_PATH = os.path.join(os.path.dirname(__file__), 'activity.log')
+LOG_STORE = []  # in-memory log store
 
 def write_log(email, action, details=''):
     entry = {
-        'ts': datetime.utcnow().isoformat() + 'Z',
-        'email': email or 'anonymous',
-        'action': action,
+        'ts':      datetime.utcnow().isoformat() + 'Z',
+        'email':   email or 'anonymous',
+        'action':  action,
         'details': details,
     }
-    try:
-        with open(LOG_PATH, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry) + '\n')
-    except Exception as e:
-        print('log err', e)
-
-def current_user():
-    token = request.cookies.get('ff_session')
-    return validate_session(token) or 'anonymous'
+    LOG_STORE.append(entry)
+    print(json.dumps(entry))  # still prints to Vercel function logs
 
 def read_logs(limit=200):
-    if not os.path.exists(LOG_PATH): return []
-    out = []
-    try:
-        with open(LOG_PATH, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                try: out.append(json.loads(line))
-                except: pass
-    except: pass
-    return list(reversed(out))[:limit]
+    return list(reversed(LOG_STORE))[:limit]
 
 # ── Load embedded template file once at startup ────────────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')

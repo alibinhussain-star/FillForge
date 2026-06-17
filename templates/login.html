@@ -1,221 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FillForge Login</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --navy:#1a2540; --navy-2:#2a3554; --orange:#f47b20;
-  --bg:#f6f7fb; --white:#fff; --border:#e3e6ef;
-  --text:#1a1d23; --muted:#6b7280; --danger:#dc2626;
-  font-family:'Inter',sans-serif;
-}
-body{background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.login-box{background:var(--white);border-radius:16px;padding:48px;width:100%;max-width:420px;box-shadow:0 8px 32px #1a254012}
-.logo{text-align:center;margin-bottom:32px}
-.logo-icon{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:28px;margin:0 auto 16px;position:relative;overflow:hidden}
-.logo-icon::after{content:"";position:absolute;right:-6px;bottom:-6px;width:22px;height:22px;background:var(--orange);border-radius:50%}
-.logo-icon span{position:relative;z-index:1}
-.logo h1{font-size:24px;font-weight:800;color:var(--navy);letter-spacing:-.5px}
-.logo h1 em{font-style:normal;color:var(--orange)}
-.logo p{font-size:13px;color:var(--muted);margin-top:4px}
-
-.form-group{margin-bottom:20px}
-label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;color:var(--text);transition:all .15s}
-input:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 4px #f47b2015}
-input::placeholder{color:#9ca3af}
-
-.btn{width:100%;padding:14px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;font-family:inherit}
-.btn:hover{background:var(--navy-2)}
-.btn:disabled{background:#a8afc4;cursor:not-allowed}
-.btn-spinner{width:16px;height:16px;border:2px solid #ffffff60;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none;margin-right:8px;vertical-align:middle}
-.btn.loading .btn-spinner{display:inline-block}
-.btn.loading .btn-text{display:none}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-.error{background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--danger);margin-top:12px;display:none}
-.error.show{display:block}
-
-.hint{font-size:12px;color:var(--muted);text-align:center;margin-top:20px;line-height:1.6}
-.hint a{color:var(--orange);text-decoration:none;font-weight:500}
-.hint a:hover{text-decoration:underline}
-
-.step{display:none}
-.step.active{display:block}
-
-.otp-display{font-size:32px;font-weight:700;letter-spacing:8px;color:var(--navy);text-align:center;margin:20px 0;font-family:monospace}
-.dev-mode{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:13px;color:#92400e;margin-bottom:16px}
-.dev-mode strong{color:#92400e}
-
-.back-btn{background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;margin-bottom:16px;transition:color .15s}
-.back-btn:hover{color:var(--navy)}
-.back-btn svg{width:16px;height:16px}
-
-@media(max-width:480px){
-  .login-box{padding:32px 24px}
-}
-</style>
-<base target="_blank">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FillForge Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f5f5f5;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+    .logo { font-size: 28px; font-weight: 800; color: #E87722; margin-bottom: 4px; }
+    .sub  { color: #888; font-size: 13px; margin-bottom: 32px; }
+    label { font-size: 13px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #ddd;
+      border-radius: 8px; font-size: 15px; outline: none;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: #E87722; }
+    .btn {
+      width: 100%; padding: 13px; background: #E87722; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin-top: 16px; transition: background 0.2s;
+    }
+    .btn:hover { background: #cf6310; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .msg { margin-top: 14px; font-size: 13px; text-align: center; min-height: 20px; }
+    .msg.error { color: #e53e3e; }
+    .msg.success { color: #38a169; }
+    .otp-group { display: none; margin-top: 20px; }
+    .resend { font-size: 12px; color: #E87722; cursor: pointer;
+              text-align: right; margin-top: 6px; display: none; }
+    .resend:hover { text-decoration: underline; }
+    .timer { font-size: 12px; color: #888; text-align: right; margin-top: 6px; }
+  </style>
 </head>
 <body>
+<div class="card">
+  <div class="logo">FillForge</div>
+  <div class="sub">Catalog Ops — Sign in to continue</div>
 
-<div class="login-box">
-  <div class="logo">
-    <div class="logo-icon"><span>F</span></div>
-    <h1>Fill<em>Forge</em></h1>
-    <p>Jumbotail Catalog Operations</p>
+  <div id="emailGroup">
+    <label for="emailInput">Work Email</label>
+    <input type="email" id="emailInput" placeholder="you@company.com" autocomplete="email"/>
+    <button class="btn" id="sendBtn" onclick="sendOTP()">Send OTP</button>
   </div>
 
-  <!-- STEP 1: Email -->
-  <div class="step active" id="step1">
-    <div class="form-group">
-      <label>Email Address</label>
-      <input type="email" id="email" placeholder="you@company.com" autofocus>
-    </div>
-    <button class="btn" id="btn-send" onclick="sendOTP()">
-      <span class="btn-spinner"></span>
-      <span class="btn-text">Send OTP</span>
-    </button>
-    <div class="error" id="err1"></div>
+  <div class="otp-group" id="otpGroup">
+    <label for="otpInput">Enter OTP <span style="color:#888;font-weight:400">(sent to <span id="emailDisplay"></span>)</span></label>
+    <input type="text" id="otpInput" placeholder="6-digit code" maxlength="6"
+           autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'')"
+           onkeydown="if(event.key==='Enter') verifyOTP()"/>
+    <button class="btn" id="verifyBtn" onclick="verifyOTP()">Verify & Login</button>
+    <div class="timer" id="timer"></div>
+    <div class="resend" id="resendBtn" onclick="sendOTP(true)">Resend OTP</div>
   </div>
 
-  <!-- STEP 2: OTP -->
-  <div class="step" id="step2">
-    <button class="back-btn" onclick="goBack()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      Back
-    </button>
-    <div class="form-group">
-      <label>Enter OTP</label>
-      <input type="text" id="otp" placeholder="6-digit code" maxlength="6" inputmode="numeric">
-    </div>
-    <div class="dev-mode hidden" id="dev-mode">
-      <strong>Dev Mode:</strong> OTP printed in server console
-    </div>
-    <button class="btn" id="btn-verify" onclick="verifyOTP()">
-      <span class="btn-spinner"></span>
-      <span class="btn-text">Verify & Login</span>
-    </button>
-    <div class="error" id="err2"></div>
-    <p class="hint">Didn't receive? <a href="#" onclick="resendOTP()">Resend OTP</a></p>
-  </div>
+  <div class="msg" id="msg"></div>
 </div>
 
 <script>
-let currentEmail = '';
+  let email = '';
+  let timerInterval = null;
 
-function showError(id, msg){
-  const el = document.getElementById(id);
-  el.textContent = msg;
-  el.classList.add('show');
-}
-function hideError(id){
-  document.getElementById(id).classList.remove('show');
-}
-function setLoading(id, loading){
-  document.getElementById(id).classList.toggle('loading', loading);
-  document.getElementById(id).disabled = loading;
-}
-
-async function sendOTP(){
-  const email = document.getElementById('email').value.trim().toLowerCase();
-  if(!email || !email.includes('@')){
-    showError('err1', 'Please enter a valid email address');
-    return;
+  function showMsg(text, type='error') {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = 'msg ' + type;
   }
 
-  hideError('err1');
-  setLoading('btn-send', true);
+  function startTimer(seconds=600) {
+    clearInterval(timerInterval);
+    const timerEl  = document.getElementById('timer');
+    const resendEl = document.getElementById('resendBtn');
+    resendEl.style.display = 'none';
+    let remaining = seconds;
+    timerEl.textContent = `OTP expires in ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+    timerInterval = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerEl.textContent = 'OTP expired';
+        resendEl.style.display = 'block';
+      } else {
+        timerEl.textContent = `OTP expires in ${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`;
+      }
+    }, 1000);
+  }
 
-  try{
-    const res = await fetch('/auth/send_otp', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email})
-    });
-    const data = await res.json();
-
-    if(data.error){
-      showError('err1', data.error);
-      setLoading('btn-send', false);
-      return;
+  async function sendOTP(resend=false) {
+    email = document.getElementById('emailInput').value.trim().toLowerCase();
+    if (!email || !email.includes('@')) { showMsg('Please enter a valid email'); return; }
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+    showMsg('');
+    try {
+      const res  = await fetch('/auth/send_otp', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('emailGroup').style.opacity = '0.5';
+        document.getElementById('emailGroup').style.pointerEvents = 'none';
+        document.getElementById('otpGroup').style.display = 'block';
+        document.getElementById('emailDisplay').textContent = email;
+        document.getElementById('otpInput').focus();
+        startTimer(600);
+        showMsg(resend ? 'New OTP sent!' : 'OTP sent! Check your inbox.', 'success');
+      } else {
+        showMsg(data.error || 'Failed to send OTP');
+        btn.disabled = false;
+        btn.textContent = 'Send OTP';
+      }
+    } catch(e) {
+      showMsg('Network error. Try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send OTP';
     }
+  }
 
-    currentEmail = email;
-    document.getElementById('step1').classList.remove('active');
-    document.getElementById('step2').classList.add('active');
-    document.getElementById('otp').focus();
-
-    if(data.dev){
-      document.getElementById('dev-mode').classList.remove('hidden');
+  async function verifyOTP() {
+    const otp = document.getElementById('otpInput').value.trim();
+    if (otp.length !== 6) { showMsg('Enter the 6-digit OTP'); return; }
+    const btn = document.getElementById('verifyBtn');
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+    showMsg('');
+    try {
+      const res  = await fetch('/auth/verify_otp', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({email, otp})
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMsg('Login successful! Redirecting...', 'success');
+        clearInterval(timerInterval);
+        setTimeout(() => window.location.href = '/', 800);
+      } else {
+        showMsg(data.error || 'Invalid OTP');
+        btn.disabled = false;
+        btn.textContent = 'Verify & Login';
+      }
+    } catch(e) {
+      showMsg('Network error. Try again.');
+      btn.disabled = false;
+      btn.textContent = 'Verify & Login';
     }
-
-  }catch(e){
-    showError('err1', 'Network error. Please try again.');
-    setLoading('btn-send', false);
   }
-}
-
-async function verifyOTP(){
-  const otp = document.getElementById('otp').value.trim();
-  if(otp.length !== 6 || !/^\d+$/.test(otp)){
-    showError('err2', 'Please enter a valid 6-digit OTP');
-    return;
-  }
-
-  hideError('err2');
-  setLoading('btn-verify', true);
-
-  try{
-    const res = await fetch('/auth/verify_otp', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email: currentEmail, otp})
-    });
-    const data = await res.json();
-
-    if(data.error){
-      showError('err2', data.error);
-      setLoading('btn-verify', false);
-      return;
-    }
-
-    // Success — redirect to app
-    window.location.href = '/';
-
-  }catch(e){
-    showError('err2', 'Network error. Please try again.');
-    setLoading('btn-verify', false);
-  }
-}
-
-function resendOTP(){
-  document.getElementById('step2').classList.remove('active');
-  document.getElementById('step1').classList.add('active');
-  hideError('err1');
-  hideError('err2');
-  sendOTP();
-}
-
-function goBack(){
-  document.getElementById('step2').classList.remove('active');
-  document.getElementById('step1').classList.add('active');
-  hideError('err1');
-  hideError('err2');
-}
-
-// Enter key support
-document.getElementById('email').addEventListener('keypress', e => {
-  if(e.key === 'Enter') sendOTP();
-});
-document.getElementById('otp').addEventListener('keypress', e => {
-  if(e.key === 'Enter') verifyOTP();
-});
 </script>
-
 </body>
 </html>

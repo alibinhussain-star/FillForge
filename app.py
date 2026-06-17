@@ -1,4 +1,10 @@
-from flask import Flask, request, jsonify, send_file, render_template
+import secrets
+import hashlib
+from datetime import datetime, timedelta
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from flask import Flask, request, jsonify, send_file, render_template, redirect
 import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zipfile
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -22,6 +28,10 @@ def write_log(email, action, details=''):
             f.write(json.dumps(entry) + '\n')
     except Exception as e:
         print('log err', e)
+
+def current_user():
+    token = request.cookies.get('ff_session')
+    return validate_session(token) or 'anonymous'
 
 def read_logs(limit=200):
     if not os.path.exists(LOG_PATH): return []
@@ -151,6 +161,15 @@ def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
 
 config = get_config()
+
+SMTP_HOST     = 'smtp.gmail.com'
+SMTP_PORT     = 587
+SMTP_USER     = 'fillforgeotp@gmail.com'        # ← your sender email
+SMTP_PASSWORD = 'qfpyihawrqtchqwz'     # ← Gmail App Password
+OTP_STORE     = {}   # in-memory
+SESSION_STORE = {}   # in-memory
+OTP_EXPIRY_MINUTES = 10
+SESSION_EXPIRY_DAYS = 7
 
 # ── Utility ────────────────────────────────────────────────────
 def safe(val, default=''):
@@ -1274,7 +1293,81 @@ FILE_STORE = {}
 # ═══════════════════════════════════════════════════════════════
 # ROUTES
 # ═══════════════════════════════════════════════════════════════
+def _load_json(path):
+    if not os.path.exists(path): return {}
+    try:
+        with open(path, 'r') as f: return json.load(f)
+    except: return {}
 
+def _save_json(path, data):
+    with open(path, 'w') as f: json.dump(data, f)
+
+def send_otp(email):
+    otp = str(secrets.randbelow(900000) + 100000)
+    expiry = (datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)).isoformat()
+    OTP_STORE[email] = {'otp': otp, 'expiry': expiry}
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'FillForge Login OTP'
+        msg['From']    = SMTP_USER
+        msg['To']      = email
+        html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:32px;
+                    border:1px solid #eee;border-radius:12px;">
+          <h2 style="color:#E87722;">FillForge Login</h2>
+          <p>Your one-time password is:</p>
+          <div style="font-size:36px;font-weight:bold;letter-spacing:8px;
+                      color:#1a1a1a;padding:16px 0;">{otp}</div>
+          <p style="color:#888;font-size:13px;">Valid for {OTP_EXPIRY_MINUTES} minutes.
+             Do not share this with anyone.</p>
+        </div>"""
+        msg.attach(MIMEText(html, 'html'))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            s.starttls()
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.sendmail(SMTP_USER, email, msg.as_string())
+        return True, 'OTP sent'
+    except Exception as e:
+        return False, str(e)
+
+def verify_otp(email, otp_input):
+    entry = OTP_STORE.get(email)
+    if not entry: return False, 'No OTP found for this email'
+    if datetime.utcnow().isoformat() > entry['expiry']:
+        OTP_STORE.pop(email, None)
+        return False, 'OTP expired'
+    if entry['otp'] != str(otp_input).strip():
+        return False, 'Invalid OTP'
+    OTP_STORE.pop(email, None)
+    return True, 'OK'
+
+def create_session(email):
+    token  = secrets.token_hex(32)
+    expiry = (datetime.utcnow() + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat()
+    SESSION_STORE[token] = {'email': email, 'expiry': expiry}
+    return token
+
+def validate_session(token):
+    if not token: return None
+    entry = SESSION_STORE.get(token)
+    if not entry: return None
+    if datetime.utcnow().isoformat() > entry['expiry']:
+        SESSION_STORE.pop(token, None)
+        return None
+    return entry['email']
+
+def require_auth(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.cookies.get('ff_session')
+        if not validate_session(token):
+            if request.path == '/' or not request.path.startswith('/'):
+                return redirect('/login')
+            return jsonify({'error': 'Unauthorized', 'redirect': '/login'}), 401
+        return f(*args, **kwargs)
+    return decorated
 # ── Global error handlers ─────────────────────────────────────
 @app.errorhandler(400)
 def bad_request(e):
@@ -1294,7 +1387,59 @@ def unhandled_exception(e):
     import traceback
     return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+@app.route('/auth/send_otp', methods=['POST'])
+def auth_send_otp():
+    email = (request.json or {}).get('email', '').strip().lower()
+    if not email or '@' not in email:
+        return jsonify({'error': 'Invalid email'}), 400
+    ok, msg = send_otp(email)
+    if ok:
+        write_log(email, 'otp_sent')
+        return jsonify({'status': 'ok'})
+    return jsonify({'error': f'Failed to send OTP: {msg}'}), 500
+
+@app.route('/auth/verify_otp', methods=['POST'])
+def auth_verify_otp():
+    data  = request.json or {}
+    email = data.get('email', '').strip().lower()
+    otp   = data.get('otp', '').strip()
+    ok, msg = verify_otp(email, otp)
+    if ok:
+        token = create_session(email)
+        write_log(email, 'login_success')
+        resp = jsonify({'status': 'ok'})
+        resp.set_cookie('ff_session', token,
+                        max_age=SESSION_EXPIRY_DAYS * 86400,
+                        httponly=True, samesite='Lax')
+        return resp
+    write_log(email, 'login_failed', msg)
+    return jsonify({'error': msg}), 401
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    token = request.cookies.get('ff_session')
+    if token:
+        store = _load_json(SESSION_STORE_PATH)
+        store.pop(token, None)
+        _save_json(SESSION_STORE_PATH, store)
+    resp = jsonify({'status': 'ok'})
+    resp.set_cookie('ff_session', '', expires=0)
+    return resp
+
+@app.route('/auth/me')
+def auth_me():
+    token = request.cookies.get('ff_session')
+    email = validate_session(token)
+    if email:
+        return jsonify({'email': email})
+    return jsonify({'error': 'Not logged in'}), 401
+
 @app.route('/')
+@require_auth
 def index():
     try:
         return render_template('index.html')
@@ -1408,7 +1553,7 @@ def update_config():
         data['brands'] = normalize_brands(data['brands'])
     cfg.update(data)
     _save_config(CONFIG_PATH, cfg)
-    write_log('anonymous', 'config_updated', f"brands={cfg.get('brands')}")
+    write_log(current_user(), 'config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/ce_config', methods=['POST'])
@@ -1419,12 +1564,36 @@ def update_ce_config():
         data['brands'] = normalize_brands(data['brands'])
     cfg.update(data)
     _save_config(CE_CONFIG_PATH, cfg)
-    write_log('anonymous', 'ce_config_updated', f"brands={cfg.get('brands')}")
+    write_log(current_user(), 'ce_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/logs')
 def get_logs():
     return jsonify({'logs': read_logs(500)})
+
+@app.route('/logs/export')
+def export_logs():
+    logs = read_logs(2000)
+    if not logs:
+        return jsonify({'error': 'No logs found'}), 404
+    df = pd.DataFrame(logs)
+    # Rename columns for clarity
+    df.columns = [c.upper() for c in df.columns]
+    if 'TS' in df.columns:
+        df.rename(columns={'TS': 'TIMESTAMP', 'EMAIL': 'USER EMAIL',
+                            'ACTION': 'ACTION', 'DETAILS': 'DETAILS'}, inplace=True)
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Activity Logs')
+        ws = writer.sheets['Activity Logs']
+        for col in ws.columns:
+            max_len = max(len(str(cell.value or '')) for cell in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
+    buf.seek(0)
+    from datetime import datetime
+    fname = f'FillForge_ActivityLogs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=fname,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.route('/detect_verticals', methods=['POST'])
 def detect_verticals():
@@ -1591,7 +1760,7 @@ def process():
         FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
                                    'ext': out_ext, 'created': time.time()}
 
-        write_log('anonymous', 'fw_catalog_generated',
+        write_log(current_user(), 'fw_catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
@@ -1723,7 +1892,7 @@ def process_ce():
         FILE_STORE[file_token] = {'bytes': out_bytes, 'filename': out_name,
                                    'ext': out_ext, 'created': time.time()}
 
-        write_log('anonymous', 'ce_catalog_generated',
+        write_log(current_user(), 'ce_catalog_generated',
                   f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}')
 
         return jsonify({
@@ -1808,7 +1977,7 @@ def download(token):
         fname = request.args.get('filename', file_data['filename'])
         mtype = 'application/zip' if ext == '.zip' else \
                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        write_log('anonymous', 'file_downloaded', fname)
+        write_log(current_user(), 'file_downloaded', fname)
         return send_file(io.BytesIO(file_data['bytes']), as_attachment=True,
                          download_name=fname, mimetype=mtype)
     tmpdir = tempfile.gettempdir()

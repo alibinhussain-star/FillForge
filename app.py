@@ -12,7 +12,7 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
 
-DATABASE_URL = os.environ.get('postgresql://postgres:[#Ragnarok1631163]@db.ibiskzkkepgujxamycjd.supabase.co:5432/postgres', '')
+DATABASE_URL = os.environ.get('postgresql://postgres:#Ragnarok1631163@db.ibiskzkkepgujxamycjd.supabase.co:5432/postgres', '')
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)

@@ -12,7 +12,7 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
 
-DATABASE_URL = os.environ.get('#Ragnarok1631163', '')
+DATABASE_URL = os.environ.get('postgresql://postgres:[#Ragnarok1631163]@db.ibiskzkkepgujxamycjd.supabase.co:5432/postgres', '')
 
 def get_db():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -217,8 +217,8 @@ config = get_config()
 
 SMTP_HOST     = 'smtp.gmail.com'
 SMTP_PORT     = 587
-SMTP_USER     = 'fillforgeotp@gmail.com'        # ← your sender email
-SMTP_PASSWORD = 'qfpyihawrqtchqwz'     # ← Gmail App Password
+SMTP_USER     = os.environ.get('SMTP_USER', 'fillforgeotp@gmail.com')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', 'qfpyihawrqtchqwz')
 OTP_EXPIRY_MINUTES = 10
 SESSION_EXPIRY_DAYS = 7
 

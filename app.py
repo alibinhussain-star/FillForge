@@ -4,24 +4,61 @@ from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from flask import Flask, request, jsonify, send_file, render_template, redirect
 import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zipfile
 from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
 
+DATABASE_URL = os.environ.get('#Ragnarok1631163', '')
+
+def get_db():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
+
+def init_db():
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id      SERIAL PRIMARY KEY,
+                ts      TIMESTAMP DEFAULT NOW(),
+                email   TEXT,
+                action  TEXT,
+                details TEXT
+            )
+        ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS sessions (
+                token  TEXT PRIMARY KEY,
+                email  TEXT,
+                expiry TIMESTAMP
+            )
+        ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS otps (
+                email  TEXT PRIMARY KEY,
+                otp    TEXT,
+                expiry TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print('DB initialized OK')
+    except Exception as e:
+        print(f'DB init error: {e}')
+
+if DATABASE_URL:
+    init_db()
+
 app = Flask(__name__, template_folder='templates')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # ── Logging ────────────────────────────────────────────────────
-LOG_STORE = []  # in-memory log store
-def current_user():
-    try:
-        token = request.cookies.get('ff_session')
-        return validate_session(token) or 'anonymous'
-    except:
-        return 'anonymous'
-
 def write_log(email, action, details=''):
     entry = {
         'ts':      datetime.utcnow().isoformat() + 'Z',
@@ -29,11 +66,38 @@ def write_log(email, action, details=''):
         'action':  action,
         'details': details,
     }
-    LOG_STORE.append(entry)
-    print(json.dumps(entry))  # still prints to Vercel function logs
+    print(json.dumps(entry))
+    if not DATABASE_URL: return
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute(
+            'INSERT INTO activity_logs (email, action, details) VALUES (%s, %s, %s)',
+            (email or 'anonymous', action, details)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f'write_log error: {e}')
 
 def read_logs(limit=200):
-    return list(reversed(LOG_STORE))[:limit]
+    if not DATABASE_URL: return []
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute(
+            'SELECT ts, email, action, details FROM activity_logs ORDER BY ts DESC LIMIT %s',
+            (limit,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [{'ts': str(r['ts']), 'email': r['email'],
+                 'action': r['action'], 'details': r['details']} for r in rows]
+    except Exception as e:
+        print(f'read_logs error: {e}')
+        return []
 
 # ── Load embedded template file once at startup ────────────────
 TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Logic___Template_File.xlsx')
@@ -155,8 +219,6 @@ SMTP_HOST     = 'smtp.gmail.com'
 SMTP_PORT     = 587
 SMTP_USER     = 'fillforgeotp@gmail.com'        # ← your sender email
 SMTP_PASSWORD = 'qfpyihawrqtchqwz'     # ← Gmail App Password
-OTP_STORE     = {}   # in-memory
-SESSION_STORE = {}   # in-memory
 OTP_EXPIRY_MINUTES = 10
 SESSION_EXPIRY_DAYS = 7
 
@@ -1292,9 +1354,22 @@ def _save_json(path, data):
     with open(path, 'w') as f: json.dump(data, f)
 
 def send_otp(email):
-    otp = str(secrets.randbelow(900000) + 100000)
-    expiry = (datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)).isoformat()
-    OTP_STORE[email] = {'otp': otp, 'expiry': expiry}
+    otp    = str(secrets.randbelow(900000) + 100000)
+    expiry = datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)
+    if DATABASE_URL:
+        try:
+            conn = get_db()
+            cur  = conn.cursor()
+            cur.execute(
+                'INSERT INTO otps (email, otp, expiry) VALUES (%s, %s, %s) '
+                'ON CONFLICT (email) DO UPDATE SET otp=%s, expiry=%s',
+                (email, otp, expiry, otp, expiry)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f'send_otp db error: {e}')
 
     try:
         msg = MIMEMultipart('alternative')
@@ -1321,30 +1396,69 @@ def send_otp(email):
         return False, str(e)
 
 def verify_otp(email, otp_input):
-    entry = OTP_STORE.get(email)
-    if not entry: return False, 'No OTP found for this email'
-    if datetime.utcnow().isoformat() > entry['expiry']:
-        OTP_STORE.pop(email, None)
-        return False, 'OTP expired'
-    if entry['otp'] != str(otp_input).strip():
-        return False, 'Invalid OTP'
-    OTP_STORE.pop(email, None)
-    return True, 'OK'
+    if not DATABASE_URL: return False, 'Database not configured'
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute('SELECT otp, expiry FROM otps WHERE email=%s', (email,))
+        row  = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return False, 'No OTP found for this email'
+        if datetime.utcnow() > row['expiry']:
+            cur.execute('DELETE FROM otps WHERE email=%s', (email,))
+            conn.commit()
+            cur.close(); conn.close()
+            return False, 'OTP expired'
+        if row['otp'] != str(otp_input).strip():
+            cur.close(); conn.close()
+            return False, 'Invalid OTP'
+        cur.execute('DELETE FROM otps WHERE email=%s', (email,))
+        conn.commit()
+        cur.close(); conn.close()
+        return True, 'OK'
+    except Exception as e:
+        return False, str(e)
 
 def create_session(email):
     token  = secrets.token_hex(32)
-    expiry = (datetime.utcnow() + timedelta(days=SESSION_EXPIRY_DAYS)).isoformat()
-    SESSION_STORE[token] = {'email': email, 'expiry': expiry}
+    expiry = datetime.utcnow() + timedelta(days=SESSION_EXPIRY_DAYS)
+    if DATABASE_URL:
+        try:
+            conn = get_db()
+            cur  = conn.cursor()
+            cur.execute(
+                'INSERT INTO sessions (token, email, expiry) VALUES (%s, %s, %s)',
+                (token, email, expiry)
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f'create_session error: {e}')
     return token
 
 def validate_session(token):
-    if not token: return None
-    entry = SESSION_STORE.get(token)
-    if not entry: return None
-    if datetime.utcnow().isoformat() > entry['expiry']:
-        SESSION_STORE.pop(token, None)
+    if not token or not DATABASE_URL: return None
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute('SELECT email, expiry FROM sessions WHERE token=%s', (token,))
+        row  = cur.fetchone()
+        if not row:
+            cur.close(); conn.close()
+            return None
+        if datetime.utcnow() > row['expiry']:
+            cur.execute('DELETE FROM sessions WHERE token=%s', (token,))
+            conn.commit()
+            cur.close(); conn.close()
+            return None
+        cur.close()
+        conn.close()
+        return row['email']
+    except Exception as e:
+        print(f'validate_session error: {e}')
         return None
-    return entry['email']
 
 def require_auth(f):
     from functools import wraps
@@ -1411,10 +1525,15 @@ def auth_verify_otp():
 @app.route('/auth/logout', methods=['POST'])
 def auth_logout():
     token = request.cookies.get('ff_session')
-    if token:
-        store = _load_json(SESSION_STORE_PATH)
-        store.pop(token, None)
-        _save_json(SESSION_STORE_PATH, store)
+    if token and DATABASE_URL:
+        try:
+            conn = get_db()
+            cur  = conn.cursor()
+            cur.execute('DELETE FROM sessions WHERE token=%s', (token,))
+            conn.commit()
+            cur.close()
+            conn.close()
+        except: pass
     resp = jsonify({'status': 'ok'})
     resp.set_cookie('ff_session', '', expires=0)
     return resp

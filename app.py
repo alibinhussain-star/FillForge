@@ -15,7 +15,7 @@ from openpyxl import load_workbook, Workbook
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, sslmode='require')
     return conn
 
 def init_db():

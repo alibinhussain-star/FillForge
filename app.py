@@ -755,7 +755,8 @@ CE_DUMP_COL_HINTS = {
                                'Connect\nor Type'],
     'number_of_output_ports': ['Number of Output Ports','Number of Output Port','No of Output Ports',
                                'NO_OF_OUTPUT_PORTS','Number of Output','Number\nof\nOutput'],
-    'port_type':              ['Port Type','PORT_TYPE *','PORT_TYPE'],
+    'port_type':              ['Port type','Port Type','PORT_TYPE *','PORT_TYPE'],
+    'number_of_ports':        ['Number of Ports','No of Ports','NO_OF_ADAPTER_PORTS *'],
     'memory_card_type':       ['Memory Card Type','MEMORY_CARD_TYPE *'],
     'storage_capacity':       ['Storage Capacity','STORAGE_CAPACITY *','Memory Capacity'],
     'speed_class':            ['Speed Class','SPEED_CLASS *','Class'],
@@ -764,6 +765,7 @@ CE_DUMP_COL_HINTS = {
     'ticket_id':      ['Ticket ID','TicketID','Ticket_ID','ticket_id'],
     'cable_included': ['Cable Included','cable_included'],
     'cable_length':   ['Cable Length','Cable Length In Meter','CABLE_LENGTH_IN_METER *'],
+    'set_includes':   ['Set Includes','SET_INCLUDES','PRODUCT_TYPE *'],
     'cable_type':     ['Cable Type','CABLE_TYPE'],
 }
 
@@ -1275,11 +1277,14 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             # ── Adapter & Charger specific ──────────────────
             'ADAPTER_CONNECTOR_TYPE *':                    ce_fields.get('adapter_connector_type', ''),
             'OUTPUT_CURRENT_OR_VOLTAGE *':                 ce_fields.get('output_voltage', ''),
-            'NO_OF_ADAPTER_PORTS *':                       safe(drow.get(col_map.get('number_of_output_ports',''), '')),
+            'NO_OF_ADAPTER_PORTS *':                       safe(drow.get(col_map.get('number_of_ports',''), '')),
             'CABLE_LENGTH_IN_METER *':                     safe(drow.get(col_map.get('cable_length',''), '')),
             # ── Mobile Cable specific ───────────────────────
             'NUMBER_OF_CONNECTORS':                        ce_fields.get('number_of_connectors', ''),
             'CABLE_TYPE':                                  safe(drow.get(col_map.get('cable_type',''), '')),
+            # ── Power Bank & Adapter shared ─────────────────
+            'PORT_TYPE *':                                 safe(drow.get(col_map.get('port_type',''), '')),
+            'PRODUCT_TYPE *':                              safe(drow.get(col_map.get('set_includes',''), '')),
             # ── Power Bank specific ─────────────────────────
             'PACKAGING_CLASSIFICATION':                    packing,
             'EAN *':                                       '',

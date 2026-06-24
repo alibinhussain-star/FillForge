@@ -2121,10 +2121,10 @@ def download_ce_unified_template():
                     new_cell.number_format = cell.number_format
                     new_cell.protection    = copy(cell.protection)
                     new_cell.alignment     = copy(cell.alignment)
-        for col_dim in ws_src.column_dimensions.values():
-            ws_new.column_dimensions[col_dim.column_letter].width = col_dim.width
-        for row_dim in ws_src.row_dimensions.values():
-            ws_new.row_dimensions[row_dim.index].height = row_dim.height
+        for col_letter, col_dim in ws_src.column_dimensions.items():
+            ws_new.column_dimensions[col_letter].width = col_dim.width
+        for row_idx, row_dim in ws_src.row_dimensions.items():
+            ws_new.row_dimensions[row_idx].height = row_dim.height
 
         buf = io.BytesIO()
         wb_new.save(buf)

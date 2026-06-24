@@ -1740,11 +1740,8 @@ def detect_verticals():
         for sname in xl.sheet_names:
             try: frames.append(xl.parse(sname))
             except: pass
-all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        if all_dump.empty:
-            return jsonify({'error': 'Could not read any data from dump file'}), 400
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         all_dump = normalize_df_columns(all_dump)
-
         col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
@@ -1954,6 +1951,7 @@ def process_ce():
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if all_dump.empty:
             return jsonify({'error': 'Could not read any data from dump file'}), 400
+        all_dump = normalize_df_columns(all_dump)
 
         col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')

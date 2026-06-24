@@ -329,20 +329,6 @@ svg{display:block}
     <button class="sb-item" data-view="logs" onclick="switchView('logs')">
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
       Activity Logs
-<button onclick="exportLogs()" style="
-  background:#E87722; color:#fff; border:none;
-  padding:8px 18px; border-radius:8px; font-size:13px;
-  font-weight:600; cursor:pointer; display:flex;
-  align-items:center; gap:6px;
-">
-  ⬇ Export to Excel
-</button>
-
-<script>
-function exportLogs() {
-  window.location.href = '/logs/export';
-}
-</script>
     </button>
     <button class="sb-item" data-view="help" onclick="switchView('help')">
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
@@ -592,8 +578,11 @@ function exportLogs() {
   </div>
 
   <!-- VIEW: LOGS -->
-  <div class="fullview" id="view-logs">
-    <div class="fv-title">Activity Logs</div>
+      <div class="fullview" id="view-logs">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="fv-title" style="margin-bottom:0">Activity Logs</div>
+      <button onclick="window.location.href='/logs/export'" style="background:#E87722;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">⬇ Export to Excel</button>
+    </div>
     <div class="fv-sub">Recent operations (most recent first).</div>
     <table class="logs-table">
       <thead><tr><th style="width:170px">Timestamp</th><th style="width:200px">User</th><th>Action</th><th>Details</th></tr></thead>
@@ -1224,8 +1213,13 @@ async function downloadCeUnifiedTemplate() {
     btn.disabled = false; btn.textContent = '⬇ Download CE Unified Template';
   }
 }
+  /* ═══════════════════════════════════════════════════════════════
    LOGS
    ═══════════════════════════════════════════════════════════════ */
+function exportLogs() {
+  window.location.href = '/logs/export';
+}
+
 async function loadLogs() {
   const body = document.getElementById('logs-body');
   body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">Loading…</td></tr>';

@@ -2080,6 +2080,62 @@ def _generate_blank_template(subtype):
     buf.seek(0)
     return buf, None
 
+@app.route('/download_ce_unified_template', methods=['GET'])
+def download_ce_unified_template():
+    category = request.args.get('category', '').strip()
+    VALID_CATEGORIES = [
+        'Adapters & Cables',
+        'Audio Devices',
+        'Memory & Storage',
+        'Mobile Batteries',
+        'Cases & Protectors',
+        'Smartphones & Watches',
+    ]
+    if category not in VALID_CATEGORIES:
+        return jsonify({'error': f'Invalid category: {category}'}), 400
+
+    unified_path = os.path.join(os.path.dirname(__file__), 'Consumer_Electronics_Templates_Merged.xlsx')
+    if not os.path.exists(unified_path):
+        return jsonify({'error': 'Unified template file not found'}), 404
+
+    try:
+        from openpyxl import load_workbook
+        wb_src = load_workbook(unified_path)
+        if category not in wb_src.sheetnames:
+            return jsonify({'error': f'Sheet "{category}" not found in unified template'}), 404
+
+        wb_new = Workbook()
+        wb_new.remove(wb_new.active)
+
+        # Copy only the selected sheet
+        from copy import copy
+        ws_src = wb_src[category]
+        ws_new = wb_new.create_sheet(title=category)
+        for row in ws_src.iter_rows():
+            for cell in row:
+                new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
+                if cell.has_style:
+                    new_cell.font      = copy(cell.font)
+                    new_cell.border    = copy(cell.border)
+                    new_cell.fill      = copy(cell.fill)
+                    new_cell.number_format = cell.number_format
+                    new_cell.protection    = copy(cell.protection)
+                    new_cell.alignment     = copy(cell.alignment)
+        for col_dim in ws_src.column_dimensions.values():
+            ws_new.column_dimensions[col_dim.column_letter].width = col_dim.width
+        for row_dim in ws_src.row_dimensions.values():
+            ws_new.row_dimensions[row_dim.index].height = row_dim.height
+
+        buf = io.BytesIO()
+        wb_new.save(buf)
+        buf.seek(0)
+        safe_name = category.replace(' ', '_').replace('&', 'and')
+        fname = f'CE_Template_{safe_name}.xlsx'
+        return send_file(buf, as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 @app.route('/download_template/<path:category>')
 def download_template(category):
     category_lower = category.lower().strip()

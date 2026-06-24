@@ -754,7 +754,8 @@ CE_DUMP_COL_HINTS = {
     'speed_class':            ['Speed Class','SPEED_CLASS *','Class'],
     'holder_type':       ['Holder Type','HOLDER_TYPE *','Type'],
     'product_condition': ['Product Condition','PRODUCT_CONDITION *','Condition'],
-    'ticket_id':   ['Ticket ID','TicketID','Ticket_ID','ticket_id'],
+    'ticket_id':      ['Ticket ID','TicketID','Ticket_ID','ticket_id'],
+    'cable_included': ['Cable Included','cable_included'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -847,10 +848,14 @@ def title_smart_phone(f, internal=False):
 
 # 3. Mobile Adapters & Cables
 def title_mobile_adapters(f, internal=False):
-    core = [f['brand'], f.get('condition'), f.get('output_voltage'), f.get('adapter_connector_type')]
+    cable_suffix = 'With 1m Cable' if str(f.get('cable_included', '')).strip().lower() == 'yes' else ''
+    core = [f['brand'], f.get('condition')]
     if internal:
-        core.insert(2, f.get('model'))   # internal title adds Model Number
-    return _ce_compose(core, [f['color']])
+        core.append(f.get('model'))
+    core += [f.get('output_voltage'), f.get('adapter_connector_type'), 'Adapter']
+    if cable_suffix:
+        core.append(cable_suffix)
+    return _ce_compose(core, [f.get('color')])
 
 # 4. Hair Trimmer
 def title_hair_trimmer(f, internal=False):
@@ -902,7 +907,7 @@ def title_mobile_cables(f, internal=False):
     if internal:
         core.append(f.get('model'))
     core += [f.get('number_of_connectors'), f.get('adapter_connector_type'), f['subtype']]
-    return _ce_compose(core, [f['color']])
+    return _ce_compose(core, [f.get('color')])
 
 # 11. Mobile Holders
 def title_mobile_holders(f, internal=False):
@@ -938,8 +943,8 @@ def title_power_bank(f, internal=False):
     core = [f['brand'], f.get('condition')]
     if internal:
         core.append(f.get('model'))
-    core += [f.get('battery'), f['subtype'], f.get('number_of_output_ports'), f.get('port_type')]
-    return _ce_compose(core, [f['color']])
+    core += [f.get('battery'), f['subtype'], f.get('number_of_output_ports')]
+    return _ce_compose(core, [f.get('color')])
 
 # 16. Smart Watches
 def title_smart_watches(f, internal=False):
@@ -1177,6 +1182,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'storage_capacity':       safe(drow.get(col_map.get('storage_capacity',''), '')),
             'speed_class':            safe(drow.get(col_map.get('speed_class',''), '')),
             'holder_type':            safe(drow.get(col_map.get('holder_type',''), '')),
+            'cable_included':         safe(drow.get(col_map.get('cable_included',''), '')),
+            
         }
         title, internal_title = build_ce_titles(subtype, ce_fields)
 

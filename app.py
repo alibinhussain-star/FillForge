@@ -344,6 +344,10 @@ def derive_gender(subtype):
     if "infant" in st: return "Infant's"
     return ""
 
+def normalize_df_columns(df):
+    df.columns = [re.sub(r'\s+', ' ', str(c)).strip() for c in df.columns]
+    return df
+
 def make_title(brand, gender, upper, closure, fw_type, color):
     parts = [p for p in [brand, gender, upper, closure, fw_type] if p]
     base  = ' '.join(parts)
@@ -758,7 +762,9 @@ CE_DUMP_COL_HINTS = {
     'holder_type':       ['Holder Type','HOLDER_TYPE *','Type'],
     'product_condition': ['Product Condition','PRODUCT_CONDITION *','Condition'],
     'ticket_id':      ['Ticket ID','TicketID','Ticket_ID','ticket_id'],
-    'cable_included': ['Cable Included','cable_included','Cable\nIncluded'],
+    'cable_included': ['Cable Included','cable_included'],
+    'cable_length':   ['Cable Length','Cable Length In Meter','CABLE_LENGTH_IN_METER *'],
+    'cable_type':     ['Cable Type','CABLE_TYPE'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -1266,6 +1272,16 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'BATTERY_CAPACITY_MAH *':                      battery,
             'CHARGING_TYPE_SUPPORTED *':                   charging,
             'COUNTRY_OF_ORIGIN *':                         country,
+            # ── Adapter & Charger specific ──────────────────
+            'ADAPTER_CONNECTOR_TYPE *':                    ce_fields.get('adapter_connector_type', ''),
+            'OUTPUT_CURRENT_OR_VOLTAGE *':                 ce_fields.get('output_voltage', ''),
+            'NO_OF_ADAPTER_PORTS *':                       safe(drow.get(col_map.get('number_of_output_ports',''), '')),
+            'CABLE_LENGTH_IN_METER *':                     safe(drow.get(col_map.get('cable_length',''), '')),
+            # ── Mobile Cable specific ───────────────────────
+            'NUMBER_OF_CONNECTORS':                        ce_fields.get('number_of_connectors', ''),
+            'CABLE_TYPE':                                  safe(drow.get(col_map.get('cable_type',''), '')),
+            # ── Power Bank specific ─────────────────────────
+            'PACKAGING_CLASSIFICATION':                    packing,
             'EAN *':                                       '',
             'IMPORTED_BY':                                 '',
             'KEY_FEATURES':                                '',
@@ -1724,8 +1740,12 @@ def detect_verticals():
         for sname in xl.sheet_names:
             try: frames.append(xl.parse(sname))
             except: pass
-        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
+all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from dump file'}), 400
+        all_dump = normalize_df_columns(all_dump)
+
+        col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
             found   = [str(v).strip() for v in all_dump[vert_col].dropna().unique()

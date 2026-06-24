@@ -783,11 +783,26 @@ function switchCategory(cat) {
    VIEW SWITCHING
    ═══════════════════════════════════════════════════════════════ */
 function switchView(name) {
-  document.querySelectorAll('.sb-item[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
-  document.getElementById('view-create').style.display = name === 'create' ? 'grid' : 'none';
-  document.getElementById('view-templates').classList.toggle('active', name === 'templates');
-  document.getElementById('view-logs').classList.toggle('active', name === 'logs');
-  document.getElementById('view-help').classList.toggle('active', name === 'help');
+  // Update sidebar active state
+  document.querySelectorAll('.sb-item[data-view]').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === name);
+  });
+
+  // Handle create view (uses grid layout)
+  const createView = document.getElementById('view-create');
+  if (createView) {
+    createView.style.display = name === 'create' ? 'grid' : 'none';
+  }
+
+  // Handle all fullviews explicitly
+  const fullviews = ['templates', 'logs', 'help'];
+  fullviews.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (!el) return;
+    el.style.display = (name === v) ? 'block' : 'none';
+  });
+
+  // Load data for relevant views
   if (name === 'logs') loadLogs();
   if (name === 'templates') loadTplSubtypes();
 }
@@ -1386,6 +1401,13 @@ function initLoadingScreen() {
 /* ═══════════════════════════════════════════════════════════════
    INIT
    ═══════════════════════════════════════════════════════════════ */
+// Set correct initial display states
+document.getElementById('view-create').style.display = 'grid';
+['templates','logs','help'].forEach(v => {
+  const el = document.getElementById('view-' + v);
+  if (el) el.style.display = 'none';
+});
+
 loadSubtypes();
 loadTplSubtypes();
 document.addEventListener('DOMContentLoaded', () => setTimeout(initLoadingScreen, 100));

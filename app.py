@@ -2103,10 +2103,10 @@ def download_ce_unified_template():
         if category not in wb_src.sheetnames:
             return jsonify({'error': f'Sheet "{category}" not found in unified template'}), 404
 
-        wb_new = Workbook()
+wb_new = Workbook()
         wb_new.remove(wb_new.active)
 
-def copy_sheet(ws_src, wb_dest, sheet_title):
+        def copy_sheet(ws_src, wb_dest, sheet_title):
             ws_new = wb_dest.create_sheet(title=sheet_title)
             for row in ws_src.iter_rows():
                 for cell in row:

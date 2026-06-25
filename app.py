@@ -2104,27 +2104,44 @@ def download_ce_unified_template():
         if category not in wb_src.sheetnames:
             return jsonify({'error': f'Sheet "{category}" not found in unified template'}), 404
 
-        wb_new = Workbook()
+wb_new = Workbook()
         wb_new.remove(wb_new.active)
 
-        # Copy only the selected sheet
         from copy import copy
+
+        def copy_sheet(ws_src, wb_dest, sheet_title):
+            ws_new = wb_dest.create_sheet(title=sheet_title)
+            for row in ws_src.iter_rows():
+                for cell in row:
+                    new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
+                    if cell.has_style:
+                        new_cell.font          = copy(cell.font)
+                        new_cell.border        = copy(cell.border)
+                        new_cell.fill          = copy(cell.fill)
+                        new_cell.number_format = cell.number_format
+                        new_cell.protection    = copy(cell.protection)
+                        new_cell.alignment     = copy(cell.alignment)
+            for col_letter, col_dim in ws_src.column_dimensions.items():
+                ws_new.column_dimensions[col_letter].width = col_dim.width
+            for row_idx, row_dim in ws_src.row_dimensions.items():
+                ws_new.row_dimensions[row_idx].height = row_dim.height
+
+            # Copy data validations
+            for dv in ws_src.data_validations.dataValidation:
+                ws_new.add_data_validation(dv)
+
+            return ws_new
+
+        # Always copy Dropdown Reference first (needed for data validation)
+        if 'Dropdown Reference' in wb_src.sheetnames:
+            drop_ws = wb_src['Dropdown Reference']
+            copy_sheet(drop_ws, wb_new, 'Dropdown Reference')
+            # Hide it so it doesn't distract the user
+            wb_new['Dropdown Reference'].sheet_state = 'hidden'
+
+        # Copy the selected category sheet
         ws_src = wb_src[category]
-        ws_new = wb_new.create_sheet(title=category)
-        for row in ws_src.iter_rows():
-            for cell in row:
-                new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
-                if cell.has_style:
-                    new_cell.font      = copy(cell.font)
-                    new_cell.border    = copy(cell.border)
-                    new_cell.fill      = copy(cell.fill)
-                    new_cell.number_format = cell.number_format
-                    new_cell.protection    = copy(cell.protection)
-                    new_cell.alignment     = copy(cell.alignment)
-        for col_letter, col_dim in ws_src.column_dimensions.items():
-            ws_new.column_dimensions[col_letter].width = col_dim.width
-        for row_idx, row_dim in ws_src.row_dimensions.items():
-            ws_new.row_dimensions[row_idx].height = row_dim.height
+        copy_sheet(ws_src, wb_new, category)
 
         buf = io.BytesIO()
         wb_new.save(buf)

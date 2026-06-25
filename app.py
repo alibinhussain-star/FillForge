@@ -2103,7 +2103,7 @@ def download_ce_unified_template():
         if category not in wb_src.sheetnames:
             return jsonify({'error': f'Sheet "{category}" not found in unified template'}), 404
 
-wb_new = Workbook()
+        wb_new = Workbook()
         wb_new.remove(wb_new.active)
 
         def copy_sheet(ws_src, wb_dest, sheet_title):
@@ -2142,6 +2142,8 @@ wb_new = Workbook()
     except Exception as e:
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
+
 @app.route('/download_template/<path:category>')
 def download_template(category):
     category_lower = category.lower().strip()

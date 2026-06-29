@@ -52,9 +52,6 @@ def init_db():
     except Exception as e:
         print(f'DB init error: {e}')
 
-if DATABASE_URL:
-    init_db()
-
 app = Flask(__name__, template_folder='templates')
 
 # ── Deferred globals ─────────────────────────────────────────

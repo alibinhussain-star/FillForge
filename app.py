@@ -751,6 +751,8 @@ CE_DUMP_COL_HINTS = {
     'screen_guard_type':      ['Screen Guard Type','Screen Guard / Protector Type','SCREEN_GUARD_OR_PROTECTOR_TYPE *'],
     'coverage':               ['Coverage','COVERAGE *'],
     'mic_type':               ['Mic Type','Microphone Type','MIC_TYPE *','MIC_TYPE'],
+    'wired_or_wireless':      ['Wired or Unwired','Wired or Wireless','WIRED_OR_WIRELESS *'],
+    'connector_type_for_wired': ['Connector type','Connector Type','CONNECTOR_TYPE_FOR_WIRED *'],
     'output_connector_type':  ['Output Connector Type','OUTPUT_CONNECTOR_TYPE','Connector Type',
                                'Connect\nor Type'],
     'number_of_output_ports': ['Number of Output Ports','Number of Output Port','No of Output Ports',
@@ -1141,6 +1143,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         network      = safe(drow.get(col_map.get('network_support',''), ''))
         bluetooth    = safe(drow.get(col_map.get('bluetooth',''), ''))
         prod_type    = safe(drow.get(col_map.get('product_type',''), ''))
+        wired_or_wireless        = safe(drow.get(col_map.get('wired_or_wireless',''), ''))
+        connector_type_for_wired = safe(drow.get(col_map.get('connector_type_for_wired',''), ''))
 
         img_url  = safe(drow.get(col_map.get('image',''), ''))
         img2_url = safe(drow.get(col_map.get('image2',''), ''))
@@ -1285,6 +1289,17 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             # ── Mobile Cable specific ───────────────────────
             'NUMBER_OF_CONNECTORS':                        ce_fields.get('number_of_connectors', ''),
             'CABLE_TYPE':                                  safe(drow.get(col_map.get('cable_type',''), '')),
+            # -- Audio Device specific (Speakers, Earphones, Neck Bands, TWS Ear Buds) --
+            # Speakers:     CONNECTOR_TYPE_FOR_WIRED *, SPEAKER_TYPE *, WARRANTY *, WIRED_OR_WIRELESS *
+            # Earphones:    CONNECTOR_TYPE_FOR_WIRED *, MIC_TYPE *,     WARRANTY *, WIRED_OR_WIRELESS *
+            # Neck Bands:   MIC_TYPE *, WARRANTY *, WIRED_OR_WIRELESS *
+            # TWS Ear Buds: MIC_TYPE *, WARRANTY *, WIRED_OR_WIRELESS *
+            'CONNECTOR_TYPE_FOR_WIRED *':                  connector_type_for_wired,
+            'SPEAKER_TYPE *':                              ce_fields.get('speaker_type', ''),
+            'WARRANTY *':                                  warranty,
+            'WIRED_OR_WIRELESS *':                         wired_or_wireless,
+            'MIC_TYPE *':                                  ce_fields.get('mic_type', ''),
+            'MIC_TYPE':                                    ce_fields.get('mic_type', ''),
             # ── Power Bank & Adapter shared ─────────────────
             'PORT_TYPE *':                                 safe(drow.get(col_map.get('port_type',''), '')),
             'PRODUCT_TYPE *':                              safe(drow.get(col_map.get('set_includes',''), '')),

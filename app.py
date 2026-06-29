@@ -1208,20 +1208,23 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         L, B, H = parse_lbh(dim_raw)
 
         weight_clean = ''
-        if weight:
-            m = re.search(r'([0-9.]+)', str(weight))
-            if m: weight_clean = float(m.group(1))
-
+         if weight:
+           m = re.search(r'(\d+\.?\d*)', str(weight))
+             if m:
+                try:
+                 weight_clean = float(m.group(1))
+             except (ValueError, TypeError):
+                weight_clean = ''
         try:    mrp = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
         except: mrp = ''
         try:    sp  = float(sp)       if str(sp).strip()     not in ('','nan') else ''
         except: sp  = ''
         try:    hsn = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
         except: hsn = ''
-        try:    gst = int(float(gst))
+        try:    gst = int(float(gst)) if str(gst).strip() not in ('', 'nan') else 18
         except: gst = 18
-        try:    moq = int(float(moq))
-        except: moq = 1
+        try:    moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
+        except: moq = 1    
 
         row_data = {
             'Category *':                                  st_data.get('Category *', 'Consumer Electronics'),

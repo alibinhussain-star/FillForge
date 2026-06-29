@@ -56,6 +56,55 @@ if DATABASE_URL:
     init_db()
 
 app = Flask(__name__, template_folder='templates')
+
+# ── Deferred globals ─────────────────────────────────────────
+SUBTYPE_HEADER_ROW = {}
+SUBTYPE_MAP = {}
+PV_LIST = []
+CE_SUBTYPE_HEADER_ROW = {}
+CE_SUBTYPE_MAP = {}
+CE_PV_LIST = []
+_initialized = False
+
+# ── Lazy initialization ──────────────────────────────────────
+def _init_app():
+    global _initialized, SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
+    global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
+    if _initialized:
+        return
+    _initialized = True
+
+    if DATABASE_URL:
+        init_db()
+
+    try:
+        SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+    except Exception as e:
+        print(f"Warning: Could not build header row map: {e}")
+        SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
+
+    try:
+        PV_LIST = load_pv_list()
+    except Exception as e:
+        print(f"Warning: Could not load PV_LIST: {e}")
+        PV_LIST = []
+
+    try:
+        CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_header_row_map()
+    except Exception as e:
+        print(f"Warning: Could not build CE header row map: {e}")
+        CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
+
+    try:
+        CE_PV_LIST = load_ce_pv_list()
+    except Exception as e:
+        print(f"Warning: Could not load CE_PV_LIST: {e}")
+        CE_PV_LIST = []
+
+@app.before_request
+def before_request():
+    _init_app()
+
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # ── Logging ────────────────────────────────────────────────────
@@ -127,9 +176,6 @@ def _build_header_row_map():
                     break
     return hdr_map, static_map
 
-try:
-    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
-except Exception as e:
     print(f"Warning: Could not build header row map: {e}")
     SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
 
@@ -142,9 +188,6 @@ def load_pv_list():
         print(f"Warning: Could not load PV List: {e}")
         return []
 
-try:
-    PV_LIST = load_pv_list()
-except Exception as e:
     print(f"Warning: Could not load PV_LIST: {e}")
     PV_LIST = []
 
@@ -656,9 +699,6 @@ def _build_ce_header_row_map():
                     break
     return hdr_map, static_map
 
-try:
-    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_header_row_map()
-except Exception as e:
     print(f"Warning: Could not build CE header row map: {e}")
     CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
 
@@ -672,9 +712,6 @@ def load_ce_pv_list():
         print(f"Warning: Could not load CE Category List: {e}")
         return []
 
-try:
-    CE_PV_LIST = load_ce_pv_list()
-except Exception as e:
     print(f"Warning: Could not load CE_PV_LIST: {e}")
     CE_PV_LIST = []
 

@@ -1250,9 +1250,9 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
            m = re.search(r'(\d+\.?\d*)', str(weight))
            if m:
                 try:
-                 weight_clean = float(m.group(1))
-             except (ValueError, TypeError):
-                 weight_clean = ''
+                    weight_clean = float(m.group(1))
+                except (ValueError, TypeError):
+                    weight_clean = ''
         try:    mrp = float(mrp)      if str(mrp).strip()    not in ('','nan') else ''
         except: mrp = ''
         try:    sp  = float(sp)       if str(sp).strip()     not in ('','nan') else ''

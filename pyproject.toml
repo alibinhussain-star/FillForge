@@ -1,0 +1,8 @@
+[project]
+name = "fillforge"
+version = "1.0.0"
+description = "FillForge catalog generator"
+requires-python = ">=3.9"
+
+[tool.vercel]
+entrypoint = "app:app"

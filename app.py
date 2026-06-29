@@ -4,8 +4,14 @@ from datetime import datetime, timedelta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import psycopg2
-from psycopg2.extras import RealDictCursor
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    psycopg2 = None
+    RealDictCursor = None
+    PSYCOPG2_AVAILABLE = False
 from flask import Flask, request, jsonify, send_file, render_template, redirect
 import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zipfile
 from datetime import datetime
@@ -15,13 +21,19 @@ from openpyxl import load_workbook, Workbook
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
 def get_db():
+    if not PSYCOPG2_AVAILABLE:
+        raise RuntimeError("psycopg2 not available")
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor, sslmode='require')
     return conn
 
 def init_db():
+    if not PSYCOPG2_AVAILABLE or not DATABASE_URL:
+        print('psycopg2 or DATABASE_URL not available, skipping DB init')
+        return
     try:
         conn = get_db()
         cur  = conn.cursor()
+        # ... rest stays the same
         cur.execute('''
             CREATE TABLE IF NOT EXISTS activity_logs (
                 id      SERIAL PRIMARY KEY,
@@ -71,8 +83,11 @@ def _init_app():
         return
     _initialized = True
 
-    if DATABASE_URL:
-        init_db()
+    if DATABASE_URL and PSYCOPG2_AVAILABLE:
+        try:
+            init_db()
+        except Exception as e:
+            print(f'DB init error (non-fatal): {e}')
 
     try:
         SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()

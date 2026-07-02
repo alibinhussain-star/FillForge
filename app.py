@@ -1814,7 +1814,7 @@ def detect_verticals():
             except: pass
         all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         all_dump = normalize_df_columns(all_dump)
-        col_map  = build_col_map(all_dump, CE_DUMP_COL_HINTS)
+        col_map  = build_col_map(all_dump, DUMP_COL_HINTS)
         vert_col = col_map.get('vertical')
         if vert_col and vert_col in all_dump.columns:
             found   = [str(v).strip() for v in all_dump[vert_col].dropna().unique()

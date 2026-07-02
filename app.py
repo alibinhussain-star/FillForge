@@ -2211,34 +2211,27 @@ def download_ce_unified_template():
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 
-@app.route('/download_template/<path:category>')
-def download_template(category):
-    category_lower = category.lower().strip()
-    subtype = request.args.get('subtype', '').strip()
+@app.route('/reload_templates', methods=['POST'])
+@require_auth
+def reload_templates():
+    try:
+        SUBTYPE_HEADER_ROW_new, SUBTYPE_MAP_new = _build_header_row_map()
+        PV_LIST_new = load_pv_list()
+        CE_SUBTYPE_HEADER_ROW_new, CE_SUBTYPE_MAP_new = _build_ce_header_row_map()
+        CE_PV_LIST_new = load_ce_pv_list()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-    if subtype:
-        if category_lower not in ('footwear', 'fw', ''):
-            return jsonify({'error': 'SubType-specific download only supported for Footwear'}), 400
-        buf, err = _generate_blank_template(subtype)
-        if err:
-            return jsonify({'error': err}), 404
-        safe_name = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
-        fname = f'Footwear_Template_{safe_name}.xlsx'
-        return send_file(buf, as_attachment=True, download_name=fname,
-                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    global SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
+    global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
+    SUBTYPE_HEADER_ROW, SUBTYPE_MAP = SUBTYPE_HEADER_ROW_new, SUBTYPE_MAP_new
+    PV_LIST = PV_LIST_new
+    CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = CE_SUBTYPE_HEADER_ROW_new, CE_SUBTYPE_MAP_new
+    CE_PV_LIST = CE_PV_LIST_new
 
-    if 'electronic' in category_lower or category_lower == 'ce':
-        path  = CE_TEMPLATE_PATH
-        fname = 'Consumer_Electronics_Template.xlsx'
-    else:
-        path  = TEMPLATE_PATH
-        fname = 'Footwear_Template.xlsx'
-
-    if not os.path.exists(path):
-        return jsonify({'error': f'Template file not found: {fname}'}), 404
-
-    return send_file(path, as_attachment=True, download_name=fname,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous',
+              'templates_reloaded', '')
+    return jsonify({'status': 'ok', 'message': 'Templates reloaded from disk'})
 
 @app.route('/download/<token>')
 def download(token):

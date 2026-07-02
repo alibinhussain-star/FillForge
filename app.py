@@ -358,15 +358,19 @@ def build_set_details(sizes_list, set_details_raw):
     full = re.findall(r'((?:UK\s*)?\d+)\s*/\s*(\d+)', raw)
     if full:
         det   = [f'{s}/{q}' for s, q in full]
-        desc  = [f'{q} pcs of {s}' for s, q in full]
+        # Changed '{q} pcs' to '{q}pcs'
+        desc  = [f'{q}pcs of {s}' for s, q in full]
         avail = ', '.join(s for s, _ in full)
         return ', '.join(det), ', '.join(desc), avail
+        
     dash = re.findall(r'((?:UK\s*)?\d+)\s*[-–]+\s*(\d+)', raw)
     if dash:
         det   = [f'{s}/{q}' for s, q in dash]
-        desc  = [f'{q} pcs of {s}' for s, q in dash]
+        # Changed '{q} pcs' to '{q}pcs'
+        desc  = [f'{q}pcs of {s}' for s, q in dash]
         avail = ', '.join(s for s, _ in dash)
         return ', '.join(det), ', '.join(desc), avail
+        
     qty_parts = [x.strip() for x in raw.split(',') if x.strip()]
     if qty_parts and sizes_list and all(q.isdigit() for q in qty_parts):
         if len(qty_parts) == len(sizes_list):
@@ -375,12 +379,16 @@ def build_set_details(sizes_list, set_details_raw):
             qty   = sum(int(q) for q in qty_parts) // max(len(sizes_list), 1)
             pairs = [(s, str(qty)) for s in sizes_list]
         det  = [f'{s}/{q}' for s, q in pairs]
-        desc = [f'{q} pcs of {s}' for s, q in pairs]
+        # Changed '{q} pcs' to '{q}pcs'
+        desc = [f'{q}pcs of {s}' for s, q in pairs]
         return ', '.join(det), ', '.join(desc), ', '.join(s for s, _ in pairs)
+        
     if sizes_list:
         det  = [f'{s}/1' for s in sizes_list]
-        desc = [f'1 pcs of {s}' for s in sizes_list]
+        # Changed '1 pcs' to '1pcs'
+        desc = [f'1pcs of {s}' for s in sizes_list]
         return ', '.join(det), ', '.join(desc), ', '.join(sizes_list)
+        
     return raw, raw, ''
 
 def parse_lbh(dim_str):

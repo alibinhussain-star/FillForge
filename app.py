@@ -799,7 +799,7 @@ CE_DUMP_COL_HINTS = {
     'battery_type':           ['Battery Type','BATTERY_TYPE','Battery type'],
     'speaker_type':           ['Speaker Type','SPEAKER_TYPE *'],
     'compatible_brand':       ['Compatible Brand','COMPATIBLE_BRAND *','Compatible With Brand'],
-    'compatible_model':       ['Compatible Model','Compatible Model Number','COMPATIBLE_BRAND_MODEL *','Compatible Brand & Model'],
+    'compatible_model':       ['Compatible Brand + Model Name','Compatible Model','Compatible Model Number','COMPATIBLE_BRAND_MODEL *','Compatible Brand & Model'],
     'material':               ['Material','MATERIAL *','Product Material'],
     'case_cover_type':        ['Case Cover Type','Case & Cover Type','CASE_COVER_TYPE *'],
     'number_of_connectors':   ['Number of Connectors','No of Connectors','NUMBER_OF_CONNECTORS',
@@ -826,6 +826,10 @@ CE_DUMP_COL_HINTS = {
     'cable_length':   ['Cable Length','Cable Length In Meter','CABLE_LENGTH_IN_METER *'],
     'set_includes':   ['Set Includes','SET_INCLUDES','PRODUCT_TYPE *'],
     'cable_type':     ['Cable Type','CABLE_TYPE'],
+    'material':               ['Material','MATERIAL *','Product Material'],
+    'case_cover_type':        ['Case Cover Type','Case & Cover Type','CASE_COVER_TYPE *'],
+    'pattern':                ['Pattern','DESIGN *','Design'],
+    'case_cover_closure':     ['Case & Cover Closure','Case Cover Closure','CLOSURE_TYPE *'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -873,6 +877,11 @@ def make_feature_phone_title(brand, model_name, screen_size, category_type, colo
     if suffix_parts:
         return f"{base}, {', '.join(suffix_parts)}"
     return base
+
+def extract_compatible_brand(text):
+    """'Samsung S23' -> 'Samsung' (first word of the compatible model string)."""
+    s = str(text).strip()
+    return s.split()[0] if s else ''
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -943,11 +952,11 @@ def title_speakers(f, internal=False):
 
 # 6. Mobile Case & Covers
 def title_mobile_cases(f, internal=False):
-    compat = _ce_join([f.get('compatible_brand'), f.get('compatible_model') or f.get('model')])
+    compat = f.get('compatible_model')  # full "Compatible Brand + Model Name" value
     core = [f['brand'], f.get('condition')]
     if internal:
-        core.append(f.get('model'))
-    core += [compat, f.get('material'), f.get('case_cover_type')]
+        core.append(f.get('model'))     # Model Number
+    core += [compat, f.get('material'), f.get('pattern'), f.get('case_cover_type')]
     return _ce_compose(core, [f['color']])
 
 # 7. Earphones
@@ -1238,8 +1247,11 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'adapter_connector_type': safe(drow.get(col_map.get('adapter_connector_type',''), '')),
             'battery_type':           safe(drow.get(col_map.get('battery_type',''), '')),
             'speaker_type':           safe(drow.get(col_map.get('speaker_type',''), '')),
-            'compatible_brand':       safe(drow.get(col_map.get('compatible_brand',''), '')),
             'compatible_model':       safe(drow.get(col_map.get('compatible_model',''), '')),
+            'compatible_brand':       (safe(drow.get(col_map.get('compatible_brand',''), ''))
+                           or extract_compatible_brand(safe(drow.get(col_map.get('compatible_model',''), '')))),
+            'pattern':                safe(drow.get(col_map.get('pattern',''), '')),
+            'case_cover_closure':     safe(drow.get(col_map.get('case_cover_closure',''), '')),
             'material':               safe(drow.get(col_map.get('material',''), '')),
             'case_cover_type':        safe(drow.get(col_map.get('case_cover_type',''), '')),
             'number_of_connectors':   safe(drow.get(col_map.get('number_of_connectors',''), '')),
@@ -1432,6 +1444,13 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'validityPeriodEndDate':                       '',
             'declarationForm':                             '',
             'taxMasterStatus':                             _ce_cfg['tax_master_status'],
+            'ProductCode *':                               model_num,
+            'MATERIAL *':                                  ce_fields.get('material', ''),
+            'COMPATIBLE_BRAND_MODEL *':                    ce_fields.get('compatible_model', ''),
+            'CASE_COVER_TYPE *':                           ce_fields.get('case_cover_type', ''),
+            'CLOSURE_TYPE *':                              ce_fields.get('case_cover_closure', ''),
+            'DESIGN *':                                    ce_fields.get('pattern', ''),
+            'COMPATIBLE_BRAND *':                          ce_fields.get('compatible_brand', ''),
         }
 
         for col_name, val in row_data.items():

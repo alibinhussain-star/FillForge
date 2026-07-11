@@ -830,6 +830,7 @@ CE_DUMP_COL_HINTS = {
     'case_cover_type':        ['Case Cover Type','Case & Cover Type','CASE_COVER_TYPE *'],
     'pattern':                ['Pattern','DESIGN *','Design'],
     'case_cover_closure':     ['Case & Cover Closure','Case Cover Closure','CLOSURE_TYPE *'],
+    'thickness':              ['Screen Card Thickness','Thickness','THICKNESS *'],
 }
 
 CE_BASE_COL_HINTS = {
@@ -998,12 +999,12 @@ def title_mobile_holders(f, internal=False):
 
 # 12. Screen Guards / Protectors
 def title_screen_guards(f, internal=False):
-    compat = _ce_join([f.get('compatible_brand'), f.get('compatible_model') or f.get('model')])
-    core = [f['brand'], f.get('condition')]
+    compat = f.get('compatible_model')  # full "Compatible Brand + Model Name" value, as-is
+    core = [f['brand']]
     if internal:
-        core.append(f.get('model'))
-    core += [f.get('screen_guard_type'), f.get('coverage'), 'for', compat]
-    return _ce_join(core)   # no trailing color in the spec
+        core.append(f.get('model'))     # Model Number
+    core += [f.get('screen_guard_type'), f.get('coverage'), 'For', compat]
+    return _ce_join(core)
 
 # 13. Neck Bands
 def title_neck_bands(f, internal=False):
@@ -1267,6 +1268,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'speed_class':            safe(drow.get(col_map.get('speed_class',''), '')),
             'holder_type':            safe(drow.get(col_map.get('holder_type',''), '')),
             'cable_included':         safe(drow.get(col_map.get('cable_included',''), '')),
+            'thickness':              safe(drow.get(col_map.get('thickness',''), '')),
             
         }
         title, internal_title = build_ce_titles(subtype, ce_fields)
@@ -1451,6 +1453,9 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'CLOSURE_TYPE *':                              ce_fields.get('case_cover_closure', ''),
             'DESIGN *':                                    ce_fields.get('pattern', ''),
             'COMPATIBLE_BRAND *':                          ce_fields.get('compatible_brand', ''),
+            'COVERAGE *':                                  ce_fields.get('coverage', ''),
+            'SCREEN_GUARD_OR_PROTECTOR_TYPE *':            ce_fields.get('screen_guard_type', ''),
+            'THICKNESS *':                                 ce_fields.get('thickness', ''),
         }
 
         for col_name, val in row_data.items():

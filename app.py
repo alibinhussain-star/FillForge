@@ -753,26 +753,26 @@ CE_DEFAULT_CONFIG = {
 }
 
 CE_DUMP_COL_HINTS = {
-    'sku':            ['Child SKU','ChildSKU *','ChildSKU','SKU','Seller SKU ID'],
-    'article':        ['Model Number','MODEL NUMBER','Model NUMBER',
-                       'Article Number','Article Code','ARTICLE_NUMBER',
-                       'Name of the model/Title name'],
+    'sku':            ['Child SKU','ChildSKU *','ChildSKU','SKU','SKU ID','Seller SKU ID'],
+    'article':        ['Model Number','MODEL NUMBER','Model NUMBER','Model Name',
+                       'Name of the model/Title name',
+                       'Article Number','Article Code','ARTICLE_NUMBER'],
     'image':          ['Main Image URL','Image Links','Image Link','ImageURL1','imageURL1 *'],
     'image2':         ['Other Image URL 1','Other Image URL1'],
     'image3':         ['Other Image URL 2','Other Image URL2'],
     'image4':         ['Other Image URL 3','Other Image URL3'],
     'image5':         ['Other Image URL 4','Other Image URL4'],
     'image6':         ['Other Image URL 5','Other Image URL5'],
-    'vertical':       ['Product Type','Product Sub-type','CategoryType *','Subtype','SubType'],
+    'vertical':       ['Product Type','Sub Type','Product Sub-type','CategoryType *','Subtype','SubType'],
     'brand':          ['Brand','Brand Name','brandName *','brand_name'],
     'mrp':            ['MRP','*MRP full Set','MRP *','MRP full Set'],
     'sp':             ['Selling Price','SellingPrice *','*Selling Price per Pair'],
     'moq':            ['*Minimum Order Quantity','*MOQ','MOQ *','MOQ'],
-    'color':          ['Product Color','Product Colour','Primary Colour','PRODUCT_COLOR *'],
+    'color':          ['Product Color','Product Colour','Colour','Primary Colour','PRODUCT_COLOR *'],
     'product_desc':   ['Product Description','productDescription *'],
-    'hsn':            ['HSN Code','*HSN Code','hsnCode *'],
+    'hsn':            ['HSN Code','HSN','*HSN Code','hsnCode *'],
     'gst':            ['GST','*GST','gstPercentage *'],
-    'weight':         ['Product Weight','*Product Weight (In KG) Full Ste','PRODUCT_WEIGHT_IN_KG *'],
+    'weight':         ['Product Weight','Product Weight (KG)','*Product Weight (In KG) Full Ste','PRODUCT_WEIGHT_IN_KG *'],
     'dims':           ['*Product Dimension (LXBXH)','Product Dimension (LXBXH) Full Set','Product Dimension'],
     'dim_uom':        ['*Product Dimension UOM','PRODUCT_DIMENSION_UOM *'],
     'packing':        ['Packaging Type','PACKAGING_TYPE *'],
@@ -834,9 +834,9 @@ CE_DUMP_COL_HINTS = {
 }
 
 CE_BASE_COL_HINTS = {
-    'article': ['Model Number','MODEL NUMBER','Name of the model/Title name',
+    'article': ['Model Number','MODEL NUMBER','Model Name','Name of the model/Title name',
                 'Article Number','Article Code','ARTICLE_NUMBER'],
-    'sku':     ['Child SKU','ChildSKU'],
+    'sku':     ['Child SKU','ChildSKU','SKU ID'],
 }
 
 def extract_model_name(title_name):
@@ -1041,6 +1041,14 @@ def title_tws_earbuds(f, internal=False):
         return _ce_compose([base], [f['color']])
     return base
 
+# 18. Pendrive
+def title_pendrive(f, internal=False):
+    core = [f['brand']]
+    if internal:
+        core.append(f.get('model'))  # Model Number
+    core += [f.get('condition'), f.get('storage_capacity'), f['subtype']]
+    return _ce_compose(core, [f['color']])
+
 # Dispatcher: subtype → builder function
 CE_TITLE_BUILDERS = {
     'Feature Phones':              title_feature_phones,
@@ -1060,6 +1068,7 @@ CE_TITLE_BUILDERS = {
     'Power Bank':                  title_power_bank,
     'Smart Watches':               title_smart_watches,
     'TWS Ear Buds':                title_tws_earbuds,
+    'Pendrive':                    title_pendrive,
 }
 
 def build_ce_titles(subtype, fields):
@@ -1456,6 +1465,8 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'COVERAGE *':                                  ce_fields.get('coverage', ''),
             'SCREEN_GUARD_OR_PROTECTOR_TYPE *':            ce_fields.get('screen_guard_type', ''),
             'THICKNESS *':                                 ce_fields.get('thickness', ''),
+            'STORAGE_CAPACITY *':                          ce_fields.get('storage_capacity', ''),
+            'CONNECTOR_TYPE *':                            ce_fields.get('output_connector_type', ''),
         }
 
         for col_name, val in row_data.items():

@@ -1360,23 +1360,34 @@ function addBrand(prefix) {
   const idIn   = document.getElementById(prefix + '-brand-id-input');
   const name = nameIn.value.trim(), id = idIn.value.trim();
   if (!name || !id) { showToast('Enter both brand name and ID', 'error'); return; }
-  const dict = prefix === 'ce-cfg' ? ceCfgBrands : cfgBrands;
+  let dict;
+  if (prefix === 'ce-cfg') dict = ceCfgBrands;
+  else if (prefix === 'ap-cfg') dict = apCfgBrands;
+  else dict = cfgBrands;
   dict[name] = id;
-  renderBrandTags(prefix, dict, prefix === 'ce-cfg' ? 'ce-cfg-brands-list' : 'cfg-brands-list');
+  const containerId = prefix === 'ce-cfg' ? 'ce-cfg-brands-list' : prefix === 'ap-cfg' ? 'ap-cfg-brands-list' : 'cfg-brands-list';
+  renderBrandTags(prefix, dict, containerId);
   nameIn.value = ''; idIn.value = '';
 }
 
 async function removeBrand(prefix, name) {
-  const dict = prefix === 'ce-cfg' ? ceCfgBrands : cfgBrands;
+  let dict;
+  if (prefix === 'ce-cfg') dict = ceCfgBrands;
+  else if (prefix === 'ap-cfg') dict = apCfgBrands;
+  else dict = cfgBrands;
   delete dict[name];
-  renderBrandTags(prefix, dict, prefix === 'ce-cfg' ? 'ce-cfg-brands-list' : 'cfg-brands-list');
+  const containerId = prefix === 'ce-cfg' ? 'ce-cfg-brands-list' : prefix === 'ap-cfg' ? 'ap-cfg-brands-list' : 'cfg-brands-list';
+  renderBrandTags(prefix, dict, containerId);
   await quickSaveBrands(prefix);
   showToast('Brand removed & saved ✓', 'success');
 }
 
 async function quickSaveBrands(prefix) {
-  const dict     = prefix === 'ce-cfg' ? ceCfgBrands : cfgBrands;
-  const endpoint = prefix === 'ce-cfg' ? '/ce_config' : '/config';
+  let dict;
+  if (prefix === 'ce-cfg') dict = ceCfgBrands;
+  else if (prefix === 'ap-cfg') dict = apCfgBrands;
+  else dict = cfgBrands;
+  const endpoint = prefix === 'ce-cfg' ? '/ce_config' : prefix === 'ap-cfg' ? '/ap_config' : '/config';
   try {
     const res = await fetch(endpoint);
     const cfg = await res.json();

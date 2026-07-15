@@ -2186,11 +2186,11 @@ def detect_ap_categories():
                      if str(v).strip() not in ('nan', 'None', '')]
             # Filter to only those that exist in our template
             matched = [v for v in found if v in AP_SUBTYPE_MAP]
-            return jsonify({'categories': matched, 'all_found': found})
+            return jsonify({'verticals': matched, 'all_found': found})
         
-        return jsonify({'categories': [], 'all_found': []})
+        return jsonify({'verticals': [], 'all_found': []})
     except Exception as e:
-        return jsonify({'categories': [], 'error': str(e)})
+        return jsonify({'verticals': [], 'error': str(e)})
 
 @app.route('/detect_ts_categories', methods=['POST'])
 def detect_ts_categories():

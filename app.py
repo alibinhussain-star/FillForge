@@ -73,12 +73,16 @@ PV_LIST = []
 CE_SUBTYPE_HEADER_ROW = {}
 CE_SUBTYPE_MAP = {}
 CE_PV_LIST = []
+AP_SUBTYPE_HEADER_ROW = {}
+AP_SUBTYPE_MAP = {}
+AP_PV_LIST = []
 _initialized = False
 
 # ── Lazy initialization ──────────────────────────────────────
 def _init_app():
     global _initialized, SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
     global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
+    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST
     if _initialized:
         return
     _initialized = True
@@ -112,6 +116,18 @@ def _init_app():
     except Exception as e:
         print(f"Warning: Could not load CE_PV_LIST: {e}")
         CE_PV_LIST = []
+
+    try:
+        AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = _build_ap_header_row_map()
+    except Exception as e:
+        print(f"Warning: Could not build AP header row map: {e}")
+        AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
+
+    try:
+        AP_PV_LIST = load_ap_pv_list()
+    except Exception as e:
+        print(f"Warning: Could not load AP_PV_LIST: {e}")
+        AP_PV_LIST = []
 
 @app.before_request
 def before_request():
@@ -241,6 +257,7 @@ DEFAULT_CONFIG = {
 
 CONFIG_PATH    = '/tmp/fillforge_config.json'
 CE_CONFIG_PATH = '/tmp/fillforge_ce_config.json'
+AP_CONFIG_PATH = '/tmp/fillforge_ap_config.json'
 
 def _load_config(path, defaults):
     cfg = {k: v for k, v in defaults.items()}
@@ -267,6 +284,9 @@ def get_config():
 
 def get_ce_config_from_disk():
     return _load_config(CE_CONFIG_PATH, CE_DEFAULT_CONFIG)
+
+def get_ap_config_from_disk():
+    return _load_config(AP_CONFIG_PATH, AP_DEFAULT_CONFIG)
 
 config = get_config()
 
@@ -1475,6 +1495,380 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
     return filled, skipped
 
+# ═══════════════════════════════════════════════════════════════
+# APPAREL & FASHION MODULE
+# ═══════════════════════════════════════════════════════════════
+
+AP_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Apparel_Fashion_Template.xlsx')
+
+def _build_ap_header_row_map():
+    wb = load_workbook(AP_TEMPLATE_PATH)
+    ws = wb['AF - PV Templates']
+    hdr_map = {}
+    static_map = {}
+    for r in range(1, ws.max_row + 1):
+        if ws.cell(r, 1).value == 'Category *':
+            for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
+                d2 = ws.cell(r2, 4).value  # Column D = SubType
+                if d2 and str(d2).strip() not in ('SubType','Category *','nan',''):
+                    st = str(d2).strip()
+                    if st not in hdr_map:
+                        hdr_map[st] = r
+                        hdrs = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
+                        entry = {}
+                        for ci, col in enumerate(hdrs):
+                            if col in ('Category *','SubCategory *','CategoryType *',
+                                       'SubType','PVID *','discoveryCategoryIds'):
+                                v = str(ws.cell(r2, ci + 1).value or '').strip()
+                                if v and v not in ('nan','NaN','None'):
+                                    entry[col] = v
+                        static_map[st] = entry
+                    break
+    return hdr_map, static_map
+
+def load_ap_pv_list():
+    try:
+        pv = pd.read_excel(AP_TEMPLATE_PATH, sheet_name='Product Vertical List')
+        # Skip header row, get all values
+        vals = []
+        for v in pv.iloc[:, 0].dropna():
+            s = str(v).strip()
+            if s and s not in ('SubType=Product Vertical', 'SubType=Product Vertical', 'nan'):
+                vals.append(s)
+        return vals
+    except Exception as e:
+        print(f"Warning: Could not load AP PV List: {e}")
+        return []
+
+AP_DEFAULT_CONFIG = {
+    "brands": {},
+    "biz_cat_id": "BCAT-139439",
+    "biz_cat_name": "Apparels and Fashion",
+    "relationship": "Parent",
+    "catalog_status": "ACTIVE",
+    "status_remark": "Ready to Launch",
+    "tax_master_status": "active",
+    "gst_cgst": 50,
+    "gst_sgst": 50,
+    "gst_igst": 0,
+    "country_of_origin": "India",
+    "product_condition": "Fresh",
+    "manufacturing_year": "2026",
+    "discovery_cat": "DISCAT-135530",
+}
+
+AP_DUMP_COL_HINTS = {
+    'sku':            ['SKU_ID', 'SKU ID', 'ChildSKU', 'SKU'],
+    'article':        ['ARTICLE_NUMBER', 'Article Number', 'Article Code', 'MODEL_NAME'],
+    'image':          ['imageURL1', 'ImageURL1', 'imageURL1 *'],
+    'image2':         ['imageURL2', 'ImageURL2'],
+    'image3':         ['imageURL3', 'ImageURL3'],
+    'image4':         ['imageURL4', 'ImageURL4'],
+    'image5':         ['imageURL5', 'ImageURL5'],
+    'image6':         ['imageURL6', 'ImageURL6'],
+    'vertical':       ['Product Vertical', 'ProductVertical', 'SubType', 'Subtype'],
+    'brand':          ['Brand Name', 'Brand', 'brandName'],
+    'mrp':            ['MRP', 'MRP *'],
+    'sp':             ['SellingPrice', 'Selling Price', 'SellingPrice *'],
+    'moq':            ['MOQ', 'MOQ *'],
+    'color':          ['PRODUCT_COLOR', 'Product Color', 'Color'],
+    'product_desc':   ['Product Description', 'productDescription'],
+    'hsn':            ['hsnCode', 'HSN', 'HSN Code'],
+    'gst':            ['gstPercentage', 'GST', 'GST *'],
+    'weight':         ['PRODUCT_WEIGHT_IN_KG', 'Product Weight', 'Weight'],
+    'dims':           ['Product Dimension (LxBxH)', 'Product Dimension'],
+    'packing':        ['PACKAGING_TYPE', 'Packaging Type'],
+    'country':        ['COUNTRY_OF_ORIGIN', 'Country of Origin'],
+    'set_name':       ['SET_NAME', 'Set Name', 'Set Of'],
+    'quantity':       ['Quantity', 'Set Count', 'SET_COUNT'],
+    'sizes':          ['AVAILABLE_SIZES', 'Available Sizes', 'Sizes'],
+    'closure':        ['CLOSURE_TYPE', 'Closure Type'],
+    'fabric':         ['FABRIC_MATERIAL', 'Fabric Material', 'Fabric'],
+    'fit':            ['FIT', 'Fit'],
+    'gender':         ['GENDER', 'Gender'],
+    'length':         ['Top Length', 'Length', 'Top_Length'],
+    'neck_type':      ['NECK_TYPE', 'Neck Type', 'Neck'],
+    'pattern':        ['PATTERN', 'Pattern'],
+    'sleeve_type':    ['SLEEVE_TYPE', 'Sleeve Type', 'Sleeve'],
+    'product_type':   ['PRODUCT_TYPE', 'Product Type'],
+    'core_brand':     ['CORE_BRAND', 'Core Brand'],
+    'age_group':      ['AGE_GROUP', 'Age Group'],
+}
+
+AP_BASE_COL_HINTS = {
+    'article': ['ARTICLE_NUMBER', 'Article Number', 'Article Code'],
+    'sku':     ['SKU_ID', 'SKU ID', 'ChildSKU'],
+}
+
+def get_ap_template_wb_for_subtype(subtype):
+    try:
+        wb_src = load_workbook(AP_TEMPLATE_PATH)
+        ws_src = wb_src['AF - PV Templates']
+        hdr_row = AP_SUBTYPE_HEADER_ROW.get(subtype, 2)
+        headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
+        while headers and headers[-1] is None:
+            headers.pop()
+    except Exception as e:
+        print(f"Warning: Could not load AP template for {subtype}: {e}")
+        headers = []
+    wb_new = Workbook()
+    ws_new = wb_new.active
+    ws_new.title = 'AF - PV Templates'
+    for ci, h in enumerate(headers, 1):
+        ws_new.cell(1, ci).value = h
+    return wb_new, headers
+
+def _ap_join(parts, sep=' '):
+    """Join non-empty parts with separator."""
+    out = [str(p).strip() for p in parts if p is not None and str(p).strip() not in ('', 'nan', 'None', 'NaN')]
+    return sep.join(out)
+
+def build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
+    """Build AP title: Brand + Gender + Fabric + Neck + Sleeve + Pattern + Product Type, Color"""
+    core = _ap_join([brand, gender, fabric, neck_type, sleeve_type, pattern, product_type])
+    if color:
+        return f"{core}, {color}"
+    return core
+
+def build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    """Build AP internal title: title + , Set of N (size/qty)"""
+    core = build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+    if set_name:
+        return f"{core}, {set_name} ({set_details})"
+    return core
+
+def build_ap_set_details(sizes_str, quantity_str):
+    """
+    Build set details from AVAILABLE_SIZES and Quantity.
+    Input: sizes='M, L, XL, 2XL', quantity='4' or '1' 
+    Output: 'M/1, L/1, XL/1, 2XL/1' (distribute quantity equally)
+    Or if quantity is total, divide by number of sizes
+    """
+    if not sizes_str:
+        return '', '', ''
+    
+    sizes = [s.strip() for s in str(sizes_str).split(',') if s.strip()]
+    if not sizes:
+        return '', '', ''
+    
+    qty_str = str(quantity_str).strip() if quantity_str else '1'
+    qty_match = re.search(r'\d+', qty_str)
+    total_qty = int(qty_match.group()) if qty_match else 1
+    
+    # If total quantity > number of sizes, divide equally
+    # If total quantity == number of sizes, 1 each
+    # If set count is 1, each size gets 1
+    per_size = max(1, total_qty // max(len(sizes), 1))
+    
+    # Actually, looking at examples: "Set of 4" with sizes M,L,XL,2XL → "S/1, M/1, L/1, XL/1"
+    # So each size gets 1 when set_count=1, or quantity is per-size
+    
+    # Let's use the quantity as per-size quantity based on set_name parsing
+    set_count = total_qty
+    
+    # Build set_details: S/1, M/1, L/1
+    details = [f"{s}/{set_count}" for s in sizes]
+    # Build set_description: 1pcs of S, 1pcs of M
+    desc = [f"{set_count}pcs of {s}" for s in sizes]
+    
+    return ', '.join(details), ', '.join(desc), ', '.join(sizes)
+
+def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
+    tcol = {h: i+1 for i, h in enumerate(headers) if h}
+    _ap_cfg = get_ap_config_from_disk()
+    brands_dict = normalize_brands(_ap_cfg.get('brands', {}))
+    fallback_brand, fallback_id = ('', '')
+    if brands_dict:
+        fallback_brand, fallback_id = next(iter(brands_dict.items()))
+    st_data = AP_SUBTYPE_MAP.get(subtype, {})
+    skipped, filled = [], []
+    
+    for _, drow in rows_df.iterrows():
+        brand, brand_id = get_brand_info(drow, col_map, brands_dict)
+        if not brand and fallback_brand:
+            brand = fallback_brand
+            brand_id = fallback_id
+        
+        sku_raw = safe(drow.get(col_map.get('sku', ''), ''))
+        art_raw = safe(drow.get(col_map.get('article', ''), ''))
+        article = art_raw if art_raw else sku_raw
+        
+        if article.upper() in existing_articles or sku_raw.upper() in existing_skus:
+            skipped.append({'sku': sku_raw, 'article': article, 'reason': 'Already exists in base data'})
+            continue
+        
+        filled_count = len(filled) + 1
+        row_idx = filled_count + 1
+        
+        # Extract fields from dump
+        mrp = drow.get(col_map.get('mrp', ''), '')
+        sp = drow.get(col_map.get('sp', ''), '')
+        moq = drow.get(col_map.get('moq', ''), 1)
+        color = safe(drow.get(col_map.get('color', ''), ''))
+        weight = drow.get(col_map.get('weight', ''), '')
+        dim_raw = safe(drow.get(col_map.get('dims', ''), ''))
+        hsn = drow.get(col_map.get('hsn', ''), '')
+        gst = drow.get(col_map.get('gst', ''), 5)
+        packing = safe(drow.get(col_map.get('packing', ''), '')) or 'Loose Packing'
+        country = safe(drow.get(col_map.get('country', ''), '')) or _ap_cfg['country_of_origin']
+        prod_desc = safe(drow.get(col_map.get('product_desc', ''), ''))
+        set_name_raw = safe(drow.get(col_map.get('set_name', ''), ''))
+        quantity_raw = safe(drow.get(col_map.get('quantity', ''), ''))
+        sizes_raw = safe(drow.get(col_map.get('sizes', ''), ''))
+        closure = safe(drow.get(col_map.get('closure', ''), ''))
+        fabric = safe(drow.get(col_map.get('fabric', ''), ''))
+        fit = safe(drow.get(col_map.get('fit', ''), ''))
+        gender = safe(drow.get(col_map.get('gender', ''), ''))
+        length = safe(drow.get(col_map.get('length', ''), ''))
+        neck_type = safe(drow.get(col_map.get('neck_type', ''), ''))
+        pattern = safe(drow.get(col_map.get('pattern', ''), ''))
+        sleeve_type = safe(drow.get(col_map.get('sleeve_type', ''), ''))
+        product_type = safe(drow.get(col_map.get('product_type', ''), ''))
+        core_brand = safe(drow.get(col_map.get('core_brand', ''), ''))
+        age_group = safe(drow.get(col_map.get('age_group', ''), ''))
+        
+        img_url = safe(drow.get(col_map.get('image', ''), ''))
+        img2_url = safe(drow.get(col_map.get('image2', ''), ''))
+        img3_url = safe(drow.get(col_map.get('image3', ''), ''))
+        img4_url = safe(drow.get(col_map.get('image4', ''), ''))
+        img5_url = safe(drow.get(col_map.get('image5', ''), ''))
+        img6_url = safe(drow.get(col_map.get('image6', ''), ''))
+        
+        # Parse set_name for count: "Set of 1" → 1, "Set of 4" → 4
+        set_count = 1
+        if set_name_raw:
+            m = re.search(r'\d+', set_name_raw)
+            if m:
+                set_count = int(m.group())
+        
+        # Build set details
+        set_details, set_desc, avail_sizes = build_ap_set_details(sizes_raw, quantity_raw or str(set_count))
+        
+        # Build title and internal title
+        title = build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+        internal_title = build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name_raw or f'Set of {set_count}', set_details)
+        
+        # Parse dimensions
+        L, B, H = parse_lbh(dim_raw)
+        
+        # Parse numeric values
+        try: mrp = float(mrp) if str(mrp).strip() not in ('', 'nan') else ''
+        except: mrp = ''
+        try: sp = float(sp) if str(sp).strip() not in ('', 'nan') else ''
+        except: sp = ''
+        try: hsn = int(float(hsn)) if str(hsn).strip() not in ('', 'nan') else ''
+        except: hsn = ''
+        try: gst = int(float(gst)) if str(gst).strip() not in ('', 'nan') else 5
+        except: gst = 5
+        try: moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
+        except: moq = 1
+        try: weight = float(weight) if str(weight).strip() not in ('', 'nan') else ''
+        except: weight = ''
+        
+        # Product code = article
+        product_code = article
+        
+        row_data = {
+            'Category *': st_data.get('Category *', 'Apparels & Fashion'),
+            'SubCategory *': st_data.get('SubCategory *', ''),
+            'CategoryType *': st_data.get('CategoryType *', ''),
+            'SubType': subtype,
+            'PVID *': st_data.get('PVID *', ''),
+            'BusinessCategoryId *': _ap_cfg['biz_cat_id'],
+            'BusinessCategoryName *': _ap_cfg['biz_cat_name'],
+            'ProductCode *': product_code,
+            'Relationship *': _ap_cfg['relationship'],
+            'ParentProductId *': sku_raw,
+            'ChildSKU *': sku_raw,
+            'MRP *': mrp,
+            'SellingPrice *': sp,
+            'MOQ *': moq,
+            'title *': title,
+            'internalTitle *': internal_title,
+            'brandId *': brand_id,
+            'brandName *': brand,
+            'imageURL1 *': img_url,
+            'imageURL2': img2_url,
+            'imageURL3': img3_url,
+            'imageURL4': img4_url,
+            'imageURL5': img5_url,
+            'imageURL6': img6_url,
+            'catalogStatus *': _ap_cfg['catalog_status'],
+            'statusRemark': _ap_cfg['status_remark'],
+            'discoveryCategoryIds': st_data.get('discoveryCategoryIds', _ap_cfg['discovery_cat']),
+            'productDescription *': prod_desc if prod_desc else '',
+            'PRODUCT_IDENTIFIER *': 'Set',
+            'SET_NAME *': set_name_raw or f'Set of {set_count}',
+            'SET_COUNT *': set_count,
+            'PACK_NAME *': 'Pack of 1',
+            'PACK_OF *': 1,
+            'IS_COMBO *': 'yes',
+            'AVAILABLE_SIZES *': avail_sizes,
+            'SET_DETAILS *': set_details,
+            'SET_DESCRIPTION *': set_desc,
+            'PRODUCT_COLOR *': color,
+            'ARTICLE_NUMBER *': article,
+            'MODEL_NAME *': article,
+            'PRODUCT_CONDITION *': _ap_cfg['product_condition'],
+            'UNIT_OF_MEASUREMENT_SINGULAR *': 'Peice',
+            'UNIT_OF_MEASUREMENT_PLURAL *': 'Peices',
+            'UNIT_OF_MEASUREMENT_SINGULAR_ABBREVIATION *': 'Pc',
+            'UNIT_OF_MEASUREMENT_PLURAL_ABBREVIATION *': 'Pcs',
+            'SELLER_SKU_ID *': sku_raw,
+            'PACKAGING_TYPE *': packing,
+            'DESCRIPTION': '',
+            'CLOSURE_TYPE *': closure,
+            'COUNTRY_OF_ORIGIN *': country,
+            'EAN': '',
+            'IMPORTED_BY': '',
+            'KEY_FEATURES': '',
+            'MANUFACTURING_YEAR': _ap_cfg['manufacturing_year'],
+            'PRODUCT_LENGTH *': L,
+            'PRODUCT_BREADTH *': B,
+            'PRODUCT_HEIGHT *': H,
+            'PRODUCT_DIMENSION_UOM *': 'cm',
+            'PRODUCT_TYPE *': product_type,
+            'PRODUCT_WEIGHT_IN_KG *': weight,
+            'PRODUCT_MANUFACTURING_CITY': '',
+            'PRODUCT_MANUFACTURING_STATE': '',
+            'FABRIC_MATERIAL *': fabric,
+            'FIT *': fit,
+            'GENDER *': gender,
+            'GSM': '',
+            'HEMLINE': '',
+            'LENGTH *': length,
+            'MANUFACTURER': '',
+            'NECK_TYPE *': neck_type,
+            'NUMBER_OF_POCKETS': '',
+            'OCCASION': '',
+            'PATTERN *': pattern,
+            'SLEEVE_TYPE *': sleeve_type,
+            'CORE_BRAND *': core_brand,
+            'PV_SPECIFIC_SIZES *': '#',
+            'hsnCode *': hsn,
+            'gstPercentage *': gst,
+            'cgstShare *': _ap_cfg['gst_cgst'],
+            'sgstShare *': _ap_cfg['gst_sgst'],
+            'igstShare *': _ap_cfg['gst_igst'],
+            'cess': '',
+            'sinTax': '',
+            'vatPercentage': '',
+            'otherCess': '',
+            'validityPeriodStartDate': '',
+            'validityPeriodEndDate': '',
+            'declarationForm': '',
+            'taxMasterStatus': _ap_cfg['tax_master_status'],
+            'AGE_GROUP *': age_group,
+        }
+        
+        for col_name, val in row_data.items():
+            if col_name in tcol and val is not None and str(val) not in ('None', ''):
+                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+        
+        filled.append({'sku': sku_raw, 'article': article})
+    
+    return len(filled), skipped
+
 
 # ═══════════════════════════════════════════════════════════════
 # IN-MEMORY FILE STORAGE
@@ -1718,7 +2112,7 @@ def get_ce_subtypes():
 
 @app.route('/ap_categories')
 def get_ap_categories():
-    return jsonify({'categories': []})
+    return jsonify({'categories': AP_PV_LIST})
 
 @app.route('/ts_categories')
 def get_ts_categories():
@@ -1730,15 +2124,17 @@ def get_ce5_categories():
 
 @app.route('/ap_config', methods=['GET'])
 def ap_config_get_route():
-    return jsonify({'brands': {}, 'biz_cat_id': '', 'biz_cat_name': 'Apparel & Fashion',
-                    'catalog_status': 'ACTIVE', 'status_remark': 'Ready to Launch',
-                    'tax_master_status': 'active', 'gst_cgst': 50, 'gst_sgst': 50,
-                    'gst_igst': 0, 'country_of_origin': 'India', 'product_condition': 'Fresh',
-                    'manufacturing_year': '2026', 'discovery_cat': '', 'relationship': 'Parent',
-                    'pv_config': {}})
+    return jsonify(get_ap_config_from_disk())
 
 @app.route('/ap_config', methods=['POST'])
 def update_ap_config():
+    cfg = get_ap_config_from_disk()
+    data = request.json
+    if 'brands' in data:
+        data['brands'] = normalize_brands(data['brands'])
+    cfg.update(data)
+    _save_config(AP_CONFIG_PATH, cfg)
+    write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous', 'ap_config_updated', f"brands={cfg.get('brands')}")
     return jsonify({'status': 'ok'})
 
 @app.route('/ts_config', methods=['GET'])
@@ -1764,7 +2160,37 @@ def update_ce5_config():
 
 @app.route('/detect_ap_categories', methods=['POST'])
 def detect_ap_categories():
-    return jsonify({'categories': [], 'all_found': []})
+    try:
+        dump_file = request.files.get('dump')
+        if not dump_file:
+            return jsonify({'categories': []})
+        
+        # Read all sheets from the uploaded Excel
+        xl = pd.ExcelFile(io.BytesIO(dump_file.read()))
+        frames = []
+        for sname in xl.sheet_names:
+            try: frames.append(xl.parse(sname))
+            except: pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        
+        # Normalize column names (remove extra spaces)
+        all_dump = normalize_df_columns(all_dump)
+        
+        # Map input columns to expected fields using AP_DUMP_COL_HINTS
+        col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')  # This finds "Product Vertical" column
+        
+        if vert_col and vert_col in all_dump.columns:
+            # Get all unique values from Product Vertical column
+            found = [str(v).strip() for v in all_dump[vert_col].dropna().unique()
+                     if str(v).strip() not in ('nan', 'None', '')]
+            # Filter to only those that exist in our template
+            matched = [v for v in found if v in AP_SUBTYPE_MAP]
+            return jsonify({'categories': matched, 'all_found': found})
+        
+        return jsonify({'categories': [], 'all_found': []})
+    except Exception as e:
+        return jsonify({'categories': [], 'error': str(e)})
 
 @app.route('/detect_ts_categories', methods=['POST'])
 def detect_ts_categories():
@@ -1776,7 +2202,184 @@ def detect_ce5_categories():
 
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
-    return jsonify({'error': 'Apparel & Fashion module is not available in this version.'}), 400
+    """Apparel & Fashion catalog processor. Generates a filled AF - PV Template .xlsx."""
+    try:
+        # ── 1. Parse subtypes from form ─────────────────────────────
+        subtypes_raw = request.form.get('subtypes', '')
+        try:
+            subtypes = json.loads(subtypes_raw)
+        except:
+            subtypes = [s.strip() for s in subtypes_raw.split(',') if s.strip()]
+
+        # ── 2. Parse inline config (optional) ───────────────────────
+        inline_cfg_raw = request.form.get('ap_config', '')
+        if inline_cfg_raw:
+            try:
+                inline_cfg = json.loads(inline_cfg_raw)
+                if inline_cfg.get('brands'):
+                    inline_cfg['brands'] = normalize_brands(inline_cfg['brands'])
+                disk_cfg = get_ap_config_from_disk()
+                disk_cfg.update(inline_cfg)
+                _save_config(AP_CONFIG_PATH, disk_cfg)
+            except Exception as e:
+                print(f'inline ap_config parse error: {e}')
+
+        # ── 3. Get uploaded files ───────────────────────────────────
+        base_file = request.files.get('base_data')
+        dump_file = request.files.get('dump')
+
+        # ── 4. Validate inputs ──────────────────────────────────────
+        if not subtypes:
+            return jsonify({'error': 'Please select at least one Product Vertical'}), 400
+        if not dump_file:
+            return jsonify({'error': 'Dump / listing file is required'}), 400
+        for st in subtypes:
+            if st not in AP_SUBTYPE_MAP:
+                return jsonify({'error': f'Product Vertical "{st}" not found in AP template'}), 400
+
+        # ── 5. Read dump file ───────────────────────────────────────
+        dump_bytes = dump_file.read()
+        xl = pd.ExcelFile(io.BytesIO(dump_bytes))
+        frames = []
+        for sname in xl.sheet_names:
+            try:
+                frames.append(xl.parse(sname))
+            except:
+                pass
+        all_dump = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if all_dump.empty:
+            return jsonify({'error': 'Could not read any data from dump file'}), 400
+
+        all_dump = normalize_df_columns(all_dump)
+
+        # ── 6. Map columns ──────────────────────────────────────────
+        col_map = build_col_map(all_dump, AP_DUMP_COL_HINTS)
+        vert_col = col_map.get('vertical')
+
+        # ── 7. Read base data for duplicate check ───────────────────
+        existing_articles, existing_skus = set(), set()
+        if base_file:
+            bxl = pd.ExcelFile(io.BytesIO(base_file.read()))
+            for sname in bxl.sheet_names:
+                try:
+                    bdf = bxl.parse(sname)
+                    bcol = build_col_map(bdf, AP_BASE_COL_HINTS)
+                    if 'article' in bcol:
+                        existing_articles |= set(bdf[bcol['article']].dropna().astype(str).str.strip().str.upper())
+                    if 'sku' in bcol:
+                        existing_skus |= set(bdf[bcol['sku']].dropna().astype(str).str.strip().str.upper())
+                except:
+                    pass
+
+        # ── 8. Process each subtype ─────────────────────────────────
+        results, all_skipped, grand_filled = [], [], 0
+        preview_rows, preview_cols = [], []
+
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for subtype in subtypes:
+                # Filter rows for this subtype
+                if vert_col and vert_col in all_dump.columns:
+                    mask = all_dump[vert_col].astype(str).str.strip().str.lower() == subtype.lower()
+                    filtered = all_dump[mask].copy()
+                    if filtered.empty:
+                        mask2 = all_dump[vert_col].astype(str).str.lower().str.contains(
+                            re.escape(subtype.lower()), na=False)
+                        filtered = all_dump[mask2].copy()
+                    if filtered.empty:
+                        filtered = all_dump.copy()
+                else:
+                    filtered = all_dump.copy()
+
+                # Get blank template for this subtype
+                wb, headers = get_ap_template_wb_for_subtype(subtype)
+                ws = wb.active
+
+                # Fill template with data
+                filled, skipped = fill_ap_template(
+                    ws, headers, filtered, col_map, subtype, existing_articles, existing_skus
+                )
+                all_skipped.extend(skipped)
+                grand_filled += filled
+
+                # Save to ZIP
+                safe_st = re.sub(r"[^\w\s-]", "", subtype).replace(" ", "_")
+                fname = f'ap_filled_{safe_st}.xlsx'
+                xls_buf = io.BytesIO()
+                wb.save(xls_buf)
+                zout.writestr(fname, xls_buf.getvalue())
+                results.append({
+                    'subtype': subtype,
+                    'filled': filled,
+                    'skipped': len(skipped),
+                    'filename': fname
+                })
+
+                # Build preview columns (first time only)
+                if not preview_cols:
+                    pcols = [
+                        'title *', 'ChildSKU *', 'ARTICLE_NUMBER *', 'MRP *', 'SellingPrice *',
+                        'PRODUCT_COLOR *', 'AVAILABLE_SIZES *', 'SET_DETAILS *',
+                        'SET_COUNT *', 'FABRIC_MATERIAL *', 'NECK_TYPE *', 'PATTERN *',
+                        'SLEEVE_TYPE *', 'hsnCode *'
+                    ]
+                    preview_cols = [c for c in pcols if c in headers]
+
+                # Build preview rows (max 50)
+                for r in range(2, min(filled + 2, 52)):
+                    rdata = {}
+                    for c in preview_cols:
+                        if c in headers:
+                            rdata[c] = ws.cell(r, headers.index(c) + 1).value
+                    if any(v for v in rdata.values()):
+                        preview_rows.append({**rdata, '_subtype': subtype})
+
+        # ── 9. Prepare output ───────────────────────────────────────
+        zip_buf.seek(0)
+
+        if len(subtypes) == 1:
+            safe_st = re.sub(r"[^\w\s-]", "", subtypes[0]).replace(" ", "_")
+            out_name = f'ap_filled_{safe_st}.xlsx'
+            out_ext = '.xlsx'
+            with zipfile.ZipFile(io.BytesIO(zip_buf.getvalue())) as zin:
+                out_bytes = zin.read(results[0]['filename'])
+        else:
+            out_name = 'ap_filled_templates.zip'
+            out_ext = '.zip'
+            out_bytes = zip_buf.getvalue()
+
+        # Store in memory for download
+        file_token = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+        FILE_STORE[file_token] = {
+            'bytes': out_bytes,
+            'filename': out_name,
+            'ext': out_ext,
+            'created': time.time()
+        }
+
+        # ── 10. Log and return ──────────────────────────────────────
+        write_log(
+            validate_session(request.cookies.get('ff_session')) or 'anonymous',
+            'ap_catalog_generated',
+            f'subtypes={subtypes} filled={grand_filled} skipped={len(all_skipped)}'
+        )
+
+        return jsonify({
+            'status': 'ok',
+            'grand_filled': grand_filled,
+            'grand_skipped': len(all_skipped),
+            'results': results,
+            'skipped_details': all_skipped[:50],
+            'preview': preview_rows,
+            'preview_cols': preview_cols,
+            'download_token': file_token,
+            'filename': out_name,
+            'is_zip': len(subtypes) > 1,
+        })
+
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
 @app.route('/process_ts', methods=['POST'])
 def process_ts():

@@ -2856,6 +2856,56 @@ def download_ce_unified_template():
         import traceback
         return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
 
+@app.route('/download_template/<path:vertical>')
+def download_template(vertical):
+    """Download blank template for a specific vertical/category."""
+    try:
+        if vertical == 'Footwear':
+            # Return the full footwear master template
+            if not os.path.exists(TEMPLATE_PATH):
+                return jsonify({'error': 'Footwear template not found'}), 404
+            
+            wb = load_workbook(TEMPLATE_PATH)
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            return send_file(buf, as_attachment=True,
+                           download_name='Footwear_Master_Template.xlsx',
+                           mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        
+        elif vertical == 'Apparel & Fashion':
+            # Return the full AP master template
+            if not os.path.exists(AP_TEMPLATE_PATH):
+                return jsonify({'error': 'Apparel & Fashion template not found'}), 404
+            
+            wb = load_workbook(AP_TEMPLATE_PATH)
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            return send_file(buf, as_attachment=True,
+                           download_name='Apparel_Fashion_Master_Template.xlsx',
+                           mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        
+        elif vertical == 'Consumer Electronics':
+            # Return the full CE master template
+            if not os.path.exists(CE_TEMPLATE_PATH):
+                return jsonify({'error': 'Consumer Electronics template not found'}), 404
+            
+            wb = load_workbook(CE_TEMPLATE_PATH)
+            buf = io.BytesIO()
+            wb.save(buf)
+            buf.seek(0)
+            return send_file(buf, as_attachment=True,
+                           download_name='Consumer_Electronics_Master_Template.xlsx',
+                           mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        
+        else:
+            return jsonify({'error': f'Unknown vertical: {vertical}'}), 400
+            
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+
 
 @app.route('/reload_templates', methods=['POST'])
 @require_auth

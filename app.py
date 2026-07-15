@@ -2112,8 +2112,8 @@ def get_ce_subtypes():
 
 @app.route('/ap_categories')
 def get_ap_categories():
-    return jsonify({'categories': AP_PV_LIST})
-
+    return jsonify({'subtypes': AP_PV_LIST})
+    
 @app.route('/ts_categories')
 def get_ts_categories():
     return jsonify({'categories': []})

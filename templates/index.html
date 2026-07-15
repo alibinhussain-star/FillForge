@@ -334,7 +334,7 @@ svg{display:block}
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
       Help
     </button>
-    <div class="sb-section">Category Settings</div>
+        <div class="sb-section">Category Settings</div>
     <button class="sb-item" onclick="openConfig()">
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
       Footwear Settings
@@ -342,6 +342,10 @@ svg{display:block}
     <button class="sb-item" onclick="openCEConfig()">
       <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg></span>
       CE Settings
+    </button>
+    <button class="sb-item" onclick="openAPConfig()">
+      <span class="sb-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></span>
+      AP Settings
     </button>
   </nav>
   <div class="sb-foot">
@@ -369,7 +373,7 @@ svg{display:block}
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg></span>
       Consumer Electronics
     </button>
-    <button class="vert-tog locked" onclick="showComingSoon(this)" title="Apparels &amp; Fashion">
+    <button class="vert-tog" data-vert="AP" onclick="switchCategory('AP')">
       <span class="vert-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></span>
       Apparels &amp; Fashion
     </button>
@@ -546,14 +550,14 @@ svg{display:block}
           </select>
         </div>
         <button class="tpl-dl-btn" id="downloadCeUnifiedBtn" onclick="downloadCeUnifiedTemplate()">⬇ Download CE Unified Template</button>
-      </div>
-      <div class="tpl-card locked">
+      </div>     
+      <div class="tpl-card">
         <div class="tpl-card-head">
-          <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/></svg></div>
-          <div class="tpl-card-name">Apparels &amp; Fashion</div>
+          <div class="tpl-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6H4l2-3h12l2 3z"/><path d="M4 6v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6"/><path d="M9 10a3 3 0 0 0 6 0"/></svg></div>
+          <div class="tpl-card-name">Apparel &amp; Fashion</div>
         </div>
-        <div class="tpl-card-desc">Coming soon.</div>
-        <button class="tpl-dl-btn" disabled>Coming Soon</button>
+        <div class="tpl-card-desc">Master template for all Apparel &amp; Fashion Product Verticals (Men's Polo T-Shirts, Men's Casual T-Shirts, Boy's Casual T-Shirts, Boy's Polo T-Shirts, Men's Casual Shirts, Men's Formal Shirts).</div>
+        <button class="tpl-dl-btn" onclick="downloadTpl('Apparel & Fashion')">Download .xlsx</button>
       </div>
       <div class="tpl-card locked">
         <div class="tpl-card-head">
@@ -712,6 +716,50 @@ svg{display:block}
     </div>
   </div>
 </div>
+        <!-- ═══ AP SETTINGS MODAL ═══ -->
+<div class="ce-modal-bg" id="ap-cfg-modal">
+  <div class="ce-modal">
+    <div class="modal-title">⚙ Apparel & Fashion Settings</div>
+    
+    <div class="modal-sec">Brands <span style="font-size:10px;color:var(--muted);font-weight:400">(mapped from file's Brand Name column)</span></div>
+    <div id="ap-cfg-brands-list" style="margin-bottom:12px"></div>
+    <div class="form-grid" style="margin-bottom:8px">
+      <div class="fg"><div class="fl">Brand Name</div><input class="fi" id="ap-cfg-brand-name-input" type="text" placeholder="e.g. ADR"></div>
+      <div class="fg"><div class="fl">Brand ID</div><input class="fi" id="ap-cfg-brand-id-input" type="text" placeholder="BR-XXXXXXXXXX"></div>
+    </div>
+    <button class="btn-save" style="padding:7px 16px;font-size:12px;margin-bottom:16px" onclick="addBrand('ap-cfg')">+ Add Brand</button>
+    
+    <div class="modal-sec">Category &amp; Discovery</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Business Category ID</div><input class="fi" id="ap-cfg-biz_cat_id" type="text"></div>
+      <div class="fg"><div class="fl">Business Category Name</div><input class="fi" id="ap-cfg-biz_cat_name" type="text"></div>
+      <div class="fg full"><div class="fl">Discovery Category IDs</div><input class="fi" id="ap-cfg-discovery_cat" type="text"></div>
+    </div>
+    
+    <div class="modal-sec">Listing Defaults</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Relationship</div><input class="fi" id="ap-cfg-relationship" type="text"></div>
+      <div class="fg"><div class="fl">Catalog Status</div><input class="fi" id="ap-cfg-catalog_status" type="text"></div>
+      <div class="fg"><div class="fl">Status Remark</div><input class="fi" id="ap-cfg-status_remark" type="text"></div>
+      <div class="fg"><div class="fl">Country of Origin</div><input class="fi" id="ap-cfg-country_of_origin" type="text"></div>
+      <div class="fg"><div class="fl">Product Condition</div><input class="fi" id="ap-cfg-product_condition" type="text"></div>
+      <div class="fg"><div class="fl">Manufacturing Year</div><input class="fi" id="ap-cfg-manufacturing_year" type="text"></div>
+    </div>
+    
+    <div class="modal-sec">Tax</div>
+    <div class="form-grid">
+      <div class="fg"><div class="fl">Tax Master Status</div><input class="fi" id="ap-cfg-tax_master_status" type="text"></div>
+      <div class="fg"><div class="fl">GST CGST Share</div><input class="fi" id="ap-cfg-gst_cgst" type="number"></div>
+      <div class="fg"><div class="fl">GST SGST Share</div><input class="fi" id="ap-cfg-gst_sgst" type="number"></div>
+      <div class="fg"><div class="fl">GST IGST Share</div><input class="fi" id="ap-cfg-gst_igst" type="number"></div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeAPConfig()">Cancel</button>
+      <button class="btn-save" onclick="saveAPConfig()">Save Settings</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -745,6 +793,12 @@ function switchCategory(cat) {
     secTitle.textContent = 'Product Type';
     selLabel.textContent = 'Product Types';
     ddPH.textContent     = 'Product Type(s)';
+  } else if (cat === 'AP') {
+    titleEl.textContent  = 'Create AP Catalog File';
+    descEl.textContent   = 'Upload apparel listing & generate AP template';
+    secTitle.textContent = 'Product Vertical';
+    selLabel.textContent = 'Product Verticals';
+    ddPH.textContent     = 'Product Vertical(s)';
   } else {
     titleEl.textContent  = 'Create Catalog File';
     descEl.textContent   = 'Upload, auto-detect & generate filled template';
@@ -808,7 +862,10 @@ function switchView(name) {
    SUBTYPE LOADING
    ═══════════════════════════════════════════════════════════════ */
 async function loadSubtypes() {
-  const endpoint = currentCategory === 'CE' ? '/ce_subtypes' : '/subtypes';
+  let endpoint;
+  if (currentCategory === 'CE') endpoint = '/ce_subtypes';
+  else if (currentCategory === 'AP') endpoint = '/ap_categories';
+  else endpoint = '/subtypes';
   try {
     const res  = await fetch(endpoint);
     const data = await res.json();
@@ -970,7 +1027,9 @@ function checkReady() {
 async function detectVerticals() {
   if (!files.dump) return;
   const fd = new FormData(); fd.append('dump', files.dump);
-  const endpoint = currentCategory === 'CE' ? '/detect_ce_verticals' : '/detect_verticals';
+  const endpoint = currentCategory === 'CE' ? '/detect_ce_verticals' 
+                 : currentCategory === 'AP' ? '/detect_ap_categories'
+                 : '/detect_verticals';
   try {
     const res  = await fetch(endpoint, { method: 'POST', body: fd });
     const data = await res.json();
@@ -999,7 +1058,15 @@ async function runProcess() {
   if (files.base_data) fd.append('base_data', files.base_data);
   fd.append('dump', files.dump);
 
-  const endpoint = currentCategory === 'CE' ? '/process_ce' : '/process';
+  // Add inline config for AP if needed
+  if (currentCategory === 'AP') {
+    // Optional: include AP config if you want to pass brands/settings
+    // fd.append('ap_config', JSON.stringify({ brands: apCfgBrands }));
+  }
+
+  const endpoint = currentCategory === 'CE' ? '/process_ce'
+                 : currentCategory === 'AP' ? '/process_ap'
+                 : '/process';
 
   try {
     const res  = await fetch(endpoint, { method: 'POST', body: fd });
@@ -1010,7 +1077,8 @@ async function runProcess() {
       showToast(data.error, 'error'); return;
     }
     renderResults(data);
-    showToast('✓ ' + data.grand_filled + ' rows filled', 'success');
+    const catLabel = currentCategory === 'AP' ? 'AP ' : currentCategory === 'CE' ? 'CE ' : '';
+    showToast('✓ ' + data.grand_filled + ' ' + catLabel + 'rows filled', 'success');
     downloadToken    = data.download_token;
     downloadFilename = data.filename;
     isZip            = data.is_zip;
@@ -1057,13 +1125,18 @@ function renderResults(data) {
     'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
     'RAM *':'RAM','INTERNAL_STORAGE *':'Storage','DISPLAY_SIZE *':'Screen',
     'DISPLAY_TYPE *':'Display','hsnCode *':'HSN','SET_COUNT *':'Set Count'
+  } : currentCategory === 'AP' ? {
+    'title *':'Product Title','ChildSKU *':'SKU ID','ARTICLE_NUMBER *':'Article No.',
+    'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
+    'AVAILABLE_SIZES *':'Sizes','SET_DETAILS *':'Set Details',
+    'FABRIC_MATERIAL *':'Fabric','NECK_TYPE *':'Neck','PATTERN *':'Pattern',
+    'SLEEVE_TYPE *':'Sleeve','hsnCode *':'HSN','SET_COUNT *':'Set Count'
   } : {
     'title *':'Product Title','ChildSKU *':'SKU ID','ARTICLE_NUMBER *':'Article No.',
     'MRP *':'MRP','SellingPrice *':'Sale Price','PRODUCT_COLOR *':'Color',
     'AVAILABLE_SIZES *':'Sizes','SET_DETAILS *':'Set Details',
     'UPPER_MATERIAL *':'Upper','SOLE_MATERIAL *':'Sole','hsnCode *':'HSN','SET_COUNT *':'Set Count'
   };
-
   const showSub = isZip;
   document.getElementById('t-head').innerHTML = '<tr>' + (showSub ? '<th>SubType</th>' : '') +
     cols.map(c => '<th>' + (colLabels[c] || c) + '</th>').join('') + '</tr>';
@@ -1185,16 +1258,16 @@ async function downloadTpl(vertical) {
 
 async function downloadFootwearTpl() {
   try {
-    let url = '/download_template/Footwear', filename = 'Footwear_Template.xlsx';
-    if (tplSelectedSubtype) {
-      url      += '?subtype=' + encodeURIComponent(tplSelectedSubtype);
-      filename  = 'Footwear_Template_' + tplSelectedSubtype.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_') + '.xlsx';
-    }
-    const r = await fetch(url);
+    const r = await fetch('/download_template/Footwear');
     if (!r.ok) { const d = await r.json().catch(() => ({})); showToast(d.error || 'Failed', 'error'); return; }
     const blob = await r.blob();
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    const a = document.createElement('a'); 
+    a.href = URL.createObjectURL(blob); 
+    a.download = 'Footwear_Master_Template.xlsx';
+    document.body.appendChild(a); 
+    a.click(); 
+    a.remove(); 
+    URL.revokeObjectURL(a.href);
     showToast('Template downloaded ✓', 'success');
   } catch(e) { showToast('Network error — download failed', 'error'); }
 }
@@ -1358,6 +1431,49 @@ async function saveCEConfig() {
 }
 document.getElementById('ce-cfg-modal').addEventListener('click', e => { if (e.target === document.getElementById('ce-cfg-modal')) closeCEConfig(); });
 
+/* ═══════════════════════════════════════════════════════════════
+   AP SETTINGS (Apparel & Fashion)
+   ═══════════════════════════════════════════════════════════════ */
+const AP_CFG_FIELDS = ['biz_cat_id','biz_cat_name','discovery_cat','relationship','catalog_status',
+  'status_remark','country_of_origin','product_condition','manufacturing_year','tax_master_status',
+  'gst_cgst','gst_sgst','gst_igst'];
+let apCfgBrands = {};
+
+async function openAPConfig() {
+  const res = await fetch('/ap_config');
+  const d = await res.json();
+  apCfgBrands = d.brands || {};
+  renderBrandTags('ap-cfg', apCfgBrands, 'ap-cfg-brands-list');
+  AP_CFG_FIELDS.forEach(k => {
+    const el = document.getElementById('ap-cfg-' + k);
+    if (el) el.value = d[k] ?? '';
+  });
+  document.getElementById('ap-cfg-modal').classList.add('open');
+}
+
+function closeAPConfig() {
+  document.getElementById('ap-cfg-modal').classList.remove('open');
+}
+
+async function saveAPConfig() {
+  const cfg = { brands: apCfgBrands };
+  AP_CFG_FIELDS.forEach(k => {
+    const el = document.getElementById('ap-cfg-' + k);
+    if (!el) return;
+    cfg[k] = ['gst_cgst','gst_sgst','gst_igst'].includes(k) ? parseInt(el.value) || 0 : el.value;
+  });
+  await fetch('/ap_config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cfg)
+  });
+  closeAPConfig();
+  showToast('AP settings saved ✓', 'success');
+}
+
+document.getElementById('ap-cfg-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('ap-cfg-modal')) closeAPConfig();
+});
 /* ═══════════════════════════════════════════════════════════════
    LOADING SCREEN
    ═══════════════════════════════════════════════════════════════ */

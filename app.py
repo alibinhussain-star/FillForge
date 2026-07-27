@@ -76,13 +76,14 @@ CE_PV_LIST = []
 AP_SUBTYPE_HEADER_ROW = {}
 AP_SUBTYPE_MAP = {}
 AP_PV_LIST = []
+AP_PV_SUBCATEGORY = {}   # PV name -> title Sub Category (e.g. "TopWears", "InnerWears")
 _initialized = False
 
 # ── Lazy initialization ──────────────────────────────────────
 def _init_app():
     global _initialized, SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
     global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
-    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST
+    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY
     if _initialized:
         return
     _initialized = True
@@ -124,10 +125,10 @@ def _init_app():
         AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
 
     try:
-        AP_PV_LIST = load_ap_pv_list()
+        AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
     except Exception as e:
         print(f"Warning: Could not load AP_PV_LIST: {e}")
-        AP_PV_LIST = []
+        AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
 
 @app.before_request
 def before_request():
@@ -1525,20 +1526,48 @@ def _build_ap_header_row_map():
                         static_map[st] = entry
                     break
     return hdr_map, static_map
-
 def load_ap_pv_list():
+    """
+    Reads the 'Product Vertical List' sheet, which has ONE COLUMN PER SUB CATEGORY.
+    Row 1  -> header cell like 'Sub Category=TopWears' / 'Sub Catgeory=InnerWears'
+              (text after '=' is taken as the Sub Category name; typo-tolerant)
+    Row 2  -> label row ('SubType=Product Vertical') - skipped
+    Row 3+ -> Product Vertical names for that column's Sub Category
+
+    Returns:
+        pv_list       - flat, de-duplicated list of all PV names (for the dropdown)
+        pv_subcat_map - {pv_name: sub_category_name}, used to route title formulas
+    """
     try:
-        pv = pd.read_excel(AP_TEMPLATE_PATH, sheet_name='Product Vertical List')
-        # Skip header row, get all values
-        vals = []
-        for v in pv.iloc[:, 0].dropna():
-            s = str(v).strip()
-            if s and s not in ('SubType=Product Vertical', 'SubType=Product Vertical', 'nan'):
-                vals.append(s)
-        return vals
+        wb = load_workbook(AP_TEMPLATE_PATH)
+        ws = wb['Product Vertical List']
+        pv_list = []
+        pv_subcat_map = {}
+        for col in range(1, ws.max_column + 1):
+            header_val = ws.cell(1, col).value
+            if not header_val:
+                continue
+            header_str = str(header_val).strip()
+            if not header_str or header_str.lower() == 'nan':
+                continue
+            subcat_name = header_str.split('=', 1)[1].strip() if '=' in header_str else header_str
+            if not subcat_name:
+                continue
+            for r in range(3, ws.max_row + 1):
+                v = ws.cell(r, col).value
+                if v is None:
+                    continue
+                pv = str(v).strip()
+                if not pv or pv.lower() in ('nan', 'none'):
+                    continue
+                if pv not in pv_list:
+                    pv_list.append(pv)
+                pv_subcat_map[pv] = subcat_name
+        return pv_list, pv_subcat_map
     except Exception as e:
         print(f"Warning: Could not load AP PV List: {e}")
-        return []
+        return [], {}
+
 
 AP_DEFAULT_CONFIG = {
     "brands": {},
@@ -1636,6 +1665,44 @@ def build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, patte
     if set_name:
         return f"{core}, {set_name} ({set_details})"
     return core
+
+# ── Per-Sub-Category title formulas ──────────────────────────────
+# Keyed by the "Sub Category" column header in the 'Product Vertical List'
+# sheet (e.g. 'TopWears', 'InnerWears'). Add a new function + dict entry here
+# whenever a new Sub Category needs its own title formula. Any Sub Category
+# not listed below falls back to the generic formula.
+
+def title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
+    return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+
+def internal_title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    return build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+
+def title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
+    return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+
+def internal_title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    return build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+
+AP_TITLE_BUILDERS = {
+    'TopWears':   title_ap_topwears,
+    'InnerWears': title_ap_innerwears,
+}
+AP_INTERNAL_TITLE_BUILDERS = {
+    'TopWears':   internal_title_ap_topwears,
+    'InnerWears': internal_title_ap_innerwears,
+}
+
+def build_ap_titles(subcategory, brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    """Dispatch to the right title/internalTitle formula based on Sub Category."""
+    title_fn    = AP_TITLE_BUILDERS.get(subcategory, build_ap_title)
+    internal_fn = AP_INTERNAL_TITLE_BUILDERS.get(subcategory)
+    title = title_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+    if internal_fn:
+        internal_title = internal_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+    else:
+        internal_title = build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+    return title, internal_title
 
 def build_ap_set_details(sizes_str, quantity_str):
     """
@@ -1744,9 +1811,13 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         # Build set details
         set_details, set_desc, avail_sizes = build_ap_set_details(sizes_raw, quantity_raw or str(set_count))
         
-        # Build title and internal title
-        title = build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
-        internal_title = build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name_raw or f'Set of {set_count}', set_details)
+        # Build title and internal title, routed by the PV's Sub Category
+        # (TopWears / InnerWears / future categories) from Product Vertical List sheet
+        title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
+        title, internal_title = build_ap_titles(
+            title_subcategory, brand, gender, fabric, neck_type, sleeve_type, pattern, product_type,
+            color, set_name_raw or f'Set of {set_count}', set_details
+        )
         
         # Parse dimensions
         L, B, H = parse_lbh(dim_raw)
@@ -2915,15 +2986,20 @@ def reload_templates():
         PV_LIST_new = load_pv_list()
         CE_SUBTYPE_HEADER_ROW_new, CE_SUBTYPE_MAP_new = _build_ce_header_row_map()
         CE_PV_LIST_new = load_ce_pv_list()
+        AP_SUBTYPE_HEADER_ROW_new, AP_SUBTYPE_MAP_new = _build_ap_header_row_map()
+        AP_PV_LIST_new, AP_PV_SUBCATEGORY_new = load_ap_pv_list()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
     global SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
     global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
+    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY
     SUBTYPE_HEADER_ROW, SUBTYPE_MAP = SUBTYPE_HEADER_ROW_new, SUBTYPE_MAP_new
     PV_LIST = PV_LIST_new
     CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = CE_SUBTYPE_HEADER_ROW_new, CE_SUBTYPE_MAP_new
     CE_PV_LIST = CE_PV_LIST_new
+    AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = AP_SUBTYPE_HEADER_ROW_new, AP_SUBTYPE_MAP_new
+    AP_PV_LIST, AP_PV_SUBCATEGORY = AP_PV_LIST_new, AP_PV_SUBCATEGORY_new
 
     write_log(validate_session(request.cookies.get('ff_session')) or 'anonymous',
               'templates_reloaded', '')

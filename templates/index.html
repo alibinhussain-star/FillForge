@@ -352,10 +352,10 @@ svg{display:block}
     <div class="user-box" style="justify-content:center">
       <div class="user-text" style="text-align:center">
         <div class="user-label">FillForge Catalog Ops</div>
-        <div class="user-email">v0.6 Beta</div>
+        <div class="user-email">v0.7.1</div>
       </div>
     </div>
-    <div class="sb-ver">FillForge <span class="badge">v0.6 Beta</span></div>
+    <div class="sb-ver">FillForge <span class="badge">v0.7.1</span></div>
   </div>
 </aside>
 
@@ -592,39 +592,81 @@ svg{display:block}
   </div>
 
   <!-- VIEW: HELP -->
+  <!-- VIEW: HELP -->
   <div class="fullview" id="view-help">
     <div class="fv-title">Help &amp; Documentation</div>
-    <div class="fv-sub">Quick reference for using FillForge.</div>
-    <div class="help-card">
+    <div class="fv-sub">Quick reference for using FillForge — v0.7.1</div>
+
+    <!-- Executive Summary -->
+    <div class="help-card" style="border-left:3px solid var(--orange)">
       <h3>📦 What is FillForge?</h3>
-      <p>FillForge is Jumbotail's internal catalog automation portal. It reads raw seller dump files (Excel) and auto-populates the master PV template — applying title formatting, color merging, size expansion, set-detail parsing, HSN/GST mapping and duplicate detection in one click.</p>
+      <p>FillForge is Jumbotail's internal catalog automation portal. Catalog Ops today manually maps hundreds of seller-supplied attributes — titles, sizes, colors, HSN/GST, set details — into marketplace-ready templates, one row at a time. FillForge replaces that manual mapping with a guided, few-click workflow: upload a seller dump, pick the Product Vertical(s), and the system auto-populates the correct master template — applying title formatting, color merging, size expansion, set-detail parsing, HSN/GST mapping, brand resolution, and duplicate-SKU detection automatically. The result is faster catalog turnaround, fewer manual errors, and a consistent, audit-ready listing format across categories.</p>
     </div>
+
+    <!-- At a Glance -->
+    <div class="help-card">
+      <h3>📊 At a Glance</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:10px">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">3</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Live categories<br>Footwear · CE · Apparel &amp; Fashion</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">98</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Product Verticals supported — 46 Footwear · 20 CE · 32 Apparel &amp; Fashion</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">2</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Categories in the pipeline<br>Toys &amp; Sports · Home Furnishing</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">1-click</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">From raw seller dump to a launch-ready template</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- What's New -->
+    <div class="help-card" style="border-left:3px solid var(--success)">
+      <h3>✨ What's New in v0.7.1</h3>
+      <p><b>Apparel &amp; Fashion module is live</b> — supporting 32 Product Verticals across two Sub Categories (TopWears and InnerWears), covering shirts, T-shirts, kurtas, jackets, sweaters, blazers, hoodies, bras, camisoles, blouses and vests for Men's, Women's, Boy's, Girl's and Baby's lines. Each Product Vertical has its own independently configurable template — new verticals can be added without any code changes. Title and internal title formulas are now routed by Sub Category, so TopWears and InnerWears (and any future Sub Category) can each carry their own formula. Template reloads now also refresh Apparel &amp; Fashion data alongside Footwear and CE.</p>
+    </div>
+
     <div class="help-card">
       <h3>🚀 How to create a catalog file</h3>
-      <p>1. Select a category from the top bar (Footwear or Consumer Electronics). 2. Upload the seller dump file (required). 3. Optionally upload Base Data for duplicate-SKU detection. 4. The system auto-detects product verticals from the dump — confirm or change the selection. 5. Click <b>Generate Catalogue File</b>. 6. Preview the filled rows and download the .xlsx (or .zip if multiple SubTypes were selected).</p>
+      <p>1. Select a category from the top bar (Footwear, Consumer Electronics, or Apparel &amp; Fashion). 2. Upload the seller dump file (required). 3. Optionally upload Base Data for duplicate-SKU detection. 4. The system auto-detects product verticals from the dump — confirm or change the selection. 5. Click <b>Generate Catalogue File</b>. 6. Preview the filled rows and download the .xlsx (or .zip if multiple verticals were selected).</p>
     </div>
+
     <div class="help-card">
       <h3>👟 Footwear</h3>
       <p>Supports all footwear PV SubTypes (Men's, Women's, Boys', Girls', Infant's). Auto-derives gender from SubType, merges primary &amp; secondary colors, expands size ranges, builds set details, and maps HSN/GST. Set count is parsed from the dump's Quantity or Set Of column. Multi-SubType runs produce a ZIP of separate .xlsx files.</p>
     </div>
+
     <div class="help-card">
       <h3>📱 Consumer Electronics</h3>
-      <p>CE supports 20 product verticals across Mobile (Feature Phones, Smart Phones), Mobile Accessories (Adapters &amp; Cables, Cases &amp; Covers, Headsets, Memory Cards, Mobile Cables, Mobile Holders, Screen Guards, Power Banks, Smart Watches, Speakers), Audio &amp; Video (Earphones, Neck Bands, Microphones, Projectors, Soundbars, TWS Ear Buds, Webcams), and Personal Care (Hair Trimmers). It auto-detects the input Product Type, fetches the matching schema from the <b>CE - PV Template</b> sheet using the <b>CE - Mapping Logic</b> sheet, extracts model names from titles, pulls display type / charging type / bluetooth / processor info from product descriptions, and handles RAM+ROM combo formatting. Set count is always 1 (individual units). Configure brands and defaults in <b>CE Settings</b>.</p>
+      <p>CE supports 20 product verticals across Mobile (Feature Phones, Smart Phones), Mobile Accessories (Adapters &amp; Cables, Cases &amp; Covers, Headsets, Memory Cards, Mobile Cables, Mobile Holders, Screen Guards, Power Banks, Smart Watches, Speakers), Audio &amp; Video (Earphones, Neck Bands, Microphones, Projectors, Soundbars, TWS Ear Buds, Webcams), and Personal Care (Hair Trimmers). It auto-detects the input Product Type, fetches the matching schema from the <b>CE - PV Template</b> sheet using the <b>CE - Mapping Logic</b> sheet, extracts model names from titles, pulls display type / charging type / bluetooth / processor info from product descriptions, and handles RAM+ROM combo formatting. Each SubType has its own bespoke title formula. Set count is always 1 (individual units). Configure brands and defaults in <b>CE Settings</b>.</p>
     </div>
+
+    <div class="help-card">
+      <h3>👗 Apparel &amp; Fashion</h3>
+      <p>Supports 32 Product Verticals across two Sub Categories — <b>TopWears</b> (Shirts, T-Shirts, Kurtas, Jackets &amp; Coats, Sweaters, Hoodies, Pullovers, Blazers, Sweatshirts, Thermal Tops) and <b>InnerWears</b> (Camisoles / Slips, Bra, Vests, Blouses) — spanning Men's, Women's, Boy's, Girl's and Baby's lines. It reads the <b>Product Vertical</b> column from the seller dump, resolves it against the <b>AF - PV Templates</b> sheet, and builds title / internal title using Brand + Gender + Fabric + Neck Type + Sleeve Type + Pattern + Product Type + Color — routed by Sub Category so future verticals can carry their own formula. Set details are derived from Available Sizes and Quantity. Configure brands and defaults in <b>AP Settings</b>.</p>
+    </div>
+
     <div class="help-card">
       <h3>⚙ Settings &amp; Multi-Brand</h3>
-      <p>Configure multiple brands with their IDs in <b>Settings</b>. The system reads the <b>Brand</b> column from your dump file and auto-maps the correct brand &amp; ID for each row. Add as many brands as needed — e.g., Samsung → BR-123, Redmi → BR-456. If no match is found, the first configured brand is used as fallback.</p>
+      <p>Configure multiple brands with their IDs per category in <b>Footwear Settings</b>, <b>CE Settings</b>, and <b>AP Settings</b>. The system reads the Brand column from your dump file and auto-maps the correct brand &amp; ID for each row. Add as many brands as needed — e.g., Samsung → BR-123, Redmi → BR-456. If no match is found, the first configured brand is used as fallback.</p>
     </div>
+
     <div class="help-card">
       <h3>🗂 Download Templates</h3>
-      <p>Go to <b>Download Templates</b> from the sidebar. Footwear (full master or per-SubType blank) and Consumer Electronics templates are available.</p>
+      <p>Go to <b>Download Templates</b> from the sidebar. Footwear (full master or per-SubType blank), Consumer Electronics (including CE Unified Templates by category), and Apparel &amp; Fashion master templates are all available.</p>
     </div>
+
     <div class="help-card">
-      <h3>🔒 Coming Soon</h3>
-      <p>Apparels &amp; Fashion, Toys &amp; Sports, and Home Furnishing modules are currently under development and will be available in a future release.</p>
+      <h3>🗺 Roadmap</h3>
+      <p><b>Toys &amp; Sports</b> and <b>Home Furnishing</b> modules are currently under development and will follow the same template-driven architecture as Apparel &amp; Fashion — new categories and verticals can be onboarded by updating the source template, without requiring a full code release.</p>
     </div>
   </div>
-</div>
 
 <!-- Coming Soon Modal -->
 <div class="cs-modal-bg" id="cs-modal" onclick="if(event.target===this)closeComingSoon()">

@@ -666,6 +666,11 @@ svg{display:block}
       <h3>🗺 Roadmap</h3>
       <p><b>Toys &amp; Sports</b> and <b>Home Furnishing</b> modules are currently under development and will follow the same template-driven architecture as Apparel &amp; Fashion — new categories and verticals can be onboarded by updating the source template, without requiring a full code release.</p>
     </div>
+
+    <div class="help-card" style="border-left:3px solid var(--orange);text-align:center">
+      <h3 style="justify-content:center">🆘 Need Help?</h3>
+      <p>For any query, issue, or failure while using FillForge, reach out to <b><a href="mailto:alibin.hussain@jumbotail.com" style="color:var(--orange);text-decoration:none">alibin.hussain@jumbotail.com</a></b></p>
+    </div>
   </div>
 
 <!-- Coming Soon Modal -->
@@ -715,6 +720,40 @@ svg{display:block}
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeConfig()">Cancel</button>
       <button class="btn-save" onclick="saveConfig()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- What's New Modal -->
+<div class="cs-modal-bg" id="whatsnew-modal" onclick="if(event.target===this)closeWhatsNew()">
+  <div class="cs-modal" style="width:480px;text-align:left">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:32px">🚀</span>
+      <div>
+        <div class="cs-badge" style="margin-bottom:4px">New Release</div>
+        <div class="cs-title" style="margin-bottom:0">FillForge v0.7.1</div>
+      </div>
+    </div>
+    <div class="cs-sub" style="text-align:left;margin-bottom:16px">
+      <b>Apparel &amp; Fashion is now live</b> — the third catalog automation module, joining Footwear and Consumer Electronics.
+    </div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <span style="color:var(--success);font-weight:700">✓</span>
+        <span style="font-size:13px;color:var(--text)">32 Product Verticals across TopWears &amp; InnerWears — Shirts, T-Shirts, Kurtas, Jackets, Sweaters, Bras, Blouses &amp; more</span>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <span style="color:var(--success);font-weight:700">✓</span>
+        <span style="font-size:13px;color:var(--text)">98 Product Verticals now supported portal-wide (46 Footwear · 20 CE · 32 Apparel &amp; Fashion)</span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <span style="color:var(--success);font-weight:700">✓</span>
+        <span style="font-size:13px;color:var(--text)">Auto title formatting, brand mapping, set-detail parsing &amp; HSN/GST — same one-click flow as Footwear &amp; CE</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn-cancel" onclick="closeWhatsNew()">Dismiss</button>
+      <button class="cs-btn" onclick="closeWhatsNew();switchView('help');">View Full Documentation</button>
     </div>
   </div>
 </div>
@@ -1528,6 +1567,30 @@ document.getElementById('ap-cfg-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('ap-cfg-modal')) closeAPConfig();
 });
 /* ═══════════════════════════════════════════════════════════════
+   WHAT'S NEW POPUP
+   Shows on EVERY load (after loading screen finishes) for the first
+   7 days after this version's release date below. After that window
+   passes, it stops showing automatically — no per-user dismissal
+   tracking, so it reappears each session until the window ends.
+   ═══════════════════════════════════════════════════════════════ */
+const WHATSNEW_RELEASE_DATE = new Date('2026-07-28T00:00:00Z'); // set to actual release date
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function shouldShowWhatsNew() {
+  return (Date.now() - WHATSNEW_RELEASE_DATE.getTime()) <= SEVEN_DAYS_MS;
+}
+
+function closeWhatsNew() {
+  document.getElementById('whatsnew-modal').classList.remove('open');
+}
+
+function maybeShowWhatsNew() {
+  if (shouldShowWhatsNew()) {
+    document.getElementById('whatsnew-modal').classList.add('open');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    LOADING SCREEN
    ═══════════════════════════════════════════════════════════════ */
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
@@ -1576,7 +1639,11 @@ document.getElementById('view-create').style.display = 'grid';
 
 loadSubtypes();
 loadTplSubtypes();
-document.addEventListener('DOMContentLoaded', () => setTimeout(initLoadingScreen, 100));
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initLoadingScreen, 100);
+  // Show What's New slightly after the loading screen so they don't stack
+  setTimeout(maybeShowWhatsNew, shouldShowLoading() ? LOADING_TIME + 900 : 500);
+});
 </script>
 </body>
 </html>

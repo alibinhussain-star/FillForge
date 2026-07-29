@@ -5,5 +5,11 @@
       "maxDuration": 60,
       "excludeFiles": "{tests/**,**/*.test.py,**/test_*.py,fixtures/**}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily_report",
+      "schedule": "30 16 * * *"
+    }
+  ]
 }

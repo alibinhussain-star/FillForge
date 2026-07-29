@@ -17,6 +17,7 @@ import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zip
 from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
+from zoneinfo import ZoneInfo
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
@@ -1945,6 +1946,168 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 # IN-MEMORY FILE STORAGE
 # ═══════════════════════════════════════════════════════════════
 FILE_STORE = {}
+
+# ═══════════════════════════════════════════════════════════════
+# DAILY ACTIVITY REPORT (emailed via the same FillForge SMTP mailbox)
+# Triggered externally by Vercel Cron hitting /api/cron/daily_report
+# ═══════════════════════════════════════════════════════════════
+
+REPORT_TO_EMAIL = os.environ.get('REPORT_TO_EMAIL', 'alibin.hussain@jumbotai.com')
+CRON_SECRET     = os.environ.get('CRON_SECRET', '')
+
+CATEGORY_ACTION_MAP = {
+    'fw_catalog_generated': 'Footwear',
+    'ce_catalog_generated': 'Consumer Electronics',
+    'ap_catalog_generated': 'Apparel & Fashion',
+}
+
+def send_email_smtp(to_email, subject, html_content, from_email=None):
+    """Send an email using the same SMTP setup already used for OTPs."""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = from_email or SMTP_USER
+        msg['To']      = to_email
+        msg.attach(MIMEText(html_content, 'html'))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            s.starttls()
+            s.login(SMTP_USER, SMTP_PASSWORD)
+            s.sendmail(SMTP_USER, to_email, msg.as_string())
+        return True, 'sent'
+    except Exception as e:
+        return False, str(e)
+
+
+def _parse_log_details(details):
+    """Extract subtypes list and filled count from a details string like:
+    "subtypes=['Sneakers', 'Sandals'] filled=12 skipped=2" """
+    subtypes, filled = [], 0
+    m_sub = re.search(r"subtypes=\[(.*?)\]", details or '')
+    if m_sub:
+        subtypes = [s.strip().strip("'\"") for s in m_sub.group(1).split(',') if s.strip()]
+    m_fill = re.search(r"filled=(\d+)", details or '')
+    if m_fill:
+        filled = int(m_fill.group(1))
+    return subtypes, filled
+
+
+def build_daily_report_data():
+    """Pull last-24h activity from activity_logs and structure it for the report."""
+    if not DATABASE_URL:
+        return None, 'DATABASE_URL not configured'
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute('''
+            SELECT ts, email, action, details FROM activity_logs
+            WHERE ts >= NOW() - INTERVAL '24 hours'
+            ORDER BY ts DESC
+        ''')
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        return None, str(e)
+
+    logins = []
+    generations = []
+
+    for r in rows:
+        email  = r['email']
+        action = r['action']
+        ts     = str(r['ts'])
+        if action == 'login_success':
+            logins.append({'email': email, 'ts': ts})
+        elif action in CATEGORY_ACTION_MAP:
+            subtypes, filled = _parse_log_details(r['details'])
+            generations.append({
+                'email': email, 'ts': ts,
+                'category': CATEGORY_ACTION_MAP[action],
+                'pvs': subtypes, 'filled': filled,
+            })
+
+    unique_users = sorted(set(l['email'] for l in logins))
+    return {
+        'logins': logins,
+        'unique_user_count': len(unique_users),
+        'unique_users': unique_users,
+        'generations': generations,
+    }, None
+
+
+def build_daily_report_html(data):
+    login_rows = ''.join(
+        f"<tr><td style='padding:6px 10px;border:1px solid #eee;'>{l['ts']}</td>"
+        f"<td style='padding:6px 10px;border:1px solid #eee;'>{l['email']}</td></tr>"
+        for l in data['logins']
+    ) or "<tr><td colspan='2' style='padding:6px 10px;border:1px solid #eee;color:#888;'>No logins in the last 24 hours</td></tr>"
+
+    gen_rows = ''.join(
+        f"<tr><td style='padding:6px 10px;border:1px solid #eee;'>{g['ts']}</td>"
+        f"<td style='padding:6px 10px;border:1px solid #eee;'>{g['email']}</td>"
+        f"<td style='padding:6px 10px;border:1px solid #eee;'>{g['category']}</td>"
+        f"<td style='padding:6px 10px;border:1px solid #eee;'>{', '.join(g['pvs']) or '-'}</td>"
+        f"<td style='padding:6px 10px;border:1px solid #eee;text-align:center;'>{g['filled']}</td></tr>"
+        for g in data['generations']
+    ) or "<tr><td colspan='5' style='padding:6px 10px;border:1px solid #eee;color:#888;'>No catalogs generated in the last 24 hours</td></tr>"
+
+    today_str = datetime.now(ZoneInfo('Asia/Kolkata')).strftime('%d %b %Y')
+
+    return f"""
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;padding:24px;">
+      <h2 style="color:#E87722;">FillForge — Daily Activity Report ({today_str})</h2>
+      <p><b>Unique users logged in (24h):</b> {data['unique_user_count']}</p>
+
+      <h3>Logins</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;">
+        <tr style="background:#f5f5f5;">
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">Time</th>
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">User Email</th>
+        </tr>
+        {login_rows}
+      </table>
+
+      <h3 style="margin-top:24px;">Catalog Generations</h3>
+      <table style="border-collapse:collapse;width:100%;font-size:13px;">
+        <tr style="background:#f5f5f5;">
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">Time</th>
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">User Email</th>
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">Category</th>
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:left;">PV(s) Generated</th>
+          <th style="padding:6px 10px;border:1px solid #eee;text-align:center;">Rows Filled</th>
+        </tr>
+        {gen_rows}
+      </table>
+      <p style="color:#999;font-size:12px;margin-top:20px;">Automated report from FillForge.</p>
+    </div>
+    """
+
+
+def send_daily_report():
+    data, err = build_daily_report_data()
+    if err:
+        print(f'daily_report error: {err}')
+        send_email_smtp(REPORT_TO_EMAIL, 'FillForge Daily Report — ERROR',
+                         f'<p>Could not generate report: {err}</p>')
+        return False, err
+    html = build_daily_report_html(data)
+    ok, msg = send_email_smtp(REPORT_TO_EMAIL, 'FillForge — Daily Activity Report', html)
+    write_log('system', 'daily_report_sent' if ok else 'daily_report_failed', msg)
+    print(f'daily report send: {ok} — {msg}')
+    return ok, msg
+
+
+@app.route('/api/cron/daily_report', methods=['GET', 'POST'])
+def cron_daily_report():
+    """Called by Vercel Cron once a day. Protected by a shared secret,
+    since cron calls have no browser session/cookie."""
+    auth_header = request.headers.get('Authorization', '')
+    if not CRON_SECRET or auth_header != f'Bearer {CRON_SECRET}':
+        return jsonify({'error': 'Unauthorized'}), 401
+    ok, msg = send_daily_report()
+    if ok:
+        return jsonify({'status': 'ok', 'message': 'Daily report sent'})
+    return jsonify({'status': 'error', 'message': msg}), 500
 
 
 # ═══════════════════════════════════════════════════════════════

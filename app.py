@@ -1952,7 +1952,7 @@ FILE_STORE = {}
 # Triggered externally by Vercel Cron hitting /api/cron/daily_report
 # ═══════════════════════════════════════════════════════════════
 
-REPORT_TO_EMAIL = os.environ.get('REPORT_TO_EMAIL', 'alibin.hussain@jumbotai.com')
+REPORT_TO_EMAIL = os.environ.get('REPORT_TO_EMAIL', 'alibin.hussain@jumbotail.com')
 CRON_SECRET     = os.environ.get('CRON_SECRET', '')
 
 CATEGORY_ACTION_MAP = {

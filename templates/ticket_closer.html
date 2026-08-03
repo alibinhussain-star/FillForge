@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ticket Closer — FillForge</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7fb;
+    --panel:#ffffff;
+    --panel2:#f6f7fb;
+    --border:#e3e6ef;
+    --text:#1a1d23;
+    --muted:#6b7280;
+    --accent:#1a2540;
+    --accent2:#059669;
+    --danger:#dc2626;
+    --warn:#d97706;
+    --orange:#f47b20;
+    --radius:8px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:28px 24px 80px;
+  }
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:20px;font-weight:700;margin:0 0 4px;color:var(--accent);letter-spacing:-.3px;}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 26px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:16px;
+    box-shadow:0 1px 2px rgba(26,37,64,.03);
+  }
+  .panel h2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 14px;font-weight:600;}
+
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .field{flex:1;min-width:180px;display:flex;flex-direction:column;gap:6px;}
+  label{font-size:12px;color:var(--muted);}
+  input[type=text],input[type=password]{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 10px;
+    border-radius:8px;
+    font-size:13px;
+    outline:none;
+  }
+  input:focus{border-color:var(--accent);}
+
+  .dropzone{
+    border:2px dashed var(--border);
+    border-radius:var(--radius);
+    padding:40px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+    color:var(--muted);
+  }
+  .dropzone.drag{border-color:var(--orange);background:#fff4ea;color:var(--text);}
+  .dropzone strong{color:var(--text);}
+  .dropzone input{display:none;}
+
+  .fileinfo{display:none;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-top:12px;font-size:13px;}
+  .fileinfo.show{display:flex;}
+  .fileinfo .name{color:var(--text);}
+  .fileinfo .count{color:var(--accent2);}
+  .clearbtn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;}
+  .clearbtn:hover{color:var(--danger);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:14px;}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  th{background:#f8fafc;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  td.id{color:var(--orange);font-weight:600;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.resolved{background:#ecfdf5;color:var(--accent2);}
+  .badge.closed{background:#fef2f2;color:var(--danger);}
+
+  .optionsrow{display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;font-size:13px;}
+  .optionsrow label{display:flex;align-items:center;gap:7px;color:var(--text);font-size:13px;cursor:pointer;}
+
+  .actions{display:flex;gap:10px;align-items:center;margin-top:18px;}
+  button.primary{
+    background:var(--accent);
+    color:#fff;border:none;
+    padding:11px 20px;border-radius:8px;
+    font-size:13.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;
+    transition:background .15s;
+  }
+  button.primary:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary:hover:not(:disabled){background:#2a3554;}
+  button.primary.cta{background:var(--orange);}
+  button.primary.cta:hover:not(:disabled){background:#ff6b1a;}
+
+  .progress-wrap{margin-top:14px;display:none;}
+  .progress-wrap.show{display:block;}
+  .bar-bg{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+  .bar{height:100%;width:0%;background:var(--orange);transition:width .2s;}
+  .progress-label{font-size:12px;color:var(--muted);margin-top:6px;}
+
+  .log{
+    margin-top:16px;
+    max-height:320px;
+    overflow-y:auto;
+    background:#1a2540;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:12px;
+    line-height:1.6;
+    display:none;
+    color:#e7e9ee;
+  }
+  .log.show{display:block;}
+  .log .ok{color:#6ee7b7;}
+  .log .err{color:#fca5a5;}
+  .log .skip{color:#fde68a;}
+  .log .info{color:#9ca3af;}
+
+  .summary{display:none;margin-top:14px;gap:10px;}
+  .summary.show{display:flex;}
+  .stat{flex:1;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+  .stat .num{font-size:20px;font-weight:700;}
+  .stat .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;margin-top:2px;}
+  .stat.ok .num{color:var(--accent2);}
+  .stat.skip .num{color:var(--warn);}
+  .stat.err .num{color:var(--danger);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ticket Closer</h1>
+  <p class="sub">Freshdesk bulk ticket updater — solvezy.freshdesk.com — drag in the ticket sheet, review, then run.</p>
+
+  <div class="panel">
+    <h2>Connection</h2>
+    <div class="row">
+      <div class="field">
+        <label>Freshdesk Domain</label>
+        <input type="text" id="domain" value="solvezy.freshdesk.com">
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="apikey" placeholder="Paste agent API key">
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="primary" id="testBtn" style="width:fit-content;">Verify Agent</button>
+      </div>
+    </div>
+    <div id="agentInfo" style="margin-top:10px;font-size:13px;color:var(--muted);"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Ticket File</h2>
+    <div class="dropzone" id="dropzone">
+      <div>Drag &amp; drop your Excel file here, or <strong>click to browse</strong></div>
+      <div style="font-size:11px;margin-top:6px;">Expected columns: Ticket ID · Status · Product Category</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </div>
+    <div class="fileinfo" id="fileinfo">
+      <div><span class="name" id="fileName"></span> — <span class="count" id="rowCount"></span></div>
+      <button class="clearbtn" id="clearFile">Remove</button>
+    </div>
+    <div id="previewWrap"></div>
+
+    <div class="optionsrow">
+      <label><input type="checkbox" id="skipMatched" checked> Skip tickets already in target status</label>
+      <label><input type="checkbox" id="sendEmails" checked> Send reply emails</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Run</h2>
+    <div class="actions">
+      <button class="primary cta" id="runBtn" disabled>Process Tickets</button>
+      <span id="runHint" style="font-size:12px;color:var(--muted);">Verify agent + load a file first</span>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="bar-bg"><div class="bar" id="bar"></div></div>
+      <div class="progress-label" id="progressLabel"></div>
+    </div>
+
+    <div class="summary" id="summary">
+      <div class="stat ok"><div class="num" id="sOk">0</div><div class="lbl">Updated</div></div>
+      <div class="stat skip"><div class="num" id="sSkip">0</div><div class="lbl">Skipped</div></div>
+      <div class="stat err"><div class="num" id="sErr">0</div><div class="lbl">Failed</div></div>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+const CF_CUSTOMER_TYPE = "cf_customer_type";
+const CF_PRODUCT_CATEGORY = "cf_product_category";
+const CF_CALLER_TYPE = "cf_caller_type";
+
+let rows = [];
+let agentId = null;
+
+const $ = id => document.getElementById(id);
+
+function authHeader(){
+  const key = $('apikey').value.trim();
+  return "Basic " + btoa(key + ":X");
+}
+function baseUrl(){
+  return "https://" + $('domain').value.trim();
+}
+
+// ---------- Email templates ----------
+function resolvedEmail(ticketId){
+  return `Dear Seller,<br><br>
+We are pleased to inform you that your support request has been successfully resolved.<br><br>
+<b>Ticket ID: #${ticketId}</b><br><br>
+Our team has thoroughly reviewed your query and taken the necessary steps to address it. Your product listing / catalogue upload has been processed and is now live on the platform.<br><br>
+Should you have any further questions, require additional assistance, or wish to raise a new request, please do not hesitate to reach out to us. We are always happy to help.<br><br>
+Thank you for your patience and for being a valued partner on our platform.<br><br>
+Warm regards,<br>
+<b>Seller Support Team</b><br>
+Solvezy`;
+}
+function closedEmail(ticketId){
+  return `Dear Seller,<br><br>
+We regret to inform you that your support ticket has been closed due to the absence of a response following multiple follow-up attempts on our end.<br><br>
+<b>Ticket ID: #${ticketId}</b><br><br>
+Despite our repeated efforts to reach out and assist you, we were unable to receive the necessary information or confirmation required to proceed further. As a result, we have had to close this ticket in accordance with our support policy.<br><br>
+If you still require assistance regarding this matter, we encourage you to raise a new support request at your earliest convenience. Our team will be happy to assist you once again.<br><br>
+We apologize for any inconvenience this may have caused and appreciate your understanding.<br><br>
+Warm regards,<br>
+<b>Seller Support Team</b><br>
+Solvezy`;
+}
+
+// ---------- Verify agent ----------
+$('testBtn').onclick = async () => {
+  const info = $('agentInfo');
+  info.textContent = "Checking...";
+  try{
+    const r = await fetch(`${baseUrl()}/api/v2/agents/me`, {
+      headers: { "Authorization": authHeader() }
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    agentId = data.id;
+    const name = data.contact?.name || "Unknown";
+    info.innerHTML = `✔ Verified — <b>${name}</b> (Agent ID: ${agentId})`;
+    info.style.color = "var(--accent2)";
+    updateRunState();
+  }catch(e){
+    agentId = null;
+    info.textContent = "✘ Could not verify — check domain/API key. " + e.message;
+    info.style.color = "var(--danger)";
+    updateRunState();
+  }
+};
+
+// ---------- Drag & drop / file parsing ----------
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+
+dropzone.onclick = () => fileInput.click();
+['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
+  e.preventDefault(); dropzone.classList.add('drag');
+}));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+}));
+dropzone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+fileInput.addEventListener('change', e => {
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+$('clearFile').onclick = () => {
+  rows = [];
+  fileInput.value = "";
+  $('fileinfo').classList.remove('show');
+  $('previewWrap').innerHTML = "";
+  updateRunState();
+};
+
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const wb = XLSX.read(e.target.result, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    rows = data.slice(1)
+      .filter(r => r[0])
+      .map(r => ({
+        ticketId: String(r[0]).trim(),
+        status: String(r[1] || "").trim(),
+        category: String(r[2] || "").trim()
+      }));
+
+    $('fileName').textContent = file.name;
+    $('rowCount').textContent = `${rows.length} ticket${rows.length !== 1 ? 's' : ''}`;
+    $('fileinfo').classList.add('show');
+    renderPreview();
+    updateRunState();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderPreview(){
+  const max = 8;
+  let html = `<table><thead><tr><th>Ticket ID</th><th>Status (input)</th><th>Category</th><th>Target</th></tr></thead><tbody>`;
+  rows.slice(0, max).forEach(r => {
+    const isResolved = r.status.toLowerCase() === "uploaded successfully";
+    const badge = isResolved
+      ? `<span class="badge resolved">Resolved</span>`
+      : `<span class="badge closed">Closed</span>`;
+    html += `<tr><td class="id">#${r.ticketId}</td><td>${r.status || "—"}</td><td>${r.category || "—"}</td><td>${badge}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  if(rows.length > max){
+    html += `<div style="font-size:12px;color:var(--muted);margin-top:8px;">+ ${rows.length - max} more not shown</div>`;
+  }
+  $('previewWrap').innerHTML = html;
+}
+
+function updateRunState(){
+  const ready = agentId && rows.length > 0;
+  $('runBtn').disabled = !ready;
+  $('runHint').textContent = ready
+    ? `Ready — ${rows.length} ticket(s) will be processed`
+    : (!agentId ? "Verify agent first" : "Load a file first");
+}
+
+// ---------- Freshdesk calls ----------
+async function getTicket(id){
+  const r = await fetch(`${baseUrl()}/api/v2/tickets/${id}`, {
+    headers: { "Authorization": authHeader() }
+  });
+  if(!r.ok) throw new Error(`Fetch failed (HTTP ${r.status})`);
+  return r.json();
+}
+async function updateTicket(id, payload){
+  const r = await fetch(`${baseUrl()}/api/v2/tickets/${id}`, {
+    method: "PUT",
+    headers: { "Authorization": authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok){
+    const t = await r.text();
+    throw new Error(`Update failed (HTTP ${r.status}): ${t.slice(0,200)}`);
+  }
+  return r.json();
+}
+async function replyTicket(id, body){
+  const r = await fetch(`${baseUrl()}/api/v2/tickets/${id}/reply`, {
+    method: "POST",
+    headers: { "Authorization": authHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({ body })
+  });
+  if(!r.ok){
+    const t = await r.text();
+    throw new Error(`Reply failed (HTTP ${r.status}): ${t.slice(0,200)}`);
+  }
+  return r.json();
+}
+
+function log(msg, cls=""){
+  const el = $('log');
+  el.classList.add('show');
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ---------- Run ----------
+$('runBtn').onclick = async () => {
+  $('runBtn').disabled = true;
+  $('log').innerHTML = "";
+  $('progressWrap').classList.add('show');
+  $('summary').classList.add('show');
+
+  const skipMatched = $('skipMatched').checked;
+  const sendEmails = $('sendEmails').checked;
+
+  let ok = 0, skip = 0, err = 0;
+  const total = rows.length;
+
+  for(let i = 0; i < total; i++){
+    const row = rows[i];
+    const ticketId = row.ticketId;
+    const isResolvedTarget = row.status.toLowerCase() === "uploaded successfully";
+    const targetStatus = isResolvedTarget ? 4 : 5; // 4=Resolved, 5=Closed
+    const label = isResolvedTarget ? "Resolved" : "Closed";
+
+    $('progressLabel').textContent = `Processing #${ticketId} (${i+1}/${total})`;
+    $('bar').style.width = `${Math.round(((i+1)/total)*100)}%`;
+
+    try{
+      if(skipMatched){
+        const current = await getTicket(ticketId);
+        if(current.status === targetStatus){
+          log(`⏭ #${ticketId} — already ${label}, skipped`, "skip");
+          skip++;
+          continue;
+        }
+      }
+
+      await updateTicket(ticketId, {
+        status: targetStatus,
+        type: "New Request",
+        responder_id: agentId,
+        custom_fields: {
+          [CF_CUSTOMER_TYPE]: "Seller",
+          [CF_PRODUCT_CATEGORY]: row.category,
+          [CF_CALLER_TYPE]: "SO"
+        }
+      });
+
+      if(sendEmails){
+        const body = isResolvedTarget ? resolvedEmail(ticketId) : closedEmail(ticketId);
+        await replyTicket(ticketId, body);
+      }
+
+      log(`✔ #${ticketId} → ${label}${sendEmails ? " + email sent" : ""}`, "ok");
+      ok++;
+    }catch(e){
+      log(`✘ #${ticketId} — ${e.message}`, "err");
+      err++;
+    }
+
+    $('sOk').textContent = ok;
+    $('sSkip').textContent = skip;
+    $('sErr').textContent = err;
+  }
+
+  $('progressLabel').textContent = `Done — ${ok} updated, ${skip} skipped, ${err} failed`;
+  $('runBtn').disabled = false;
+};
+</script>
+</body>
+</html>

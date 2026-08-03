@@ -2333,6 +2333,15 @@ def index():
             import traceback
             return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
 
+@app.route('/tools/ticket-closer')
+@require_auth
+def ticket_closer():
+    return render_template('ticket_closer.html')
+
+@app.route('/subtypes')
+def get_subtypes():
+    return jsonify({'subtypes': PV_LIST})
+
 @app.route('/subtypes')
 def get_subtypes():
     return jsonify({'subtypes': PV_LIST})

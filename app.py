@@ -78,13 +78,14 @@ AP_SUBTYPE_HEADER_ROW = {}
 AP_SUBTYPE_MAP = {}
 AP_PV_LIST = []
 AP_PV_SUBCATEGORY = {}   # PV name -> title Sub Category (e.g. "TopWears", "InnerWears")
+DROPDOWN_MAP = {}
 _initialized = False
 
 # ── Lazy initialization ──────────────────────────────────────
 def _init_app():
     global _initialized, SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
     global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
-    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY
+    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY, DROPDOWN_MAP
     if _initialized:
         return
     _initialized = True
@@ -126,10 +127,10 @@ def _init_app():
         AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
 
     try:
-        AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
+        DROPDOWN_MAP = _load_dropdown_map()
     except Exception as e:
-        print(f"Warning: Could not load AP_PV_LIST: {e}")
-        AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
+        print(f"Warning: Could not load DROPDOWN_MAP: {e}")
+        DROPDOWN_MAP = {}
 
 @app.before_request
 def before_request():
@@ -237,7 +238,69 @@ def get_template_wb_for_subtype(subtype):
     ws_new.title = 'PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
     return wb_new, headers
+
+from openpyxl.worksheet.datavalidation import DataValidation
+
+DROPDOWN_REF_PATH = os.path.join(os.path.dirname(__file__), 'Dropdown_Reference.xlsx')
+
+def _load_dropdown_map(path=DROPDOWN_REF_PATH):
+    try:
+        if not os.path.exists(path):
+            print(f"Warning: dropdown reference file not found at {path}")
+            return {}
+        wb = load_workbook(path, data_only=True)
+        ws = wb[wb.sheetnames[0]]
+        dd_map = {}
+        for r in range(1, ws.max_row + 1):
+            key  = ws.cell(r, 1).value
+            vals = ws.cell(r, 2).value
+            if not key or not vals:
+                continue
+            key_str = str(key).strip()
+            if key_str.upper() in ('ATTRIBUTE NAME', 'ATTRIBUTEKEY', 'ATTRIBUTE_NAME'):
+                continue
+            key_norm = key_str.upper()
+            values = [v.strip() for v in str(vals).split(',') if v.strip()]
+            if values:
+                dd_map[key_norm] = values
+        return dd_map
+    except Exception as e:
+        print(f"Warning: could not load dropdown reference from {path}: {e}")
+        return {}
+
+def apply_dropdown_validations(ws, headers, dd_map, max_row=1000):
+    if not dd_map:
+        return
+    wb = ws.parent
+    helper_name = '_DropdownLists'
+    helper_ws = wb[helper_name] if helper_name in wb.sheetnames else wb.create_sheet(helper_name)
+    helper_ws.sheet_state = 'hidden'
+    next_col = helper_ws.max_column + 1 if helper_ws.max_row > 1 else 1
+
+    for ci, h in enumerate(headers, 1):
+        if not h:
+            continue
+        key_norm = str(h).replace('*', '').strip().upper()
+        values = dd_map.get(key_norm)
+        if not values:
+            continue
+
+        inline = ','.join(values)
+        if len(inline) <= 255:
+            dv = DataValidation(type='list', formula1=f'"{inline}"', allow_blank=True)
+        else:
+            col_letter = helper_ws.cell(1, next_col).column_letter
+            for i, v in enumerate(values, start=1):
+                helper_ws.cell(i, next_col).value = v
+            ref = f"'{helper_name}'!${col_letter}$1:${col_letter}${len(values)}"
+            next_col += 1
+            dv = DataValidation(type='list', formula1=ref, allow_blank=True)
+
+        target_col = ws.cell(1, ci).column_letter
+        dv.add(f'{target_col}2:{target_col}{max_row}')
+        ws.add_data_validation(dv)
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "brands":              {},
@@ -1189,6 +1252,7 @@ def get_ce_template_wb_for_subtype(subtype):
     ws_new.title = 'CE - PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
     return wb_new, headers
 
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
@@ -1655,6 +1719,7 @@ def get_ap_template_wb_for_subtype(subtype):
     ws_new.title = 'AF - PV Templates'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
     return wb_new, headers
 
 def _ap_join(parts, sep=' '):

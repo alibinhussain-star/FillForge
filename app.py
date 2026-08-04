@@ -231,14 +231,13 @@ def get_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load template for {subtype}: {e}")
-        headers = []
+    headers = apply_header_renames(headers)
     wb_new       = Workbook()
     ws_new       = wb_new.active
     ws_new.title = 'PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
     return wb_new, headers
-
 # ── Default config ─────────────────────────────────────────────
 DEFAULT_CONFIG = {
     "brands":              {},
@@ -505,7 +504,17 @@ def get_brand_info(drow, col_map, brands_dict):
                 return b_name, b_id
     return fallback_brand, fallback_id
 
+# Header text to rename in the OUTPUT file only.
+# Template files keep their original header text; only the generated
+# output workbook shows the new name. Add more entries here any time
+# an output column name needs to change, without touching template files.
+HEADER_RENAME_MAP = {
+    'PACKAGING_TYPE *': 'PACKAGE_TYPE *',
+}
 
+def apply_header_renames(headers):
+    return [HEADER_RENAME_MAP.get(h, h) if h else h for h in headers]
+    
 # ── Column hints ────────────────────────────────────────────────
 DUMP_COL_HINTS = {
     'sku':            ['Seller SKU ID','Seller SKU_ID','ChildSKU *','ChildSKU','SKU'],
@@ -1174,7 +1183,7 @@ def get_ce_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load CE template for {subtype}: {e}")
-        headers = []
+        headers = apply_header_renames(headers)
     wb_new       = Workbook()
     ws_new       = wb_new.active
     ws_new.title = 'CE - PV Template'
@@ -1640,7 +1649,7 @@ def get_ap_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load AP template for {subtype}: {e}")
-        headers = []
+        headers = apply_header_renames(headers)
     wb_new = Workbook()
     ws_new = wb_new.active
     ws_new.title = 'AF - PV Templates'
@@ -1934,8 +1943,11 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         }
         
         for col_name, val in row_data.items():
-            if col_name in tcol and val is not None and str(val) not in ('None', ''):
-                ws.cell(row=row_idx, column=tcol[col_name]).value = val
+            if val is None or str(val) in ('None', ''):
+                continue
+            target = col_name if col_name in tcol else HEADER_RENAME_MAP.get(col_name)
+            if target and target in tcol:
+                ws.cell(row=row_idx, column=tcol[target]).value = val
         
         filled.append({'sku': sku_raw, 'article': article})
     

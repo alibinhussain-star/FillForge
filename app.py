@@ -3389,6 +3389,32 @@ def debug_config():
         'ce_config':             ce_cfg,
     })
 
+@app.route('/debug_ap')
+def debug_ap():
+    """Diagnose why Apparel & Fashion Product Verticals might be loading empty."""
+    info = {
+        'ap_template_path':      AP_TEMPLATE_PATH,
+        'ap_template_exists':    os.path.exists(AP_TEMPLATE_PATH),
+        'ap_pv_list_count':      len(AP_PV_LIST),
+        'ap_pv_list_sample':     AP_PV_LIST[:10],
+        'ap_subtype_map_count':  len(AP_SUBTYPE_MAP),
+    }
+    if os.path.exists(AP_TEMPLATE_PATH):
+        try:
+            wb = load_workbook(AP_TEMPLATE_PATH)
+            info['sheet_names'] = wb.sheetnames
+            info['has_pv_list_sheet']       = 'Product Vertical List' in wb.sheetnames
+            info['has_af_templates_sheet']  = 'AF - PV Templates' in wb.sheetnames
+            if 'Product Vertical List' in wb.sheetnames:
+                ws = wb['Product Vertical List']
+                info['pv_sheet_dimensions'] = ws.dimensions
+                info['pv_sheet_row1_headers'] = [
+                    ws.cell(1, c).value for c in range(1, min(ws.max_column, 10) + 1)
+                ]
+        except Exception as e:
+            info['workbook_read_error'] = str(e)
+    return jsonify(info)
+
 
 if __name__ == '__main__':
     app.run(debug=False, port=5050)

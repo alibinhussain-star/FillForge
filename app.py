@@ -894,7 +894,7 @@ CE_DUMP_COL_HINTS = {
     'os_version':     ['Operating System','OPERATING_SYSTEM_OS *'],
     'front_camera':   ['Front Camera','FRONT_CAMERA_RESOLUTION *'],
     'back_camera':    ['Back Camera','PRIMARY_CAMERA_RESOLUTION *'],
-    'screen_size':    ['Screen Size','DISPLAY_SIZE *'],
+    'screen_size':    ['Screen Size','Display Size','DISPLAY_SIZE *'],
     'display_type':   ['Display Type','DISPLAY_TYPE *'],
     'processor_core': ['Processor Core','NUMBER_OF_PROCESSOR_CORES *'],
     'network_support':['Network Support','Network'],
@@ -924,7 +924,7 @@ CE_DUMP_COL_HINTS = {
     'port_type':              ['Port type','Port Type','PORT_TYPE *','PORT_TYPE'],
     'number_of_ports':        ['Number of Ports','No of Ports','NO_OF_ADAPTER_PORTS *'],
     'memory_card_type':       ['Memory Card Type','MEMORY_CARD_TYPE *'],
-    'storage_capacity':       ['Storage Capacity','STORAGE_CAPACITY *','Memory Capacity'],
+    'storage_capacity':       ['Storage Capacity','Internal Storage','STORAGE_CAPACITY *','Memory Capacity'],
     'speed_class':            ['Speed Class','SPEED_CLASS *','Class'],
     'holder_type':       ['Holder Type','HOLDER_TYPE *','Type'],
     'product_condition': ['Product Condition','PRODUCT_CONDITION *','Condition'],
@@ -1007,6 +1007,16 @@ def _ce_cond(cond):
     c = str(cond).strip() if cond else ''
     return f'({c})' if c and c not in ('nan','None','NaN') else ''
 
+def _ce_screen_size_for_title(val):
+    """'6.77 inches' -> '6.77' — strips units, keeps the numeric value only.
+    Used for the title's X" Display formatting. DISPLAY_SIZE * output keeps
+    the raw input value untouched."""
+    s = str(val).strip()
+    if not s:
+        return ''
+    m = re.search(r'(\d+(?:\.\d+)?)', s)
+    return m.group(1) if m else s
+
 def _ce_compose(core_tokens, tail_tokens):
     """Compose 'core, tail1, tail2' — drops empty tails and the leading comma."""
     core = _ce_join(core_tokens)
@@ -1018,9 +1028,9 @@ def title_feature_phones(f, internal=False):
     color_cond  = _ce_join([f.get('color'), _ce_cond(f.get('condition'))], ' ')
     subtype_str = str(f.get('subtype', '')).strip()
     if subtype_str.endswith('Phones'):
-        subtype_str = subtype_str[:-1]  # "Feature Phones" → "Feature Phone"
+        subtype_str = subtype_str[:-1]
     return _ce_compose(
-        [f['brand'], f['model'], f'{f["screen_size"]}" Display' if f.get('screen_size') else '', subtype_str],
+        [f['brand'], f['model'], f'{f["screen_size_title"]}" Display' if f.get('screen_size_title') else '', subtype_str],
         [color_cond],
     )
 
@@ -1137,7 +1147,7 @@ def title_power_bank(f, internal=False):
 def title_smart_watches(f, internal=False):
     return _ce_compose(
         [f['brand'], f['model'], f.get('condition'),
-         f'{f["screen_size"]}" Display' if f.get('screen_size') else '', f['subtype']],
+         f'{f["screen_size_title"]}" Display' if f.get('screen_size_title') else '', f['subtype']],
         [f['color']],
     )
 
@@ -1360,6 +1370,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'storage':                storage,
             'back_camera':            back_cam,
             'screen_size':            screen_size,
+            'screen_size_title':      _ce_screen_size_for_title(screen_size),
             'battery':                battery,
             'output_voltage':         safe(drow.get(col_map.get('output_voltage',''), '')),
             'adapter_connector_type': safe(drow.get(col_map.get('adapter_connector_type',''), '')),

@@ -287,17 +287,23 @@ svg{display:block}
           <div id="load-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35 0%,#ff8c5a 100%);border-radius:5px;transition:width 0.1s linear;"></div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:28px;max-width:600px;margin-left:auto;margin-right:auto;">
-        <div style="background:white;border-radius:14px;padding:16px 14px;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
-          <span style="font-size:26px;display:block;margin-bottom:6px;">👟</span>
-          <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Footwear</div>
-          <div style="font-size:10px;color:#8b95a5;line-height:1.4;">Turning footwear SKUs into launch-ready marketplace listings.</div>
-        </div>
-        <div style="background:white;border-radius:14px;padding:16px 14px;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
-          <span style="font-size:26px;display:block;margin-bottom:6px;">📱</span>
-          <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Consumer Electronics</div>
-          <div style="font-size:10px;color:#8b95a5;line-height:1.4;">Processing specs, images & variants at lightning speed.</div>
-        </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px;max-width:600px;margin-left:auto;margin-right:auto;">
+  <div style="background:white;border-radius:14px;padding:16px 14px;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+    <span style="font-size:26px;display:block;margin-bottom:6px;">👟</span>
+    <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Footwear</div>
+    <div style="font-size:10px;color:#8b95a5;line-height:1.4;">Turning footwear SKUs into launch-ready marketplace listings.</div>
+  </div>
+  <div style="background:white;border-radius:14px;padding:16px 14px;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+    <span style="font-size:26px;display:block;margin-bottom:6px;">📱</span>
+    <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Consumer Electronics</div>
+    <div style="font-size:10px;color:#8b95a5;line-height:1.4;">Processing specs, images & variants at lightning speed.</div>
+  </div>
+  <div style="background:white;border-radius:14px;padding:16px 14px;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+    <span style="font-size:26px;display:block;margin-bottom:6px;">👗</span>
+    <div style="font-size:12px;font-weight:700;color:#1a2332;margin-bottom:3px;">Apparel & Fashion</div>
+    <div style="font-size:10px;color:#8b95a5;line-height:1.4;">Mapping fabric, fit & sizing into ready-to-launch listings.</div>
+  </div>
+</div>
       </div>
     </div>
   </div>
@@ -1616,7 +1622,7 @@ function maybeShowWhatsNew() {
    LOADING SCREEN
    ═══════════════════════════════════════════════════════════════ */
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-const LOADING_TIME   = 28000;
+const LOADING_TIME   = 5000;
 
 function shouldShowLoading() {
   const last = localStorage.getItem('fillforge_loading_last_shown');

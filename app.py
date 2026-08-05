@@ -369,6 +369,19 @@ def safe(val, default=''):
     s = str(val).strip() if val is not None else default
     return default if s in ('nan','None','NaN') else s
 
+def parse_gst_percentage(val, default=5):
+    """Handles GST values that may come in as 18, '18', '18%', ' 18 %', '18.0%' etc."""
+    if val is None:
+        return default
+    s = str(val).strip()
+    if s in ('', 'nan', 'None', 'NaN'):
+        return default
+    s = s.replace('%', '').replace(',', '').strip()
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return default
+
 def detect_col(df, candidates):
     for c in candidates:
         if c in df.columns: return c
@@ -692,7 +705,7 @@ def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, exi
         except: sp     = ''
         try:    hsn    = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
         except: hsn    = ''
-        try:    gst    = int(float(gst))
+        try:    gst    = parse_gst_percentage(gst, default=5)
         except: gst    = 5
         try:    moq    = int(float(moq))
         except: moq    = 1
@@ -1400,8 +1413,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         except: sp  = ''
         try:    hsn = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
         except: hsn = ''
-        try:    gst = int(float(gst)) if str(gst).strip() not in ('', 'nan') else 18
-        except: gst = 18
+        try:    gst = parse_gst_percentage(gst, default=18)
         try:    moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
         except: moq = 1    
 
@@ -1904,8 +1916,7 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         except: sp = ''
         try: hsn = int(float(hsn)) if str(hsn).strip() not in ('', 'nan') else ''
         except: hsn = ''
-        try: gst = int(float(gst)) if str(gst).strip() not in ('', 'nan') else 5
-        except: gst = 5
+        try:  gst = parse_gst_percentage(gst, default=5)
         try: moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
         except: moq = 1
         try: weight = float(weight) if str(weight).strip() not in ('', 'nan') else ''

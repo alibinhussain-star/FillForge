@@ -1413,7 +1413,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         except: sp  = ''
         try:    hsn = int(float(hsn)) if str(hsn).strip()    not in ('','nan') else ''
         except: hsn = ''
-        try:    gst = parse_gst_percentage(gst, default=18)
+        gst = parse_gst_percentage(gst, default=18)
         try:    moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
         except: moq = 1    
 
@@ -1916,7 +1916,7 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         except: sp = ''
         try: hsn = int(float(hsn)) if str(hsn).strip() not in ('', 'nan') else ''
         except: hsn = ''
-        try:  gst = parse_gst_percentage(gst, default=5)
+        gst = parse_gst_percentage(gst, default=5)
         try: moq = int(float(moq)) if str(moq).strip() not in ('', 'nan') else 1
         except: moq = 1
         try: weight = float(weight) if str(weight).strip() not in ('', 'nan') else ''

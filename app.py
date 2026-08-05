@@ -585,7 +585,7 @@ def get_brand_info(drow, col_map, brands_dict):
 # output workbook shows the new name. Add more entries here any time
 # an output column name needs to change, without touching template files.
 HEADER_RENAME_MAP = {
-    'PACKAGING_TYPE *': 'PACKAGE_TYPE *',
+    'PACKAGING_TYPE *': 'PACK_TYPE *',
 }
 
 def apply_header_renames(headers):

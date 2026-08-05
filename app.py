@@ -46,21 +46,10 @@ def init_db():
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
-                token     TEXT PRIMARY KEY,
-                email     TEXT,
-                expiry    TIMESTAMP,
-                last_seen TIMESTAMP
+                token  TEXT PRIMARY KEY,
+                email  TEXT,
+                expiry TIMESTAMP
             )
-        ''')
-        cur.execute('''
-            ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP
-        ''')
-        # One-time cleanup: any session whose last_seen was backfilled by the
-        # column migration above (or never set) has no real "active" signal —
-        # treat it as stale so it doesn't falsely show up as an online user.
-        cur.execute('''
-            UPDATE sessions SET last_seen = NULL
-            WHERE last_seen IS NOT NULL AND last_seen < NOW() - INTERVAL '1 minute'
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS otps (
@@ -2331,11 +2320,8 @@ def create_session(email):
         try:
             conn = get_db()
             cur  = conn.cursor()
-            # Drop any older sessions for this email first — avoids repeated
-            # test logins piling up as separate "active" entries later.
-            cur.execute('DELETE FROM sessions WHERE email=%s', (email,))
             cur.execute(
-                'INSERT INTO sessions (token, email, expiry, last_seen) VALUES (%s, %s, %s, NOW())',
+                'INSERT INTO sessions (token, email, expiry) VALUES (%s, %s, %s)',
                 (token, email, expiry)
             )
             conn.commit()
@@ -2360,8 +2346,6 @@ def validate_session(token):
             conn.commit()
             cur.close(); conn.close()
             return None
-        cur.execute('UPDATE sessions SET last_seen = NOW() WHERE token=%s', (token,))
-        conn.commit()
         cur.close()
         conn.close()
         return row['email']
@@ -2454,26 +2438,6 @@ def auth_me():
     if email:
         return jsonify({'email': email})
     return jsonify({'error': 'Not logged in'}), 401
-
-@app.route('/auth/active_users')
-def active_users():
-    """Presence pills: who has an active FillForge session in the last 2 minutes."""
-    if not DATABASE_URL or not PSYCOPG2_AVAILABLE:
-        return jsonify({'users': []})
-    try:
-        conn = get_db()
-        cur  = conn.cursor()
-        cur.execute('''
-            SELECT DISTINCT email FROM sessions
-            WHERE last_seen >= NOW() - INTERVAL '2 minutes'
-            ORDER BY email
-        ''')
-        emails = [r['email'] for r in cur.fetchall()]
-        cur.close(); conn.close()
-        return jsonify({'users': emails})
-    except Exception as e:
-        print(f'active_users error: {e}')
-        return jsonify({'users': [], 'error': str(e)})
 
 @app.route('/')
 @require_auth
@@ -3388,32 +3352,6 @@ def debug_config():
         'footwear_config':       cfg,
         'ce_config':             ce_cfg,
     })
-
-@app.route('/debug_ap')
-def debug_ap():
-    """Diagnose why Apparel & Fashion Product Verticals might be loading empty."""
-    info = {
-        'ap_template_path':      AP_TEMPLATE_PATH,
-        'ap_template_exists':    os.path.exists(AP_TEMPLATE_PATH),
-        'ap_pv_list_count':      len(AP_PV_LIST),
-        'ap_pv_list_sample':     AP_PV_LIST[:10],
-        'ap_subtype_map_count':  len(AP_SUBTYPE_MAP),
-    }
-    if os.path.exists(AP_TEMPLATE_PATH):
-        try:
-            wb = load_workbook(AP_TEMPLATE_PATH)
-            info['sheet_names'] = wb.sheetnames
-            info['has_pv_list_sheet']       = 'Product Vertical List' in wb.sheetnames
-            info['has_af_templates_sheet']  = 'AF - PV Templates' in wb.sheetnames
-            if 'Product Vertical List' in wb.sheetnames:
-                ws = wb['Product Vertical List']
-                info['pv_sheet_dimensions'] = ws.dimensions
-                info['pv_sheet_row1_headers'] = [
-                    ws.cell(1, c).value for c in range(1, min(ws.max_column, 10) + 1)
-                ]
-        except Exception as e:
-            info['workbook_read_error'] = str(e)
-    return jsonify(info)
 
 
 if __name__ == '__main__':

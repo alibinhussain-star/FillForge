@@ -585,11 +585,24 @@ def get_brand_info(drow, col_map, brands_dict):
 # output workbook shows the new name. Add more entries here any time
 # an output column name needs to change, without touching template files.
 HEADER_RENAME_MAP = {
-    'PACKAGING_TYPE *': 'PACK_TYPE *',
+    'PACKAGING_TYPE': 'PACK_TYPE *',
 }
 
+def _norm_header(h):
+    """Strip a trailing ' *' so 'PACKAGING_TYPE' and 'PACKAGING_TYPE *' match as the same header."""
+    if h is None:
+        return h
+    return re.sub(r'\s*\*\s*$', '', str(h)).strip()
+
 def apply_header_renames(headers):
-    return [HEADER_RENAME_MAP.get(h, h) if h else h for h in headers]
+    renamed = []
+    for h in headers:
+        if not h:
+            renamed.append(h)
+            continue
+        norm = _norm_header(h)
+        renamed.append(HEADER_RENAME_MAP.get(norm, h))
+    return renamed
     
 # ── Column hints ────────────────────────────────────────────────
 DUMP_COL_HINTS = {
@@ -630,7 +643,12 @@ BASE_COL_HINTS = {
 }
 
 def fill_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
-    tcol        = {h: i+1 for i, h in enumerate(headers) if h}
+    tcol = {}
+    for i, h in enumerate(headers):
+        if not h:
+            continue
+        tcol[h] = i + 1
+        tcol.setdefault(_norm_header(h), i + 1)
     _cfg        = get_config()
     brands_dict = normalize_brands(_cfg.get('brands', {}))
     fallback_brand, fallback_id = ('', '')
@@ -2034,9 +2052,14 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         for col_name, val in row_data.items():
             if val is None or str(val) in ('None', ''):
                 continue
-            target = col_name if col_name in tcol else HEADER_RENAME_MAP.get(col_name)
-            if target and target in tcol:
-                ws.cell(row=row_idx, column=tcol[target]).value = val
+            norm_name = _norm_header(col_name)
+            target_col = tcol.get(col_name) or tcol.get(norm_name)
+            if target_col is None:
+                renamed = HEADER_RENAME_MAP.get(col_name) or HEADER_RENAME_MAP.get(norm_name)
+                if renamed:
+                    target_col = tcol.get(renamed) or tcol.get(_norm_header(renamed))
+            if target_col:
+                ws.cell(row=row_idx, column=target_col).value = val
         
         filled.append({'sku': sku_raw, 'article': article})
     

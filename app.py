@@ -888,7 +888,7 @@ CE_DUMP_COL_HINTS = {
     'battery':        ['Battery Capacity','BATTERY_CAPACITY_MAH *'],
     'charging_type':  ['Charging type supported','CHARGING_TYPE_SUPPORTED *'],
     'ram':            ['RAM','RAM *'],
-    'storage':        ['Storage Capacity','INTERNAL_STORAGE *'],
+    'storage':        ['Storage Capacity','Internal Storage','INTERNAL_STORAGE *'],
     'sim_type':       ['Sim Type','SIM_TYPE *'],
     'os':             ['Operating System','OPERATING_SYSTEM_OS *'],
     'os_version':     ['Operating System','OPERATING_SYSTEM_OS *'],

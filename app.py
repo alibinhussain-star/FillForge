@@ -18,6 +18,15 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
 from zoneinfo import ZoneInfo
+import requests
+import shutil
+from concurrent.futures import ThreadPoolExecutor
+
+try:
+    from playwright.sync_api import sync_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
@@ -3316,6 +3325,264 @@ def debug_config():
         'footwear_config':       cfg,
         'ce_config':             ce_cfg,
     })
+
+# ═══════════════════════════════════════════════════════════════
+# BULK IMAGE DOWNLOADER (Adhoc Tool)
+# ═══════════════════════════════════════════════════════════════
+
+class BulkImageDownloader:
+    def __init__(self, output_folder, version_suffix="V1", max_workers=8):
+        self.output_folder = output_folder
+        self.version_suffix = version_suffix
+        self.max_workers = max_workers
+        self.failed = []
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": "Mozilla/5.0"})
+        self._pw_ctx = {}
+
+    # ── Helpers ──
+    def _fail(self, jpin, image_no, url, reason):
+        self.failed.append({
+            "JPIN": jpin,
+            "Image Number": f"IMG{image_no}",
+            "Image URL": url,
+            "Failure Reason": reason,
+        })
+
+    def _fetch(self, url, stream=False, retries=3, delay=2):
+        for attempt in range(1, retries + 1):
+            try:
+                r = self.session.get(url, timeout=120, allow_redirects=True, stream=stream)
+                if r.status_code == 200:
+                    return r
+                if attempt < retries:
+                    time.sleep(delay)
+            except requests.RequestException:
+                if attempt < retries:
+                    time.sleep(delay)
+        return None
+
+    def _ext(self, content_type, url):
+        ct = (content_type or "").lower()
+        mapping = {
+            "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
+            "image/webp": ".webp", "image/gif": ".gif", "image/bmp": ".bmp",
+        }
+        for k, v in mapping.items():
+            if k in ct:
+                return v
+        m = re.search(r'\.(jpg|jpeg|png|webp|gif|bmp)(?:\?|$)', url, re.IGNORECASE)
+        if m:
+            e = m.group(1).lower()
+            return ".jpg" if e == "jpeg" else f".{e}"
+        return ".jpg"
+
+    def _save(self, content, content_type, url, base_path):
+        path = base_path + self._ext(content_type, url)
+        with open(path, "wb") as f:
+            f.write(content)
+        return path
+
+    # ── Google Drive ──
+    def _drive_folder_id(self, url):
+        m = re.search(r'/folders/([a-zA-Z0-9_-]+)', url)
+        return m.group(1) if m else None
+
+    def _drive_file_ids(self, folder_id):
+        url = f"https://drive.google.com/embeddedfolderview?id={folder_id}#grid"
+        r = self._fetch(url)
+        if not r:
+            return []
+        ids = re.findall(r'https://drive.google.com/file/d/([a-zA-Z0-9_-]+)', r.text)
+        return list(dict.fromkeys(ids))
+
+    def _dl_drive_file(self, jpin, idx, file_id):
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        r = self._fetch(url, stream=True)
+        if not r:
+            self._fail(jpin, idx, url, "Download failed after retries")
+            return
+        base = os.path.join(self.output_folder, f"{jpin}_IMG{idx}{self.version_suffix}")
+        try:
+            self._save(r.content, r.headers.get("Content-Type", ""), url, base)
+        except Exception as e:
+            self._fail(jpin, idx, url, f"Save failed: {e}")
+
+    def _dl_drive_folder(self, jpin, folder_url):
+        fid = self._drive_folder_id(folder_url)
+        if not fid:
+            self._fail(jpin, 1, folder_url, "Invalid Drive Folder")
+            return
+        fids = self._drive_file_ids(fid)
+        if not fids:
+            self._fail(jpin, 1, folder_url, "No Images Found")
+            return
+        with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+            pool.map(
+                lambda a: self._dl_drive_file(*a),
+                [(jpin, idx, file_id) for idx, file_id in enumerate(fids, 1)]
+            )
+
+    # ── Dropbox (Playwright) ──
+    def _browser(self):
+        if not PLAYWRIGHT_AVAILABLE:
+            return None
+        if "browser" not in self._pw_ctx:
+            self._pw_ctx["pw"] = sync_playwright().start()
+            self._pw_ctx["browser"] = self._pw_ctx["pw"].chromium.launch(headless=True)
+        return self._pw_ctx["browser"]
+
+    def _close_browser(self):
+        if "browser" in self._pw_ctx:
+            self._pw_ctx["browser"].close()
+            self._pw_ctx["pw"].stop()
+            self._pw_ctx.clear()
+
+    def _scrape_dropbox(self, folder_url):
+        browser = self._browser()
+        if not browser:
+            raise RuntimeError("Playwright not installed — cannot scrape Dropbox folders")
+        page = browser.new_page()
+        try:
+            page.goto(folder_url, wait_until="networkidle", timeout=120_000)
+            page.wait_for_selector("img", timeout=15_000)
+            urls = []
+            for img in page.locator("img").all():
+                try:
+                    src = img.get_attribute("src")
+                    if src and "dropboxusercontent.com" in src and src not in urls:
+                        urls.append(src)
+                except Exception:
+                    pass
+            return urls
+        finally:
+            page.close()
+
+    def _dl_dropbox_folder(self, jpin, folder_url):
+        try:
+            urls = self._scrape_dropbox(folder_url)
+        except Exception as e:
+            self._fail(jpin, 1, folder_url, str(e))
+            return
+        if not urls:
+            self._fail(jpin, 1, folder_url, "No Dropbox Images Found")
+            return
+        with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+            pool.map(
+                lambda a: self._dl_direct(*a),
+                [(jpin, idx, url) for idx, url in enumerate(urls, 1)]
+            )
+
+    # ── Direct URLs ──
+    def _dl_direct(self, jpin, image_no, image_url):
+        if "dropbox.com" in image_url:
+            image_url = image_url.replace("dl=0", "raw=1").replace("dl=1", "raw=1")
+        r = self._fetch(image_url, stream=True)
+        if not r:
+            self._fail(jpin, image_no, image_url, "Download failed after retries")
+            return
+        ct = r.headers.get("Content-Type", "")
+        if "text/html" in ct.lower():
+            self._fail(jpin, image_no, image_url, "Returned HTML Instead Of Image")
+            return
+        base = os.path.join(self.output_folder, f"{jpin}_IMG{image_no}{self.version_suffix}")
+        try:
+            self._save(r.content, ct, image_url, base)
+        except Exception as e:
+            self._fail(jpin, image_no, image_url, f"Save failed: {e}")
+
+    # ── Main runner ──
+    def run(self, input_path):
+        df = pd.read_excel(input_path)
+        df.columns = df.columns.str.strip()
+        jpin_col = "JPIN"
+        if jpin_col not in df.columns:
+            raise ValueError(f'Column "{jpin_col}" not found in uploaded file')
+        image_columns = [c for c in df.columns if str(c).lower().startswith("image ")]
+
+        try:
+            for _, row in df.iterrows():
+                jpin = re.sub(r'[\\/*?:"<>|]', "_", str(row[jpin_col])).strip()
+                direct_tasks = []
+                for img_no, col in enumerate(image_columns, start=1):
+                    val = row[col]
+                    if pd.isna(val):
+                        continue
+                    url = str(val).strip()
+                    if "drive.google.com" in url and "/folders/" in url:
+                        self._dl_drive_folder(jpin, url)
+                    elif "dropbox.com/scl/fo/" in url:
+                        self._dl_dropbox_folder(jpin, url)
+                    else:
+                        direct_tasks.append((jpin, img_no, url))
+                if direct_tasks:
+                    with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+                        pool.map(lambda a: self._dl_direct(*a), direct_tasks)
+        finally:
+            self._close_browser()
+
+        if self.failed:
+            fail_path = os.path.join(self.output_folder, "Failed_Images.xlsx")
+            pd.DataFrame(self.failed).to_excel(fail_path, index=False)
+        return len(self.failed)
+
+
+@app.route('/tools/bulk-image-downloader')
+@require_auth
+def bulk_image_downloader_page():
+    return render_template('bulk_image_downloader.html')
+
+
+@app.route('/api/bulk-download', methods=['POST'])
+@require_auth
+def api_bulk_download():
+    file = request.files.get('file')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    version_suffix = request.form.get('version_suffix', 'V1')
+    try:
+        max_workers = int(request.form.get('max_workers', 8))
+    except ValueError:
+        max_workers = 8
+
+    tmp_dir = tempfile.mkdtemp(prefix='bulk_dl_')
+    input_path = os.path.join(tmp_dir, 'input.xlsx')
+    output_folder = os.path.join(tmp_dir, 'output')
+    os.makedirs(output_folder, exist_ok=True)
+
+    try:
+        file.save(input_path)
+        downloader = BulkImageDownloader(output_folder, version_suffix, max_workers)
+        fail_count = downloader.run(input_path)
+
+        zip_path = os.path.join(tmp_dir, 'images.zip')
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(output_folder):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    zf.write(fp, os.path.relpath(fp, output_folder))
+
+        with open(zip_path, 'rb') as zf:
+            zip_bytes = zf.read()
+
+        write_log(
+            validate_session(request.cookies.get('ff_session')) or 'anonymous',
+            'bulk_image_download',
+            f'failed={fail_count}'
+        )
+
+        return send_file(
+            io.BytesIO(zip_bytes),
+            as_attachment=True,
+            download_name='BulkImages.zip',
+            mimetype='application/zip'
+        )
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'trace': traceback.format_exc()}), 500
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 if __name__ == '__main__':

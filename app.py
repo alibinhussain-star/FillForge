@@ -49,11 +49,18 @@ def init_db():
                 token     TEXT PRIMARY KEY,
                 email     TEXT,
                 expiry    TIMESTAMP,
-                last_seen TIMESTAMP DEFAULT NOW()
+                last_seen TIMESTAMP
             )
         ''')
         cur.execute('''
-            ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NOW()
+            ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP
+        ''')
+        # One-time cleanup: any session whose last_seen was backfilled by the
+        # column migration above (or never set) has no real "active" signal —
+        # treat it as stale so it doesn't falsely show up as an online user.
+        cur.execute('''
+            UPDATE sessions SET last_seen = NULL
+            WHERE last_seen IS NOT NULL AND last_seen < NOW() - INTERVAL '1 minute'
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS otps (
@@ -2324,8 +2331,11 @@ def create_session(email):
         try:
             conn = get_db()
             cur  = conn.cursor()
+            # Drop any older sessions for this email first — avoids repeated
+            # test logins piling up as separate "active" entries later.
+            cur.execute('DELETE FROM sessions WHERE email=%s', (email,))
             cur.execute(
-                'INSERT INTO sessions (token, email, expiry) VALUES (%s, %s, %s)',
+                'INSERT INTO sessions (token, email, expiry, last_seen) VALUES (%s, %s, %s, NOW())',
                 (token, email, expiry)
             )
             conn.commit()

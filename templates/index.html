@@ -71,13 +71,11 @@ body{background:var(--bg);min-height:100vh;display:flex}
 .refresh-btn:hover{border-color:var(--orange);color:var(--orange)}
 
 /* ── PRESENCE PILLS ── */
-#active-users{display:flex;margin-right:14px}
-.presence-pill{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;margin-left:-8px;cursor:default}
-.presence-pill:first-child{margin-left:0}
+/* (presence now shown via bell badge + popover in the top bar, inline-styled) */
 
 /* ── FILE ROW (filled file summary) ── */
 .file-row{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--success-bg);border:1px solid #a7f3d0;border-radius:var(--r2);margin-top:10px}
-.file-icon{font-size:20px}
+.file-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .file-sub{font-size:11px;color:var(--success)}
 .file-check{color:var(--success);font-weight:700;margin-left:auto}
 
@@ -101,6 +99,17 @@ body{background:var(--bg);min-height:100vh;display:flex}
 .upload-zone-icon{font-size:20px;flex-shrink:0;color:var(--muted)}
 .upload-zone-name{font-size:12px;font-weight:500;color:var(--text)}
 .upload-zone-sub{font-size:11px;color:var(--muted);margin-top:1px}
+
+.upload-zone-big{border:1.5px dashed var(--border-2);border-radius:var(--r);padding:32px 16px;cursor:pointer;transition:all .2s;position:relative;background:#fafbfc;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.upload-zone-big:hover,.upload-zone-big.dragover{border-color:var(--orange);background:var(--orange-light)}
+.upload-zone-big.has-file{border-color:var(--success);border-style:solid;background:var(--success-bg)}
+.upload-zone-big input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-zone-big-icon{color:var(--orange);margin-bottom:10px}
+.upload-zone-big-name{font-size:13px;font-weight:600;color:var(--text)}
+.upload-zone-big-or{font-size:11px;color:var(--muted);margin:8px 0}
+.upload-zone-big-btn{background:var(--orange);color:#fff;font-size:12px;font-weight:600;padding:8px 18px;border-radius:var(--r2);pointer-events:none}
+.upload-zone-big.has-file .upload-zone-big-icon{color:var(--success)}
+.upload-zone-big.has-file .upload-zone-big-name{color:var(--success)}
 .upload-zone.has-file .upload-zone-name{color:var(--success)}
 .dropdown-wrap{position:relative;margin-bottom:4px}
 .dropdown-btn{width:100%;padding:9px 12px;background:var(--white);border:1px solid var(--border-2);border-radius:var(--r2);color:var(--text);font-size:13px;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all .15s;min-height:40px;font-family:inherit}
@@ -167,6 +176,9 @@ td.sku-cell{font-family:monospace;font-size:12px;color:var(--muted)}
 td.price-cell{font-weight:600}
 .chip{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
 .chip-blue{background:var(--primary-light);color:var(--navy)}
+.row-status-badge{display:inline-flex;align-items:center;gap:4px;background:var(--success-bg);color:var(--success);border:1px solid #a7f3d0;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.row-menu-dots{cursor:pointer;color:var(--muted);font-size:16px;padding:2px 8px;border-radius:4px;user-select:none}
+.row-menu-dots:hover{background:var(--bg);color:var(--text)}
 .skip-section{padding:16px 24px;flex-shrink:0;display:none}
 .skip-title{font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px}
 .skip-table{width:100%;border-collapse:collapse;background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
@@ -251,27 +263,65 @@ svg{display:block}
   position:fixed; top:0; right:0; z-index:9999;
   color:#fff; font-size:12px;
   padding:0 24px; display:flex; align-items:center;
-  justify-content:flex-end; gap:12px; height:48px;
+  justify-content:flex-end; gap:16px; height:48px;
 ">
-  <div id="active-users"></div>
+  <div id="bell-wrap" style="position:relative;cursor:pointer;" onclick="toggleActiveUsersPopover(event)">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span id="bell-badge" style="
+      position:absolute; top:-5px; right:-6px; min-width:15px; height:15px;
+      background:var(--orange,#f47b20); color:#fff; border-radius:8px;
+      font-size:9.5px; font-weight:700; display:none;
+      align-items:center; justify-content:center; padding:0 3px;
+    ">0</span>
+  </div>
+  <div id="active-users-popover" style="
+    display:none; position:absolute; top:40px; right:80px;
+    background:#fff; border:1px solid #e3e6ef; border-radius:10px;
+    box-shadow:0 10px 30px rgba(26,37,64,.15); padding:10px 0; min-width:220px;
+    color:#1a1d23;
+  "></div>
   <span style="color:#555;">Welcome, <strong id="userNameDisplay" style="color:#222;"></strong></span>
   <span style="color:#E87722;font-weight:600;" id="userEmailDisplay"></span>
-  <button onclick="logout()" style="
-    background:transparent; border:1px solid #555; color:#ccc;
-    padding:3px 12px; border-radius:6px; cursor:pointer; font-size:11px;
-  ">Logout</button>
+  <div id="avatar-wrap" style="position:relative;" onclick="toggleAvatarMenu(event)">
+    <div id="user-avatar" style="
+      width:32px;height:32px;border-radius:50%;background:var(--navy,#1a2540);
+      color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;
+      justify-content:center;cursor:pointer;border:2px solid #fff;
+    "></div>
+    <div id="avatar-menu" style="
+      display:none; position:absolute; top:40px; right:0;
+      background:#fff; border:1px solid #e3e6ef; border-radius:10px;
+      box-shadow:0 10px 30px rgba(26,37,64,.15); min-width:160px; overflow:hidden;
+    ">
+      <button onclick="logout()" style="
+        width:100%; text-align:left; background:transparent; border:none;
+        color:#dc2626; padding:10px 14px; cursor:pointer; font-size:12.5px;
+        font-family:inherit; font-weight:500;
+      ">Logout</button>
+    </div>
+  </div>
 </div>
 
 <script>
+  function initialsFromEmail(email){
+    const local = email.split('@')[0];
+    const parts = local.split('.');
+    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return local.slice(0,2).toUpperCase();
+  }
+
+  let myEmail = '';
+
   // Load user info on page load
   fetch('/auth/me')
     .then(r => r.json())
     .then(data => {
       if (data.email) {
+        myEmail = data.email;
         document.getElementById('userEmailDisplay').textContent = data.email;
-        // Capitalize name from email
         const name = data.email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         document.getElementById('userNameDisplay').textContent = name;
+        document.getElementById('user-avatar').textContent = initialsFromEmail(data.email);
       }
     })
     .catch(() => {});
@@ -281,22 +331,48 @@ svg{display:block}
       .then(() => window.location.href = '/login');
   }
 
-  // ── Presence pills: who's active on FillForge right now ──
-  function initialsFromEmail(email){
-    const local = email.split('@')[0];
-    const parts = local.split('.');
-    if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return local.slice(0,2).toUpperCase();
+  function toggleAvatarMenu(e){
+    e.stopPropagation();
+    document.getElementById('active-users-popover').style.display = 'none';
+    const menu = document.getElementById('avatar-menu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
   }
+  function toggleActiveUsersPopover(e){
+    e.stopPropagation();
+    document.getElementById('avatar-menu').style.display = 'none';
+    const pop = document.getElementById('active-users-popover');
+    pop.style.display = (pop.style.display === 'block') ? 'none' : 'block';
+  }
+  document.addEventListener('click', () => {
+    document.getElementById('avatar-menu').style.display = 'none';
+    document.getElementById('active-users-popover').style.display = 'none';
+  });
+
+  // ── Who's active on FillForge right now (bell badge + popover) ──
   async function loadActiveUsers(){
     try{
       const r = await fetch('/auth/active_users');
       const d = await r.json();
-      const wrap = document.getElementById('active-users');
-      if(!wrap) return;
-      wrap.innerHTML = (d.users||[]).map(email =>
-        `<div class="presence-pill" title="${email}">${initialsFromEmail(email)}</div>`
-      ).join('');
+      const users = d.users || [];
+      const badge = document.getElementById('bell-badge');
+      if(users.length > 0){
+        badge.style.display = 'flex';
+        badge.textContent = users.length;
+      } else {
+        badge.style.display = 'none';
+      }
+      const pop = document.getElementById('active-users-popover');
+      if(!users.length){
+        pop.innerHTML = '<div style="padding:14px;font-size:12px;color:#9ca3af;">No one else active right now</div>';
+      } else {
+        pop.innerHTML = '<div style="padding:8px 14px 6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;">Active now</div>' +
+          users.map(email => `
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--navy,#1a2540);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initialsFromEmail(email)}</div>
+              <span style="color:#1a1d23;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}${email === myEmail ? ' (you)' : ''}</span>
+            </div>
+          `).join('');
+      }
     }catch(e){}
   }
   loadActiveUsers();
@@ -482,13 +558,13 @@ svg{display:block}
         <div class="form-sec-title">Upload Files</div>
         <div style="margin-bottom:12px">
           <label class="form-label">Dump / Listing File <span class="req">*</span></label>
-          <div class="upload-zone" id="zone-dump" ondragover="onDrag(event,'zone-dump')" ondragleave="offDrag('zone-dump')" ondrop="onDrop(event,'dump')">
+          <div class="upload-zone-big" id="zone-dump" ondragover="onDrag(event,'zone-dump')" ondragleave="offDrag('zone-dump')" ondrop="onDrop(event,'dump')">
             <input type="file" accept=".xlsx,.xls" onchange="onFile(this,'dump')">
-            <span class="upload-zone-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
-            <div>
-              <div class="upload-zone-name" id="name-dump">Click to browse or drag file here</div>
-              <div class="upload-zone-sub">.xlsx files only</div>
-            </div>
+            <span class="upload-zone-big-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+            <div class="upload-zone-big-name" id="name-dump">Drag &amp; Drop Excel File</div>
+            <div class="upload-zone-big-or">or</div>
+            <div class="upload-zone-big-btn">Browse Files</div>
+            <div class="upload-zone-sub" style="margin-top:8px;">.xlsx files only</div>
           </div>
           <div class="auto-bar" id="auto-bar"></div>
         </div>
@@ -556,7 +632,12 @@ svg{display:block}
             <div class="dl-info" id="dl-info"></div>
           </div>
           <div class="file-row">
-            <span class="file-icon">📗</span>
+            <span class="file-icon">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="2" width="20" height="20" rx="4" fill="#217346"/>
+                <path d="M7 7l3.2 5-3.2 5h2.4l2-3.4 2 3.4h2.4l-3.2-5 3.2-5h-2.4l-2 3.4-2-3.4H7z" fill="#fff"/>
+              </svg>
+            </span>
             <div style="flex:1;min-width:0;">
               <b id="fr-name" style="font-size:12.5px;word-break:break-all;"></b>
               <div class="file-sub">✓ <span id="fr-count"></span> filled</div>
@@ -1164,7 +1245,8 @@ function removeFile(key) {
   const zoneId = key === 'base_data' ? 'zone-base' : 'zone-dump';
   const zone   = document.getElementById(zoneId);
   clearFileInput(zone.querySelector('input[type="file"]'));
-  document.getElementById('name-' + key).textContent = 'Click to browse or drag file here';
+  document.getElementById('name-' + key).textContent =
+    key === 'dump' ? 'Drag & Drop Excel File' : 'Click to browse or drag file here';
   zone.classList.remove('has-file');
   const rb = zone.querySelector('.file-remove-btn');
   if (rb) rb.style.display = 'none';
@@ -1180,7 +1262,7 @@ function _attachRemoveBtn(zone, key) {
   if (!btn) {
     btn = document.createElement('span'); btn.className = 'file-remove-btn';
     btn.innerHTML = '✕';
-    btn.style.cssText = 'margin-left:auto;padding:4px 8px;cursor:pointer;color:var(--danger);font-weight:600;border-radius:4px;font-size:13px;z-index:10;';
+    btn.style.cssText = 'position:absolute;top:8px;right:8px;padding:4px 8px;cursor:pointer;color:var(--danger);font-weight:600;border-radius:4px;font-size:13px;z-index:10;background:rgba(255,255,255,.85);';
     btn.onmouseenter = function() { this.style.background = 'var(--danger-bg)'; };
     btn.onmouseleave = function() { this.style.background = 'transparent'; };
     btn.onclick = function(e) { e.preventDefault(); e.stopPropagation(); removeFile(key); };
@@ -1193,8 +1275,9 @@ function onFile(input, key) {
   const file = input.files[0]; if (!file) return;
   files[key] = file;
   document.getElementById('name-' + key).textContent = file.name;
-  input.closest('.upload-zone').classList.add('has-file');
-  _attachRemoveBtn(input.closest('.upload-zone'), key);
+  const zone = input.closest('.upload-zone, .upload-zone-big');
+  zone.classList.add('has-file');
+  _attachRemoveBtn(zone, key);
   checkReady();
   if (key === 'dump') detectVerticals();
 }
@@ -1345,7 +1428,7 @@ function renderResults(data) {
   };
   const showSub = isZip;
   document.getElementById('t-head').innerHTML = '<tr>' + (showSub ? '<th>SubType</th>' : '') +
-    cols.map(c => '<th>' + (colLabels[c] || c) + '</th>').join('') + '</tr>';
+    cols.map(c => '<th>' + (colLabels[c] || c) + '</th>').join('') + '<th>Status</th><th></th></tr>';
   document.getElementById('t-body').innerHTML = (data.preview || []).map(r =>
     '<tr>' + (showSub ? '<td><span class="chip chip-blue">' + (r._subtype || '') + '</span></td>' : '') +
     cols.map((c, ci) => {
@@ -1354,7 +1437,10 @@ function renderResults(data) {
       if (c === 'ChildSKU *') return '<td class="sku-cell">' + val + '</td>';
       if (c === 'MRP *' || c === 'SellingPrice *') return '<td class="price-cell">' + (val !== '—' ? '₹' + val : '—') + '</td>';
       return '<td>' + val + '</td>';
-    }).join('') + '</tr>').join('');
+    }).join('') +
+    '<td><span class="row-status-badge">✓ Filled</span></td>' +
+    '<td><span class="row-menu-dots" onclick="toggleRowMenu(event, this)">⋮</span></td>' +
+    '</tr>').join('');
 
   document.getElementById('right-sub').textContent = 'Showing ' + Math.min((data.preview || []).length, 50) + ' of ' + data.grand_filled + ' rows';
   document.getElementById('empty-state').style.display = 'none';
@@ -1371,6 +1457,12 @@ function renderResults(data) {
   } else {
     skipSec.style.display = 'none';
   }
+}
+
+function toggleRowMenu(e, el) {
+  e.stopPropagation();
+  // Placeholder — wire up real per-row actions here (e.g. view full row, remove from preview).
+  showToast('Row actions coming soon', 'success');
 }
 
 function downloadFile() {

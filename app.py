@@ -46,10 +46,14 @@ def init_db():
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS sessions (
-                token  TEXT PRIMARY KEY,
-                email  TEXT,
-                expiry TIMESTAMP
+                token     TEXT PRIMARY KEY,
+                email     TEXT,
+                expiry    TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT NOW()
             )
+        ''')
+        cur.execute('''
+            ALTER TABLE sessions ADD COLUMN IF NOT EXISTS last_seen TIMESTAMP DEFAULT NOW()
         ''')
         cur.execute('''
             CREATE TABLE IF NOT EXISTS otps (
@@ -2346,6 +2350,8 @@ def validate_session(token):
             conn.commit()
             cur.close(); conn.close()
             return None
+        cur.execute('UPDATE sessions SET last_seen = NOW() WHERE token=%s', (token,))
+        conn.commit()
         cur.close()
         conn.close()
         return row['email']
@@ -2438,6 +2444,26 @@ def auth_me():
     if email:
         return jsonify({'email': email})
     return jsonify({'error': 'Not logged in'}), 401
+
+@app.route('/auth/active_users')
+def active_users():
+    """Presence pills: who has an active FillForge session in the last 2 minutes."""
+    if not DATABASE_URL or not PSYCOPG2_AVAILABLE:
+        return jsonify({'users': []})
+    try:
+        conn = get_db()
+        cur  = conn.cursor()
+        cur.execute('''
+            SELECT DISTINCT email FROM sessions
+            WHERE last_seen >= NOW() - INTERVAL '2 minutes'
+            ORDER BY email
+        ''')
+        emails = [r['email'] for r in cur.fetchall()]
+        cur.close(); conn.close()
+        return jsonify({'users': emails})
+    except Exception as e:
+        print(f'active_users error: {e}')
+        return jsonify({'users': [], 'error': str(e)})
 
 @app.route('/')
 @require_auth

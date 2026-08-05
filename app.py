@@ -585,7 +585,7 @@ def get_brand_info(drow, col_map, brands_dict):
 # output workbook shows the new name. Add more entries here any time
 # an output column name needs to change, without touching template files.
 HEADER_RENAME_MAP = {
-    'PACKAGING_TYPE *': 'PACKAGE_TYPE *',
+    'PACKAGING_TYPE *': 'PACK_TYPE *',
 }
 
 def apply_header_renames(headers):
@@ -1269,7 +1269,8 @@ def get_ce_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load CE template for {subtype}: {e}")
-        headers = apply_header_renames(headers)
+        headers = []
+    headers = apply_header_renames(headers)
     wb_new       = Workbook()
     ws_new       = wb_new.active
     ws_new.title = 'CE - PV Template'
@@ -1736,7 +1737,8 @@ def get_ap_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load AP template for {subtype}: {e}")
-        headers = apply_header_renames(headers)
+        headers = []
+    headers = apply_header_renames(headers)
     wb_new = Workbook()
     ws_new = wb_new.active
     ws_new.title = 'AF - PV Templates'

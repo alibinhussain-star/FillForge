@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Bulk Image Downloader · FillForge</title>
+<style>
+:root{ --navy:#1a2540; --navy-2:#2a3554; --orange:#f47b20; --bg:#f6f7fb; --white:#fff; --border:#e3e6ef; --border-2:#cdd2e0; --text:#1a1d23; --muted:#6b7280; --success:#059669; --danger:#dc2626; --r:8px; --r2:6px; font-family:'Inter',-apple-system,sans-serif; font-size:14px; }
+body{background:var(--bg);padding:24px;color:var(--text)}
+.card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:28px;max-width:720px;margin:auto}
+h2{margin:0 0 4px;font-size:18px;color:var(--navy)}
+.sub{color:var(--muted);font-size:12px;margin-bottom:20px}
+.upload-zone{border:1.5px dashed var(--border-2);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:all .2s;background:#fafbfc;display:flex;align-items:center;gap:12px;margin-bottom:16px;position:relative}
+.upload-zone:hover{border-color:var(--orange);background:#fff4ea}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fl{font-size:11px;font-weight:500;color:var(--muted)}
+.fi{background:var(--bg);border:1px solid var(--border-2);border-radius:var(--r2);padding:8px 10px;font-size:13px;outline:none;width:100%;box-sizing:border-box;font-family:inherit}
+.btn-primary{width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:var(--r2);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary:hover{background:var(--navy-2)}
+.btn-primary:disabled{background:#a8afc4;cursor:not-allowed}
+.status{margin-top:16px;font-size:12px;line-height:1.6}
+.status.success{color:var(--success);font-weight:500}
+.status.error{color:var(--danger);font-weight:500}
+.spinner{width:15px;height:15px;border:2px solid #ffffff60;border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.btn-primary.loading .spinner{display:block}
+.btn-primary.loading .btn-text{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.note{background:var(--bg);border:1px solid var(--border);border-radius:var(--r2);padding:10px 12px;font-size:11.5px;color:var(--muted);margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>🖼️ Bulk Image Downloader</h2>
+  <div class="sub">Upload an Excel with a <b>JPIN</b> column and <b>Image 1, Image 2…</b> columns. Supports direct URLs, Google Drive folders, and Dropbox folders.</div>
+  
+  <div class="note">
+    <b>Tip:</b> Google Drive <i>folders</i> are auto-expanded. Dropbox <i>folders</i> require Playwright (optional). Direct image URLs and Dropbox direct links work out of the box.
+  </div>
+  
+  <form id="dl-form" enctype="multipart/form-data">
+    <label class="upload-zone" id="zone">
+      <input type="file" name="file" accept=".xlsx,.xls" required onchange="onFile(this)">
+      <span style="font-size:20px">📁</span>
+      <div>
+        <div style="font-size:12px;font-weight:500" id="file-name">Click to browse or drag Excel file here</div>
+        <div style="font-size:11px;color:var(--muted)">.xlsx only</div>
+      </div>
+    </label>
+    
+    <div class="form-grid">
+      <div class="fg">
+        <div class="fl">Version Suffix</div>
+        <input class="fi" type="text" name="version_suffix" value="V1" placeholder="e.g. V1">
+      </div>
+      <div class="fg">
+        <div class="fl">Max Workers</div>
+        <input class="fi" type="number" name="max_workers" value="8" min="1" max="20">
+      </div>
+    </div>
+    
+    <button type="submit" class="btn-primary" id="btn">
+      <div class="spinner"></div>
+      <span class="btn-text">⬇ Download Images as ZIP</span>
+    </button>
+  </form>
+  
+  <div class="status" id="status"></div>
+</div>
+
+<script>
+function onFile(input){
+  const f=input.files[0];
+  if(f) document.getElementById('file-name').textContent=f.name;
+}
+document.getElementById('dl-form').onsubmit=async function(e){
+  e.preventDefault();
+  const btn=document.getElementById('btn');
+  const status=document.getElementById('status');
+  btn.classList.add('loading'); btn.disabled=true;
+  status.textContent='Processing… This may take a while depending on image count.';
+  status.className='status';
+  try{
+    const res=await fetch('/api/bulk-download',{method:'POST',body:new FormData(this)});
+    if(!res.ok){ const d=await res.json().catch(()=>({})); throw new Error(d.error||'Processing failed'); }
+    const blob=await res.blob();
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='BulkImages_'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'.zip';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    status.textContent='✓ ZIP downloaded. Check Failed_Images.xlsx inside the archive if any URLs failed.';
+    status.className='status success';
+  }catch(err){
+    status.textContent='✗ '+err.message;
+    status.className='status error';
+  }finally{
+    btn.classList.remove('loading'); btn.disabled=false;
+  }
+};
+</script>
+</body>
+</html>

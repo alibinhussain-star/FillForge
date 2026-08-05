@@ -17,7 +17,10 @@ import pandas as pd, re, io, tempfile, os, json, copy, random, string, time, zip
 from datetime import datetime
 from email.mime.text import MIMEText
 from openpyxl import load_workbook, Workbook
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
 import requests
 import shutil
 from concurrent.futures import ThreadPoolExecutor
@@ -93,9 +96,7 @@ _initialized = False
 
 # ── Lazy initialization ──────────────────────────────────────
 def _init_app():
-    global _initialized, SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
-    global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
-    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY, DROPDOWN_MAP
+    global _initialized
     if _initialized:
         return
     _initialized = True
@@ -106,48 +107,59 @@ def _init_app():
         except Exception as e:
             print(f'DB init error (non-fatal): {e}')
 
-    try:
-        SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
-    except Exception as e:
-        print(f"Warning: Could not build header row map: {e}")
-        SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
+def _ensure_fw_templates():
+    global SUBTYPE_HEADER_ROW, SUBTYPE_MAP, PV_LIST
+    if SUBTYPE_MAP is None or not SUBTYPE_MAP:
+        try:
+            SUBTYPE_HEADER_ROW, SUBTYPE_MAP = _build_header_row_map()
+        except Exception as e:
+            print(f"Warning: Could not build header row map: {e}")
+            SUBTYPE_HEADER_ROW, SUBTYPE_MAP = {}, {}
+    if not PV_LIST:
+        try:
+            PV_LIST = load_pv_list()
+        except Exception as e:
+            print(f"Warning: Could not load PV_LIST: {e}")
+            PV_LIST = []
 
-    try:
-        PV_LIST = load_pv_list()
-    except Exception as e:
-        print(f"Warning: Could not load PV_LIST: {e}")
-        PV_LIST = []
+def _ensure_ce_templates():
+    global CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP, CE_PV_LIST
+    if CE_SUBTYPE_MAP is None or not CE_SUBTYPE_MAP:
+        try:
+            CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_header_row_map()
+        except Exception as e:
+            print(f"Warning: Could not build CE header row map: {e}")
+            CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
+    if not CE_PV_LIST:
+        try:
+            CE_PV_LIST = load_ce_pv_list()
+        except Exception as e:
+            print(f"Warning: Could not load CE_PV_LIST: {e}")
+            CE_PV_LIST = []
 
-    try:
-        CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = _build_ce_header_row_map()
-    except Exception as e:
-        print(f"Warning: Could not build CE header row map: {e}")
-        CE_SUBTYPE_HEADER_ROW, CE_SUBTYPE_MAP = {}, {}
+def _ensure_ap_templates():
+    global AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP, AP_PV_LIST, AP_PV_SUBCATEGORY
+    if AP_SUBTYPE_MAP is None or not AP_SUBTYPE_MAP:
+        try:
+            AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = _build_ap_header_row_map()
+        except Exception as e:
+            print(f"Warning: Could not build AP header row map: {e}")
+            AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
+    if not AP_PV_LIST:
+        try:
+            AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
+        except Exception as e:
+            print(f"Warning: Could not load AP PV List: {e}")
+            AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
 
-    try:
-        CE_PV_LIST = load_ce_pv_list()
-    except Exception as e:
-        print(f"Warning: Could not load CE_PV_LIST: {e}")
-        CE_PV_LIST = []
-
-    try:
-        AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = _build_ap_header_row_map()
-    except Exception as e:
-        print(f"Warning: Could not build AP header row map: {e}")
-        AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
-
-    try:
-        AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
-    except Exception as e:
-        print(f"Warning: Could not load AP PV List: {e}")
-        AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
-
-    try:
-        DROPDOWN_MAP = _load_dropdown_map()
-    except Exception as e:
-        print(f"Warning: Could not load DROPDOWN_MAP: {e}")
-        DROPDOWN_MAP = {}
-
+def _ensure_dropdowns():
+    global DROPDOWN_MAP
+    if not DROPDOWN_MAP:
+        try:
+            DROPDOWN_MAP = _load_dropdown_map()
+        except Exception as e:
+            print(f"Warning: Could not load DROPDOWN_MAP: {e}")
+            DROPDOWN_MAP = {}
 @app.before_request
 def before_request():
     _init_app()
@@ -239,6 +251,7 @@ def load_pv_list():
     PV_LIST = []
 
 def get_template_wb_for_subtype(subtype):
+    _ensure_fw_templates()
     headers = []
     try:
         wb_src  = load_workbook(TEMPLATE_PATH)
@@ -1267,6 +1280,7 @@ def extract_from_description(desc, field_type):
     return ''
 
 def get_ce_template_wb_for_subtype(subtype):
+    _ensure_ce_templates()
     headers = []
     try:
         wb_src  = load_workbook(CE_TEMPLATE_PATH)
@@ -1734,6 +1748,7 @@ AP_BASE_COL_HINTS = {
 }
 
 def get_ap_template_wb_for_subtype(subtype):
+    _ensure_ap_templates()
     headers = []
     try:
         wb_src = load_workbook(AP_TEMPLATE_PATH)
@@ -2158,7 +2173,12 @@ def build_daily_report_html(data):
         for g in data['generations']
     ) or "<tr><td colspan='5' style='padding:6px 10px;border:1px solid #eee;color:#888;'>No catalogs generated in the last 24 hours</td></tr>"
 
-    today_str = datetime.now(ZoneInfo('Asia/Kolkata')).strftime('%d %b %Y')
+        if ZoneInfo:
+        today_str = datetime.now(ZoneInfo('Asia/Kolkata')).strftime('%d %b %Y')
+    else:
+        from datetime import timezone, timedelta
+        ist = timezone(timedelta(hours=5, minutes=30))
+        today_str = datetime.now(ist).strftime('%d %b %Y')
 
     return f"""
     <div style="font-family:Arial,sans-serif;max-width:720px;margin:auto;padding:24px;">
@@ -2444,10 +2464,12 @@ def ticket_closer():
 
 @app.route('/subtypes')
 def get_subtypes():
+    _ensure_fw_templates()
     return jsonify({'subtypes': PV_LIST})
 
 @app.route('/ce_subtypes')
 def get_ce_subtypes():
+    _ensure_ce_templates()
     return jsonify({'subtypes': CE_PV_LIST})
 
 # ── Stub routes for removed modules (AP, TS, CE5) ─────────────
@@ -2455,6 +2477,7 @@ def get_ce_subtypes():
 
 @app.route('/ap_categories')
 def get_ap_categories():
+    _ensure_ap_templates()
     return jsonify({'subtypes': AP_PV_LIST})
     
 @app.route('/ts_categories')
@@ -2503,6 +2526,7 @@ def update_ce5_config():
 
 @app.route('/detect_ap_categories', methods=['POST'])
 def detect_ap_categories():
+    _ensure_ap_templates()
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
@@ -2546,6 +2570,8 @@ def detect_ce5_categories():
 @app.route('/process_ap', methods=['POST'])
 def process_ap():
     """Apparel & Fashion catalog processor. Generates a filled AF - PV Template .xlsx."""
+    _ensure_ap_templates()
+    _ensure_dropdowns()
     try:
         # ── 1. Parse subtypes from form ─────────────────────────────
         subtypes_raw = request.form.get('subtypes', '')
@@ -2792,6 +2818,7 @@ def export_logs():
 
 @app.route('/detect_verticals', methods=['POST'])
 def detect_verticals():
+    _ensure_fw_templates()
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
@@ -2816,6 +2843,7 @@ def detect_verticals():
 
 @app.route('/detect_ce_verticals', methods=['POST'])
 def detect_ce_verticals():
+    _ensure_ce_templates()
     try:
         dump_file = request.files.get('dump')
         if not dump_file:
@@ -2840,6 +2868,8 @@ def detect_ce_verticals():
 @app.route('/process', methods=['POST'])
 def process():
     """Footwear catalog processor. Generates a filled PV Template .xlsx."""
+    _ensure_fw_templates()
+    _ensure_dropdowns()
     try:
         subtypes_raw = request.form.get('subtypes', '')
         try:    subtypes = json.loads(subtypes_raw)
@@ -2973,6 +3003,8 @@ def process():
 
 @app.route('/process_ce', methods=['POST'])
 def process_ce():
+    _ensure_ce_templates()
+    _ensure_dropdowns()
     try:
         subtypes_raw = request.form.get('subtypes', '')
         try:    subtypes = json.loads(subtypes_raw)
@@ -3108,6 +3140,7 @@ def process_ce():
 # ── Subtype-specific template generator ─────────────────────────
 def _generate_blank_template(subtype):
     """Generate a blank Excel template containing only the header row for a specific subtype."""
+    _ensure_fw_templates()
     if subtype not in SUBTYPE_HEADER_ROW:
         return None, f'SubType "{subtype}" not found in template'
 
@@ -3202,6 +3235,9 @@ def download_ce_unified_template():
 @app.route('/download_template/<path:vertical>')
 def download_template(vertical):
     """Download blank template for a specific vertical/category."""
+    _ensure_fw_templates()
+    _ensure_ce_templates()
+    _ensure_ap_templates()
     try:
         if vertical == 'Footwear':
             # Return the full footwear master template
@@ -3253,6 +3289,10 @@ def download_template(vertical):
 @app.route('/reload_templates', methods=['POST'])
 @require_auth
 def reload_templates():
+    _ensure_fw_templates()
+    _ensure_ce_templates()
+    _ensure_ap_templates()
+    _ensure_dropdowns()
     try:
         SUBTYPE_HEADER_ROW_new, SUBTYPE_MAP_new = _build_header_row_map()
         PV_LIST_new = load_pv_list()

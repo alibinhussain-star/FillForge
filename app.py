@@ -2511,7 +2511,16 @@ def get_ce_subtypes():
 
 @app.route('/ap_categories')
 def get_ap_categories():
-    return jsonify({'subtypes': AP_PV_LIST})
+    # AP_SUBTYPE_MAP (built from the 'AF - PV Templates' sheet) is what auto-detect
+    # and catalog generation actually rely on, and is proven reliable. AP_PV_LIST
+    # comes from a separate 'Product Vertical List' sheet that can fail to parse
+    # independently — merge both so the dropdown never comes back empty as long
+    # as the main template loaded correctly.
+    combined = list(AP_SUBTYPE_MAP.keys())
+    for pv in AP_PV_LIST:
+        if pv not in combined:
+            combined.append(pv)
+    return jsonify({'subtypes': combined})
     
 @app.route('/ts_categories')
 def get_ts_categories():

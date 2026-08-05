@@ -74,7 +74,8 @@ def init_db():
     except Exception as e:
         print(f'DB init error: {e}')
 
-app = Flask(__name__, template_folder='templates')
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+app = Flask(__name__, template_folder=template_dir)
 
 # ── Deferred globals ─────────────────────────────────────────
 SUBTYPE_HEADER_ROW = {}
@@ -134,6 +135,12 @@ def _init_app():
     except Exception as e:
         print(f"Warning: Could not build AP header row map: {e}")
         AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
+
+    try:
+        AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
+    except Exception as e:
+        print(f"Warning: Could not load AP PV List: {e}")
+        AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
 
     try:
         DROPDOWN_MAP = _load_dropdown_map()
@@ -232,6 +239,7 @@ def load_pv_list():
     PV_LIST = []
 
 def get_template_wb_for_subtype(subtype):
+    headers = []
     try:
         wb_src  = load_workbook(TEMPLATE_PATH)
         ws_src  = wb_src['PV Template']
@@ -247,7 +255,7 @@ def get_template_wb_for_subtype(subtype):
     ws_new.title = 'PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
-    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)
     return wb_new, headers
 
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -1259,6 +1267,7 @@ def extract_from_description(desc, field_type):
     return ''
 
 def get_ce_template_wb_for_subtype(subtype):
+    headers = []
     try:
         wb_src  = load_workbook(CE_TEMPLATE_PATH)
         ws_src  = wb_src['CE - PV Template']
@@ -1268,13 +1277,13 @@ def get_ce_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load CE template for {subtype}: {e}")
-        headers = apply_header_renames(headers)
+    headers = apply_header_renames(headers)
     wb_new       = Workbook()
     ws_new       = wb_new.active
     ws_new.title = 'CE - PV Template'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
-    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)
     return wb_new, headers
 
 def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, existing_skus):
@@ -1725,6 +1734,7 @@ AP_BASE_COL_HINTS = {
 }
 
 def get_ap_template_wb_for_subtype(subtype):
+    headers = []
     try:
         wb_src = load_workbook(AP_TEMPLATE_PATH)
         ws_src = wb_src['AF - PV Templates']
@@ -1734,13 +1744,13 @@ def get_ap_template_wb_for_subtype(subtype):
             headers.pop()
     except Exception as e:
         print(f"Warning: Could not load AP template for {subtype}: {e}")
-        headers = apply_header_renames(headers)
+    headers = apply_header_renames(headers)
     wb_new = Workbook()
     ws_new = wb_new.active
     ws_new.title = 'AF - PV Templates'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
-    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)
     return wb_new, headers
 
 def _ap_join(parts, sep=' '):
@@ -2417,18 +2427,15 @@ def auth_me():
 def index():
     try:
         return render_template('index.html')
-    except Exception as e:
+    except Exception:
         try:
-            html_path = os.path.join(os.path.dirname(__file__), 'templates', 'index.html')
+            html_path = os.path.join(app.template_folder, 'index.html')
             if not os.path.exists(html_path):
                 html_path = os.path.join(os.path.dirname(__file__), 'index.html')
             with open(html_path, 'r', encoding='utf-8') as f:
-                html = f.read()
-            html = html.replace("{{ user_email|default('', true) }}", '')
-            return html
+                return f.read()
         except Exception as e2:
-            import traceback
-            return f"<h1>Template Error</h1><pre>{traceback.format_exc()}</pre>", 500
+            return f"<h1>FillForge</h1><p>Temporarily unavailable. Error: {e2}</p>", 500
 
 @app.route('/tools/ticket-closer')
 @require_auth

@@ -29,7 +29,7 @@ body.dark-mode{
 body.dark-mode .sb-logo::after{opacity:.9}
 *{transition:background-color var(--transition), border-color var(--transition), box-shadow var(--transition), transform var(--transition), color var(--transition);}
 
-body{background:var(--bg);min-height:100vh;display:flex}
+body{background:var(--bg);color:var(--text);min-height:100vh;display:flex}
 
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sidebar-w);background:var(--white);border-right:1px solid var(--border);height:100vh;display:flex;flex-direction:column;flex-shrink:0;position:sticky;top:0}
@@ -390,13 +390,13 @@ svg{display:block}
       }
       const pop = document.getElementById('active-users-popover');
       if(!users.length){
-        pop.innerHTML = '<div style="padding:14px;font-size:12px;color:#9ca3af;">No one else active right now</div>';
+        pop.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--muted);">No one else active right now</div>';
       } else {
-        pop.innerHTML = '<div style="padding:8px 14px 6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;">Active now</div>' +
+        pop.innerHTML = '<div style="padding:8px 14px 6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);">Active now</div>' +
           users.map(email => `
             <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px;">
               <div style="width:24px;height:24px;border-radius:50%;background:var(--navy,#1a2540);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initialsFromEmail(email)}</div>
-              <span style="color:#1a1d23;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}${email === myEmail ? ' (you)' : ''}</span>
+              <span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${email}${email === myEmail ? ' (you)' : ''}</span>
             </div>
           `).join('');
       }

@@ -1788,9 +1788,11 @@ def build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, produ
         return f"{core}, {color}"
     return core
 
-def build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
-    """Build AP internal title: title + , Set of N (size/qty)"""
-    core = build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+def build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    """Build AP internal title: Brand, Article Number, ... , Set of N (size/qty)"""
+    core = _ap_join([brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type])
+    if color:
+        core = f"{core}, {color}"
     if set_name:
         return f"{core}, {set_name} ({set_details})"
     return core
@@ -1804,14 +1806,14 @@ def build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, patte
 def title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
     return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
 
-def internal_title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
-    return build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+def internal_title_ap_topwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    return build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
 
 def title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
     return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
 
-def internal_title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
-    return build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+def internal_title_ap_innerwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+    return build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
 
 AP_TITLE_BUILDERS = {
     'TopWears':   title_ap_topwears,
@@ -1822,15 +1824,15 @@ AP_INTERNAL_TITLE_BUILDERS = {
     'InnerWears': internal_title_ap_innerwears,
 }
 
-def build_ap_titles(subcategory, brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+def build_ap_titles(subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
     """Dispatch to the right title/internalTitle formula based on Sub Category."""
     title_fn    = AP_TITLE_BUILDERS.get(subcategory, build_ap_title)
     internal_fn = AP_INTERNAL_TITLE_BUILDERS.get(subcategory)
     title = title_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
     if internal_fn:
-        internal_title = internal_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+        internal_title = internal_fn(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
     else:
-        internal_title = build_ap_internal_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+        internal_title = build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
     return title, internal_title
 
 def build_ap_set_details(sizes_str, quantity_str):
@@ -1944,7 +1946,7 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         # (TopWears / InnerWears / future categories) from Product Vertical List sheet
         title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
         title, internal_title = build_ap_titles(
-            title_subcategory, brand, gender, fabric, neck_type, sleeve_type, pattern, product_type,
+            title_subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type,
             color, set_name_raw or f'Set of {set_count}', set_details
         )
         

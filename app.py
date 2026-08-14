@@ -86,9 +86,11 @@ CE_SUBTYPE_HEADER_ROW = {}
 CE_SUBTYPE_MAP = {}
 CE_PV_LIST = []
 AP_SUBTYPE_HEADER_ROW = {}
+AP_SUBTYPE_HEADER_ROW = {}
 AP_SUBTYPE_MAP = {}
 AP_PV_LIST = []
 AP_PV_SUBCATEGORY = {}   # PV name -> title Sub Category (e.g. "TopWears", "InnerWears")
+AP_SUBTYPE_SOURCE_PATH = {}  # subtype -> (filepath, sheet_name)
 DROPDOWN_MAP = {}
 _initialized = False
 
@@ -136,6 +138,12 @@ def _init_app():
     except Exception as e:
         print(f"Warning: Could not build AP header row map: {e}")
         AP_SUBTYPE_HEADER_ROW, AP_SUBTYPE_MAP = {}, {}
+
+    try:
+        AP_PV_LIST, AP_PV_SUBCATEGORY = load_ap_pv_list()
+    except Exception as e:
+        print(f"Warning: Could not load AP PV list: {e}")
+        AP_PV_LIST, AP_PV_SUBCATEGORY = [], {}
 
     try:
         DROPDOWN_MAP = _load_dropdown_map()
@@ -1628,31 +1636,85 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 # ═══════════════════════════════════════════════════════════════
 
 AP_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Apparel_Fashion_Template.xlsx')
+AP_BOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'ApparelBottomWearTemplates.xlsx')
 
-def _build_ap_header_row_map():
-    wb = load_workbook(AP_TEMPLATE_PATH)
-    ws = wb['AF - PV Templates']
+def _build_ap_header_row_map_from_path(path, sheet_name):
+    wb = load_workbook(path)
+    ws = wb[sheet_name]
     hdr_map = {}
     static_map = {}
     for r in range(1, ws.max_row + 1):
         if ws.cell(r, 1).value == 'Category *':
             for r2 in range(r + 1, min(r + 5, ws.max_row + 1)):
-                d2 = ws.cell(r2, 4).value  # Column D = SubType
-                if d2 and str(d2).strip() not in ('SubType','Category *','nan',''):
+                d2 = ws.cell(r2, 4).value
+                if d2 and str(d2).strip() not in ('SubType', 'Category *', 'nan', ''):
                     st = str(d2).strip()
                     if st not in hdr_map:
                         hdr_map[st] = r
                         hdrs = [ws.cell(r, c).value for c in range(1, ws.max_column + 1)]
                         entry = {}
                         for ci, col in enumerate(hdrs):
-                            if col in ('Category *','SubCategory *','CategoryType *',
-                                       'SubType','PVID *','discoveryCategoryIds'):
+                            if col in ('Category *', 'SubCategory *', 'CategoryType *',
+                                       'SubType', 'PVID *', 'discoveryCategoryIds'):
                                 v = str(ws.cell(r2, ci + 1).value or '').strip()
-                                if v and v not in ('nan','NaN','None'):
+                                if v and v not in ('nan', 'NaN', 'None'):
                                     entry[col] = v
                         static_map[st] = entry
                     break
     return hdr_map, static_map
+
+
+def _build_ap_header_row_map():
+    global AP_SUBTYPE_SOURCE_PATH
+    AP_SUBTYPE_SOURCE_PATH = {}
+
+    hdr_map, static_map = _build_ap_header_row_map_from_path(
+        AP_TEMPLATE_PATH, 'AF - PV Templates'
+    )
+    for st in hdr_map:
+        AP_SUBTYPE_SOURCE_PATH[st] = (AP_TEMPLATE_PATH, 'AF - PV Templates')
+
+    if os.path.exists(AP_BOTTOMWEAR_TEMPLATE_PATH):
+        try:
+            bw_hdr, bw_map = _build_ap_header_row_map_from_path(
+                AP_BOTTOMWEAR_TEMPLATE_PATH, 'AF Bottomwear - Template'
+            )
+            for st in bw_hdr:
+                hdr_map[st] = bw_hdr[st]
+                static_map[st] = bw_map[st]
+                AP_SUBTYPE_SOURCE_PATH[st] = (AP_BOTTOMWEAR_TEMPLATE_PATH, 'AF Bottomwear - Template')
+        except Exception as e:
+            print(f"Warning: Could not build bottomwear header row map: {e}")
+
+    return hdr_map, static_map
+def load_ap_pv_list_from_path(path, pv_sheet_name):
+    wb = load_workbook(path)
+    ws = wb[pv_sheet_name]
+    pv_list = []
+    pv_subcat_map = {}
+    for col in range(1, ws.max_column + 1):
+        header_val = ws.cell(1, col).value
+        if not header_val:
+            continue
+        header_str = str(header_val).strip()
+        if not header_str or header_str.lower() == 'nan':
+            continue
+        subcat_name = header_str.split('=', 1)[1].strip() if '=' in header_str else header_str
+        if not subcat_name:
+            continue
+        for r in range(3, ws.max_row + 1):
+            v = ws.cell(r, col).value
+            if v is None:
+                continue
+            pv = str(v).strip()
+            if not pv or pv.lower() in ('nan', 'none'):
+                continue
+            if pv not in pv_list:
+                pv_list.append(pv)
+            pv_subcat_map[pv] = subcat_name
+    return pv_list, pv_subcat_map
+
+
 def load_ap_pv_list():
     """
     Reads the 'Product Vertical List' sheet, which has ONE COLUMN PER SUB CATEGORY.
@@ -1665,35 +1727,21 @@ def load_ap_pv_list():
         pv_list       - flat, de-duplicated list of all PV names (for the dropdown)
         pv_subcat_map - {pv_name: sub_category_name}, used to route title formulas
     """
-    try:
-        wb = load_workbook(AP_TEMPLATE_PATH)
-        ws = wb['Product Vertical List']
-        pv_list = []
-        pv_subcat_map = {}
-        for col in range(1, ws.max_column + 1):
-            header_val = ws.cell(1, col).value
-            if not header_val:
-                continue
-            header_str = str(header_val).strip()
-            if not header_str or header_str.lower() == 'nan':
-                continue
-            subcat_name = header_str.split('=', 1)[1].strip() if '=' in header_str else header_str
-            if not subcat_name:
-                continue
-            for r in range(3, ws.max_row + 1):
-                v = ws.cell(r, col).value
-                if v is None:
-                    continue
-                pv = str(v).strip()
-                if not pv or pv.lower() in ('nan', 'none'):
-                    continue
+    pv_list, pv_subcat_map = load_ap_pv_list_from_path(
+        AP_TEMPLATE_PATH, 'Product Vertical List'
+    )
+    if os.path.exists(AP_BOTTOMWEAR_TEMPLATE_PATH):
+        try:
+            bw_list, bw_map = load_ap_pv_list_from_path(
+                AP_BOTTOMWEAR_TEMPLATE_PATH, 'Product Vertical List'
+            )
+            for pv in bw_list:
                 if pv not in pv_list:
                     pv_list.append(pv)
-                pv_subcat_map[pv] = subcat_name
-        return pv_list, pv_subcat_map
-    except Exception as e:
-        print(f"Warning: Could not load AP PV List: {e}")
-        return [], {}
+                pv_subcat_map[pv] = bw_map.get(pv, 'BottomWear')
+        except Exception as e:
+            print(f"Warning: Could not load bottomwear PV list: {e}")
+    return pv_list, pv_subcat_map
 
 
 AP_DEFAULT_CONFIG = {
@@ -1749,6 +1797,31 @@ AP_DUMP_COL_HINTS = {
     'product_type':   ['PRODUCT_TYPE', 'Product Type'],
     'core_brand':     ['CORE_BRAND', 'Core Brand'],
     'age_group':      ['AGE_GROUP', 'Age Group'],
+    'bottom_closure': ['Bottom Closure', 'BOTTOM_CLOSURE *'],
+    'bottom_color': ['Bottom Color', 'BOTTOM_COLOR *'],
+    'bottom_fabric': ['Bottom_Fabric_Material', 'Bottom Fabric Material', 'BOTTOM_FABRIC_MATERIAL *'],
+    'bottom_length': ['Bottom Length', 'BOTTOM_LENGTH *'],
+    'bottom_type': ['Bottom Size', 'Bottom Type', 'BOTTOM_TYPE *', 'BOTTOM_SIZE *'],
+    'bottom_pattern': ['Bottom Pattern', 'BOTTOM_PATTERN *'],
+    'bottom_size': ['Bottom Size', 'BOTTOM_SIZE *'],
+    'rise': ['Rise', 'RISE *'],
+    'distress': ['Distress', 'DISTRESS *'],
+    'stretchability': ['Stretchability', 'STRETCHABILITY'],
+    'fade': ['Fade', 'FADE *'],
+    'jeans_style': ['Jeans Style', 'JEANS_STYLE *'],
+    'style': ['Style', 'STYLE *'],
+    'dupatta_included': ['Dupatta Included', 'DUPATTA_INCLUDED'],
+    'top_closure': ['Top Closure', 'TOP_CLOSURE *'],
+    'top_color': ['Top Color', 'TOP_COLOR *'],
+    'top_fabric': ['Top_Fabric_Material', 'Top Fabric Material', 'TOP_FABRIC_MATERIAL *'],
+    'top_length': ['Top Length', 'TOP_LENGTH *'],
+    'top_size': ['Top Size', 'TOP_SIZE *'],
+    'top_type': ['Top Type', 'TOP_TYPE *'],
+    'hemline': ['Hemline', 'HEMLINE'],
+    'shape': ['Shape', 'SHAPE'],
+    'occasion': ['Occasion', 'OCCASION *'],
+    'number_of_pockets': ['Number of Pockets', 'NUMBER_OF_POCKETS'],
+    'manufacturer': ['Manufacturer', 'MANUFACTURER'],
 }
 
 AP_BASE_COL_HINTS = {
@@ -1757,9 +1830,12 @@ AP_BASE_COL_HINTS = {
 }
 
 def get_ap_template_wb_for_subtype(subtype):
+    path, sheet = AP_SUBTYPE_SOURCE_PATH.get(
+        subtype, (AP_TEMPLATE_PATH, 'AF - PV Templates')
+    )
     try:
-        wb_src = load_workbook(AP_TEMPLATE_PATH)
-        ws_src = wb_src['AF - PV Templates']
+        wb_src = load_workbook(path)
+        ws_src = wb_src[sheet]
         hdr_row = AP_SUBTYPE_HEADER_ROW.get(subtype, 2)
         headers = [ws_src.cell(hdr_row, c).value for c in range(1, ws_src.max_column + 1)]
         while headers and headers[-1] is None:
@@ -1773,7 +1849,7 @@ def get_ap_template_wb_for_subtype(subtype):
     ws_new.title = 'AF - PV Templates'
     for ci, h in enumerate(headers, 1):
         ws_new.cell(1, ci).value = h
-    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)   # ← new line    
+    apply_dropdown_validations(ws_new, headers, DROPDOWN_MAP)
     return wb_new, headers
 
 def _ap_join(parts, sep=' '):
@@ -1803,34 +1879,50 @@ def build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_ty
 # whenever a new Sub Category needs its own title formula. Any Sub Category
 # not listed below falls back to the generic formula.
 
-def title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
+def title_ap_topwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, length=''):
     return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
 
-def internal_title_ap_topwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+def internal_title_ap_topwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
     return build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
 
-def title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color):
+def title_ap_innerwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, length=''):
     return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
 
-def internal_title_ap_innerwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+def internal_title_ap_innerwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
     return build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+
+def title_ap_bottomwears(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, length=''):
+    core = _ap_join([brand, gender, fabric, length, pattern, product_type])
+    if color:
+        return f"{core}, {color}"
+    return core
+
+def internal_title_ap_bottomwears(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
+    core = _ap_join([brand, article, gender, fabric, length, pattern, product_type])
+    if color:
+        core = f"{core}, {color}"
+    if set_name:
+        return f"{core}, {set_name} ({set_details})"
+    return core
 
 AP_TITLE_BUILDERS = {
     'TopWears':   title_ap_topwears,
     'InnerWears': title_ap_innerwears,
+    'BottomWear': title_ap_bottomwears,
 }
 AP_INTERNAL_TITLE_BUILDERS = {
     'TopWears':   internal_title_ap_topwears,
     'InnerWears': internal_title_ap_innerwears,
+    'BottomWear': internal_title_ap_bottomwears,
 }
 
-def build_ap_titles(subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details):
+def build_ap_titles(subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
     """Dispatch to the right title/internalTitle formula based on Sub Category."""
     title_fn    = AP_TITLE_BUILDERS.get(subcategory, build_ap_title)
     internal_fn = AP_INTERNAL_TITLE_BUILDERS.get(subcategory)
-    title = title_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+    title = title_fn(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, length)
     if internal_fn:
-        internal_title = internal_fn(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+        internal_title = internal_fn(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length)
     else:
         internal_title = build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
     return title, internal_title
@@ -1925,6 +2017,33 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         core_brand = safe(drow.get(col_map.get('core_brand', ''), ''))
         age_group = safe(drow.get(col_map.get('age_group', ''), ''))
         
+        # BottomWear + mixed-set fields
+        bottom_closure      = safe(drow.get(col_map.get('bottom_closure', ''), ''))
+        bottom_color        = safe(drow.get(col_map.get('bottom_color', ''), ''))
+        bottom_fabric       = safe(drow.get(col_map.get('bottom_fabric', ''), ''))
+        bottom_length       = safe(drow.get(col_map.get('bottom_length', ''), ''))
+        bottom_type         = safe(drow.get(col_map.get('bottom_type', ''), ''))
+        bottom_pattern      = safe(drow.get(col_map.get('bottom_pattern', ''), ''))
+        bottom_size         = safe(drow.get(col_map.get('bottom_size', ''), ''))
+        rise                = safe(drow.get(col_map.get('rise', ''), ''))
+        distress            = safe(drow.get(col_map.get('distress', ''), ''))
+        stretchability      = safe(drow.get(col_map.get('stretchability', ''), ''))
+        fade                = safe(drow.get(col_map.get('fade', ''), ''))
+        jeans_style         = safe(drow.get(col_map.get('jeans_style', ''), ''))
+        style               = safe(drow.get(col_map.get('style', ''), ''))
+        dupatta_included    = safe(drow.get(col_map.get('dupatta_included', ''), ''))
+        top_closure         = safe(drow.get(col_map.get('top_closure', ''), ''))
+        top_color           = safe(drow.get(col_map.get('top_color', ''), ''))
+        top_fabric          = safe(drow.get(col_map.get('top_fabric', ''), ''))
+        top_length          = safe(drow.get(col_map.get('top_length', ''), ''))
+        top_size            = safe(drow.get(col_map.get('top_size', ''), ''))
+        top_type            = safe(drow.get(col_map.get('top_type', ''), ''))
+        hemline             = safe(drow.get(col_map.get('hemline', ''), ''))
+        shape               = safe(drow.get(col_map.get('shape', ''), ''))
+        occasion            = safe(drow.get(col_map.get('occasion', ''), ''))
+        number_of_pockets   = safe(drow.get(col_map.get('number_of_pockets', ''), ''))
+        manufacturer        = safe(drow.get(col_map.get('manufacturer', ''), ''))
+        
         img_url = safe(drow.get(col_map.get('image', ''), ''))
         img2_url = safe(drow.get(col_map.get('image2', ''), ''))
         img3_url = safe(drow.get(col_map.get('image3', ''), ''))
@@ -1944,10 +2063,13 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         
         # Build title and internal title, routed by the PV's Sub Category
         # (TopWears / InnerWears / future categories) from Product Vertical List sheet
-        title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
+                title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
+        # For BottomWear, fall back to bottom-specific columns if top-level fields are empty
+        fabric_for_title  = fabric if fabric else bottom_fabric
+        length_for_title  = length if length else bottom_length
         title, internal_title = build_ap_titles(
-            title_subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type,
-            color, set_name_raw or f'Set of {set_count}', set_details
+            title_subcategory, brand, article, gender, fabric_for_title, neck_type, sleeve_type, pattern, product_type,
+            color, set_name_raw or f'Set of {set_count}', set_details, length_for_title
         )
         
         # Parse dimensions
@@ -2060,6 +2182,33 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
             'declarationForm': '',
             'taxMasterStatus': _ap_cfg['tax_master_status'],
             'AGE_GROUP *': age_group,
+            'BOTTOM_CLOSURE *': bottom_closure,
+            'BOTTOM_COLOR *': bottom_color,
+            'BOTTOM_FABRIC_MATERIAL *': bottom_fabric,
+            'BOTTOM_LENGTH *': bottom_length,
+            'BOTTOM_TYPE *': bottom_type,
+            'BOTTOM_PATTERN *': bottom_pattern,
+            'BOTTOM_SIZE *': bottom_size,
+            'RISE *': rise,
+            'RISE': rise,
+            'DISTRESS *': distress,
+            'STRETCHABILITY': stretchability,
+            'FADE *': fade,
+            'JEANS_STYLE *': jeans_style,
+            'STYLE *': style,
+            'DUPATTA_INCLUDED': dupatta_included,
+            'TOP_CLOSURE *': top_closure,
+            'TOP_COLOR *': top_color,
+            'TOP_FABRIC_MATERIAL *': top_fabric,
+            'TOP_LENGTH *': top_length,
+            'TOP_SIZE *': top_size,
+            'TOP_TYPE *': top_type,
+            'HEMLINE': hemline,
+            'SHAPE': shape,
+            'OCCASION': occasion,
+            'OCCASION *': occasion,
+            'NUMBER_OF_POCKETS': number_of_pockets,
+            'MANUFACTURER': manufacturer,
         }
         
         for col_name, val in row_data.items():

@@ -1448,7 +1448,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
         L, B, H = parse_lbh(dim_raw)
 
-                weight_clean = ''
+        weight_clean = ''
         if weight:
             m = re.search(r'(\d+\.?\d*)', str(weight))
             if m:

@@ -1448,10 +1448,10 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
         L, B, H = parse_lbh(dim_raw)
 
-        weight_clean = ''
+                weight_clean = ''
         if weight:
-           m = re.search(r'(\d+\.?\d*)', str(weight))
-           if m:
+            m = re.search(r'(\d+\.?\d*)', str(weight))
+            if m:
                 try:
                     weight_clean = float(m.group(1))
                 except (ValueError, TypeError):
@@ -2061,9 +2061,9 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
         # Build set details
         set_details, set_desc, avail_sizes = build_ap_set_details(sizes_raw, quantity_raw or str(set_count))
         
-        # Build title and internal title, routed by the PV's Sub Category
+                # Build title and internal title, routed by the PV's Sub Category
         # (TopWears / InnerWears / future categories) from Product Vertical List sheet
-                title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
+        title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
         # For BottomWear, fall back to bottom-specific columns if top-level fields are empty
         fabric_for_title  = fabric if fabric else bottom_fabric
         length_for_title  = length if length else bottom_length

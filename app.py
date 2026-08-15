@@ -1637,7 +1637,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
 AP_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Apparel_Fashion_Template.xlsx')
 AP_BOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'ApparelBottomWearTemplates.xlsx')
-AP_TOPBOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'ApparelTopBottomWearTemplate.xlsx')
+AP_TOPBOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Top&BottomWearTemplate.xlsx')
 
 def _build_ap_header_row_map_from_path(path, sheet_name):
     wb = load_workbook(path)

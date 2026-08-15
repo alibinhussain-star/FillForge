@@ -1298,10 +1298,14 @@ function switchView(name) {
     createView.style.display = name === 'create' ? 'grid' : 'none';
   }
 
-  // Category ribbon only makes sense on the Create Catalog page
+  // Category ribbon and stats bar only make sense on the Create Catalog page
   const vertBar = document.getElementById('vert-bar');
   if (vertBar) {
     vertBar.style.display = name === 'create' ? 'flex' : 'none';
+  }
+  const statsBar = document.getElementById('stats-bar');
+  if (statsBar) {
+    statsBar.style.display = name === 'create' ? 'flex' : 'none';
   }
 
   // Handle all fullviews explicitly

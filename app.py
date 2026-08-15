@@ -1637,6 +1637,7 @@ def fill_ce_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
 
 AP_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'Apparel_Fashion_Template.xlsx')
 AP_BOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'ApparelBottomWearTemplates.xlsx')
+AP_TOPBOTTOMWEAR_TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), 'ApparelTopBottomWearTemplate.xlsx')
 
 def _build_ap_header_row_map_from_path(path, sheet_name):
     wb = load_workbook(path)
@@ -1685,6 +1686,18 @@ def _build_ap_header_row_map():
                 AP_SUBTYPE_SOURCE_PATH[st] = (AP_BOTTOMWEAR_TEMPLATE_PATH, 'AF Bottomwear - Template')
         except Exception as e:
             print(f"Warning: Could not build bottomwear header row map: {e}")
+
+    if os.path.exists(AP_TOPBOTTOMWEAR_TEMPLATE_PATH):
+        try:
+            tb_hdr, tb_map = _build_ap_header_row_map_from_path(
+                AP_TOPBOTTOMWEAR_TEMPLATE_PATH, 'AF Top&BottomWear - Template'
+            )
+            for st in tb_hdr:
+                hdr_map[st] = tb_hdr[st]
+                static_map[st] = tb_map[st]
+                AP_SUBTYPE_SOURCE_PATH[st] = (AP_TOPBOTTOMWEAR_TEMPLATE_PATH, 'AF Top&BottomWear - Template')
+        except Exception as e:
+            print(f"Warning: Could not build top&bottomwear header row map: {e}")
 
     return hdr_map, static_map
 def load_ap_pv_list_from_path(path, pv_sheet_name):
@@ -1741,6 +1754,18 @@ def load_ap_pv_list():
                 pv_subcat_map[pv] = bw_map.get(pv, 'BottomWear')
         except Exception as e:
             print(f"Warning: Could not load bottomwear PV list: {e}")
+
+    if os.path.exists(AP_TOPBOTTOMWEAR_TEMPLATE_PATH):
+        try:
+            tb_list, tb_map = load_ap_pv_list_from_path(
+                AP_TOPBOTTOMWEAR_TEMPLATE_PATH, 'Product Vertical List'
+            )
+            for pv in tb_list:
+                if pv not in pv_list:
+                    pv_list.append(pv)
+                pv_subcat_map[pv] = tb_map.get(pv, 'Top&BottomWear')
+        except Exception as e:
+            print(f"Warning: Could not load top&bottomwear PV list: {e}")
     return pv_list, pv_subcat_map
 
 
@@ -1905,15 +1930,23 @@ def internal_title_ap_bottomwears(brand, article, gender, fabric, neck_type, sle
         return f"{core}, {set_name} ({set_details})"
     return core
 
+def title_ap_topbottomwear(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, length=''):
+    return build_ap_title(brand, gender, fabric, neck_type, sleeve_type, pattern, product_type, color)
+
+def internal_title_ap_topbottomwear(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
+    return build_ap_internal_title(brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details)
+
 AP_TITLE_BUILDERS = {
-    'TopWears':   title_ap_topwears,
-    'InnerWears': title_ap_innerwears,
-    'BottomWear': title_ap_bottomwears,
+    'TopWears':      title_ap_topwears,
+    'InnerWears':    title_ap_innerwears,
+    'BottomWear':    title_ap_bottomwears,
+    'Top&BottomWear': title_ap_topbottomwear,
 }
 AP_INTERNAL_TITLE_BUILDERS = {
-    'TopWears':   internal_title_ap_topwears,
-    'InnerWears': internal_title_ap_innerwears,
-    'BottomWear': internal_title_ap_bottomwears,
+    'TopWears':      internal_title_ap_topwears,
+    'InnerWears':    internal_title_ap_innerwears,
+    'BottomWear':    internal_title_ap_bottomwears,
+    'Top&BottomWear': internal_title_ap_topbottomwear,
 }
 
 def build_ap_titles(subcategory, brand, article, gender, fabric, neck_type, sleeve_type, pattern, product_type, color, set_name, set_details, length=''):
@@ -2064,9 +2097,10 @@ def fill_ap_template(ws, headers, rows_df, col_map, subtype, existing_articles, 
                 # Build title and internal title, routed by the PV's Sub Category
         # (TopWears / InnerWears / future categories) from Product Vertical List sheet
         title_subcategory = AP_PV_SUBCATEGORY.get(subtype, 'TopWears')
-        # For BottomWear, fall back to bottom-specific columns if top-level fields are empty
-        fabric_for_title  = fabric if fabric else bottom_fabric
-        length_for_title  = length if length else bottom_length
+        # Fall back to Top/Bottom-specific columns if the generic top-level
+        # fields are empty (BottomWear -> bottom_*, Top&BottomWear -> top_* then bottom_*)
+        fabric_for_title  = fabric or top_fabric or bottom_fabric
+        length_for_title  = length or top_length or bottom_length
         title, internal_title = build_ap_titles(
             title_subcategory, brand, article, gender, fabric_for_title, neck_type, sleeve_type, pattern, product_type,
             color, set_name_raw or f'Set of {set_count}', set_details, length_for_title
